@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
 
 app = Flask(__name__)
+CORS(app)  # 允许跨域访问
 
 def send_email_notification(order_text):
     sender_email = "qianchennl@gmail.com"
@@ -28,6 +30,10 @@ def send_email_notification(order_text):
         print(f"❌ Verzendfout: {e}")
         return False
 
+@app.route("/")
+def index():
+    return "Flask API werkt!"
+
 @app.route("/api/send", methods=["POST"])
 def api_send_order():
     data = request.get_json()
@@ -37,3 +43,4 @@ def api_send_order():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
