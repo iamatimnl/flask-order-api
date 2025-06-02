@@ -7,9 +7,9 @@ from email.utils import formataddr
 app = Flask(__name__)
 
 def send_email_notification(order_text):
-    sender_email = "你的邮箱@gmail.com"
-    sender_password = "你的应用专用密码"
-    receiver_email = "你的邮箱@gmail.com"
+    sender_email = "qianchennl@gmail.com"
+    sender_password = "wtuyxljsjwftyzfm"
+    receiver_email = "qianchennl@gmail.com"
 
     subject = "Nova Asia - Nieuwe bestelling"
     msg = MIMEText(order_text, "plain", "utf-8")
