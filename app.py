@@ -21,6 +21,10 @@ SENDER_EMAIL = "qianchennl@gmail.com"
 SENDER_PASSWORD = "wtuyxljsjwftyzfm"
 RECEIVER_EMAIL = "qianchennl@gmail.com"
 
+# === POS 配置 ===
+# Endpoint for forwarding orders to the POS system. Replace with the actual URL.
+POS_API_URL = "https://pos.example.com/api/orders"
+
 def send_telegram_message(order_text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     data = {
@@ -53,20 +57,38 @@ def send_email_notification(order_text):
         print(f"❌ Verzendfout: {e}")
         return False
 
+def send_pos_order(order_data):
+    """Forward the order data to the POS system."""
+    try:
+        response = requests.post(POS_API_URL, json=order_data)
+        print("✅ POS-bestelling verzonden!")
+        return response.status_code == 200
+    except Exception as e:
+        print(f"❌ POS-fout: {e}")
+        return False
+
 @app.route("/api/send", methods=["POST"])
 def api_send_order():
     data = request.get_json()
     message = data.get("message", "")
+    remark = data.get("remark", "")
 
-    telegram_ok = send_telegram_message(message)
-    email_ok = send_email_notification(message)
+    order_text = message
+    if remark:
+        order_text += f"\nOpmerking: {remark}"
 
-    if telegram_ok and email_ok:
+    telegram_ok = send_telegram_message(order_text)
+    email_ok = send_email_notification(order_text)
+    pos_ok = send_pos_order(data)
+
+    if telegram_ok and email_ok and pos_ok:
         return jsonify({"status": "ok"})
     elif not telegram_ok:
         return jsonify({"status": "fail", "error": "Telegram-fout"})
     elif not email_ok:
         return jsonify({"status": "fail", "error": "E-mailfout"})
+    elif not pos_ok:
+        return jsonify({"status": "fail", "error": "POS-fout"})
     else:
         return jsonify({"status": "fail", "error": "Beide mislukt"})
 
@@ -75,19 +97,27 @@ def api_send_order():
 def submit_order():
     data = request.get_json()
     message = data.get("message", "")
+    remark = data.get("remark", "")
 
-    telegram_ok = send_telegram_message(message)
-    email_ok = send_email_notification(message)
+    order_text = message
+    if remark:
+        order_text += f"\nOpmerking: {remark}"
+
+    telegram_ok = send_telegram_message(order_text)
+    email_ok = send_email_notification(order_text)
+    pos_ok = send_pos_order(data)
 
     # Notify connected SocketIO clients about the new order
     socketio.emit('new_order', data)
 
-    if telegram_ok and email_ok:
+    if telegram_ok and email_ok and pos_ok:
         return jsonify({"status": "ok"})
     elif not telegram_ok:
         return jsonify({"status": "fail", "error": "Telegram-fout"})
     elif not email_ok:
         return jsonify({"status": "fail", "error": "E-mailfout"})
+    elif not pos_ok:
+        return jsonify({"status": "fail", "error": "POS-fout"})
     else:
         return jsonify({"status": "fail", "error": "Beide mislukt"})
 
