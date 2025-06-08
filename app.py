@@ -1,6 +1,7 @@
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from flask_socketio import SocketIO
 import requests
 import smtplib
 from email.mime.text import MIMEText
@@ -9,6 +10,7 @@ from email.utils import formataddr
 
 app = Flask(__name__)
 CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # === Telegram 配置 ===
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
@@ -68,6 +70,27 @@ def api_send_order():
     else:
         return jsonify({"status": "fail", "error": "Beide mislukt"})
 
+
+@app.route("/submit_order", methods=["POST"])
+def submit_order():
+    data = request.get_json()
+    message = data.get("message", "")
+
+    telegram_ok = send_telegram_message(message)
+    email_ok = send_email_notification(message)
+
+    # Notify connected SocketIO clients about the new order
+    socketio.emit('new_order', data)
+
+    if telegram_ok and email_ok:
+        return jsonify({"status": "ok"})
+    elif not telegram_ok:
+        return jsonify({"status": "fail", "error": "Telegram-fout"})
+    elif not email_ok:
+        return jsonify({"status": "fail", "error": "E-mailfout"})
+    else:
+        return jsonify({"status": "fail", "error": "Beide mislukt"})
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0")
+    socketio.run(app, host="0.0.0.0")
 

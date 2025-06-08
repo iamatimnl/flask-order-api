@@ -4,5 +4,5 @@ services:
     env: python
     plan: free
     buildCommand: ""
-    startCommand: python app.py
+    startCommand: gunicorn --worker-class eventlet -w 1 app:app
     autoDeploy: true
