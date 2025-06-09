@@ -57,6 +57,29 @@ def send_email_notification(order_text):
         print(f"❌ Verzendfout: {e}")
         return False
 
+def send_confirmation_email(order_text, customer_email):
+    """Send order confirmation to the customer. Errors are only logged."""
+    subject = "Nova Asia - Bevestiging van je bestelling"
+    html_body = (
+        "Bedankt voor je bestelling bij Nova Asia!<br><br>"
+        + order_text.replace("\n", "<br>")
+        + "<br><br>Met vriendelijke groet,<br>Nova Asia"
+    )
+    msg = MIMEText(html_body, "html", "utf-8")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
+    msg["To"] = customer_email
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
+        print("✅ Klantbevestiging verzonden!")
+    except Exception as e:
+        # Failure should not affect order processing
+        print(f"❌ Klantbevestiging-fout: {e}")
+
 def send_pos_order(order_data):
     """Forward the order data to the POS system."""
     try:
@@ -72,6 +95,7 @@ def api_send_order():
     data = request.get_json()
     message = data.get("message", "")
     remark = data.get("remark", "")
+    customer_email = data.get("email")
 
     order_text = message
     if remark:
@@ -80,6 +104,9 @@ def api_send_order():
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok = send_pos_order(data)
+
+    if customer_email:
+        send_confirmation_email(order_text, customer_email)
 
     if telegram_ok and email_ok and pos_ok:
         return jsonify({"status": "ok"})
@@ -98,6 +125,7 @@ def submit_order():
     data = request.get_json()
     message = data.get("message", "")
     remark = data.get("remark", "")
+    customer_email = data.get("email")
 
     order_text = message
     if remark:
@@ -106,6 +134,9 @@ def submit_order():
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok = send_pos_order(data)
+
+    if customer_email:
+        send_confirmation_email(order_text, customer_email)
 
     # Notify connected SocketIO clients about the new order
     socketio.emit('new_order', data)
