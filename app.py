@@ -111,12 +111,16 @@ def record_order(order_data, pos_ok):
     })
 
 
-@app.route("/api/orders/today", methods=["GET"])
-def get_orders_today():
+def _orders_overview():
+    """Return a simplified overview of today's orders."""
     today = date.today()
     overview = []
     for entry in ORDERS:
-        ts = datetime.fromisoformat(entry["timestamp"])
+        try:
+            ts = datetime.fromisoformat(entry.get("timestamp", ""))
+        except Exception:
+            # Skip malformed timestamps instead of failing
+            continue
         if ts.date() == today:
             overview.append({
                 "time": ts.strftime("%H:%M"),
@@ -126,7 +130,13 @@ def get_orders_today():
                 "orderType": entry.get("orderType"),
                 "pos_ok": entry.get("pos_ok"),
             })
-    return jsonify(overview)
+    return overview
+
+
+@app.route("/api/orders/today", methods=["GET"])
+@app.route("/api/orders", methods=["GET"])
+def get_orders_today():
+    return jsonify(_orders_overview())
 
 @app.route("/api/send", methods=["POST"])
 def api_send_order():
@@ -156,15 +166,16 @@ def api_send_order():
         resp = {"status": "ok"}
         if payment_link:
             resp["paymentLink"] = payment_link
-        return jsonify(resp)
-    elif not telegram_ok:
-        return jsonify({"status": "fail", "error": "Telegram-fout"})
-    elif not email_ok:
-        return jsonify({"status": "fail", "error": "E-mailfout"})
-    elif not pos_ok:
-        return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"})
-    else:
-        return jsonify({"status": "fail", "error": "Beide mislukt"})
+        return jsonify(resp), 200
+
+    if not telegram_ok:
+        return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
+    if not email_ok:
+        return jsonify({"status": "fail", "error": "E-mailfout"}), 500
+    if not pos_ok:
+        return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
+
+    return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
 
 @app.route("/submit_order", methods=["POST"])
@@ -198,15 +209,16 @@ def submit_order():
         resp = {"status": "ok"}
         if payment_link:
             resp["paymentLink"] = payment_link
-        return jsonify(resp)
-    elif not telegram_ok:
-        return jsonify({"status": "fail", "error": "Telegram-fout"})
-    elif not email_ok:
-        return jsonify({"status": "fail", "error": "E-mailfout"})
-    elif not pos_ok:
-        return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"})
-    else:
-        return jsonify({"status": "fail", "error": "Beide mislukt"})
+        return jsonify(resp), 200
+
+    if not telegram_ok:
+        return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
+    if not email_ok:
+        return jsonify({"status": "fail", "error": "E-mailfout"}), 500
+    if not pos_ok:
+        return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
+
+    return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0")
