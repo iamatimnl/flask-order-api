@@ -24,7 +24,8 @@ RECEIVER_EMAIL = "qianchennl@gmail.com"
 
 # === POS 配置 ===
 # Endpoint for forwarding orders to the POS system. Replace with the actual URL.
-POS_API_URL = "https://pos.example.com/api/orders"
+POS_API_URL = "https://nova-asia.onrender.com/api/orders"
+
 TIKKIE_PAYMENT_LINK = "https://tikkie.me/pay/example"
 
 # In-memory log of orders for today's overview
