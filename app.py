@@ -8,6 +8,7 @@ from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
 from datetime import datetime, date
+POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 
 app = Flask(__name__)
 CORS(app)
