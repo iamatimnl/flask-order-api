@@ -137,6 +137,9 @@ def _orders_overview():
 @app.route("/", methods=["GET"])
 def index():
     return "✅ Flask-Telegram 服务运行中"
+@app.route("/", methods=["GET"])
+def home():
+    return "✅ Flask-Telegram 服务运行中"
 
 
 @app.route("/api/orders/today", methods=["GET"])
