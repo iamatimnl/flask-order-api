@@ -10,10 +10,10 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime, date
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+
 app = Flask(__name__)
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
 # === Telegram 配置 ===
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
@@ -137,9 +137,7 @@ def _orders_overview():
 @app.route("/", methods=["GET"])
 def index():
     return "✅ Flask-Telegram 服务运行中"
-@app.route("/", methods=["GET"])
-def home():
-    return "✅ Flask-Telegram 服务运行中"
+
 
 
 @app.route("/api/orders/today", methods=["GET"])
