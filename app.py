@@ -179,7 +179,6 @@ def api_send_order():
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
-
 @app.route("/submit_order", methods=["POST"])
 def submit_order():
     data = request.get_json()
@@ -204,8 +203,19 @@ def submit_order():
     if customer_email:
         send_confirmation_email(order_text, customer_email)
 
-    # Notify connected SocketIO clients about the new order
-    socketio.emit('new_order', data)
+    # ✅ 构造完整订单信息用于 SocketIO 推送
+    socket_order = {
+        "message": message,
+        "remark": remark,
+        "customer_name": data.get("name", ""),
+        "order_type": data.get("orderType", ""),
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "phone": data.get("phone", ""),
+        "payment_method": payment_method,
+        "items": data.get("items", {})
+    }
+
+    socketio.emit('new_order', socket_order)
 
     if telegram_ok and email_ok and pos_ok:
         resp = {"status": "ok"}
