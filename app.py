@@ -1,5 +1,4 @@
-import eventlet
-eventlet.monkey_patch()
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -11,9 +10,9 @@ from email.utils import formataddr
 from datetime import datetime, date
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 
-app = Flask(__name__)                   # ✅ 先定义 app
-CORS(app)                               # ✅ 然后启用跨域支持
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")  # ✅ 再初始化 SocketIO
+app = Flask(__name__)
+CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # === Telegram 配置 ===
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
@@ -134,13 +133,6 @@ def _orders_overview():
                 "pos_ok": entry.get("pos_ok"),
             })
     return overview
-@app.route("/", methods=["GET"])
-def index():
-    return "✅ Flask-Telegram 服务运行中"
-
-@app.route("/", methods=["GET"])
-def health_check():
-    return "✅ POS backend is running"
 
 
 @app.route("/api/orders/today", methods=["GET"])
