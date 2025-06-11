@@ -1,4 +1,5 @@
-
+import eventlet
+eventlet.monkey_patch()
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -9,7 +10,7 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime, date
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
-
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -133,6 +134,9 @@ def _orders_overview():
                 "pos_ok": entry.get("pos_ok"),
             })
     return overview
+@app.route("/", methods=["GET"])
+def index():
+    return "✅ Flask-Telegram 服务运行中"
 
 
 @app.route("/api/orders/today", methods=["GET"])
