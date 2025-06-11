@@ -11,9 +11,9 @@ from email.utils import formataddr
 from datetime import datetime, date
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 
-app = Flask(__name__)
-CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
+app = Flask(__name__)                   # ✅ 先定义 app
+CORS(app)                               # ✅ 然后启用跨域支持
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")  # ✅ 再初始化 SocketIO
 
 # === Telegram 配置 ===
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
