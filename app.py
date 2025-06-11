@@ -138,6 +138,9 @@ def _orders_overview():
 def index():
     return "✅ Flask-Telegram 服务运行中"
 
+@app.route("/", methods=["GET"])
+def health_check():
+    return "✅ POS backend is running"
 
 
 @app.route("/api/orders/today", methods=["GET"])
