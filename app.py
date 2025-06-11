@@ -8,6 +8,11 @@ from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
 from datetime import datetime, date
+import pytz
+
+nl = pytz.timezone('Europe/Amsterdam')
+created_at = datetime.now(nl).strftime('%Y-%m-%d %H:%M:%S')
+
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 
 app = Flask(__name__)
@@ -205,14 +210,14 @@ def submit_order():
 
     # ✅ 构造完整订单信息用于 SocketIO 推送
     socket_order = {
-        "message": message,
-        "remark": remark,
-        "customer_name": data.get("name", ""),
-        "order_type": data.get("orderType", ""),
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "phone": data.get("phone", ""),
-        "payment_method": payment_method,
-        "items": data.get("items", {})
+         "message": message,
+         "remark": remark,
+         "customer_name": data.get("name", ""),
+         "order_type": data.get("orderType", ""),
+         "created_at": created_at,  # ✅ 这里要改成冒号、双引号对称
+         "phone": data.get("phone", ""),
+         "payment_method": payment_method,
+         "items": data.get("items", {})
     }
 
     socketio.emit('new_order', socket_order)
