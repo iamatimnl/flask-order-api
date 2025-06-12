@@ -6,7 +6,10 @@ import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
-from datetime import datetime, date
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+TZ = ZoneInfo("Europe/Amsterdam")
 
 
 
@@ -109,7 +112,7 @@ def send_pos_order(order_data):
 def record_order(order_data, pos_ok):
     """Store minimal order info for today's overview."""
     ORDERS.append({
-        "timestamp": datetime.now().isoformat(timespec="seconds"),
+        "timestamp": datetime.now(TZ).isoformat(timespec="seconds"),
         "name": order_data.get("name"),
         "items": order_data.get("items"),
         "paymentMethod": order_data.get("paymentMethod"),
@@ -120,7 +123,7 @@ def record_order(order_data, pos_ok):
 
 def _orders_overview():
     """Return a simplified overview of today's orders."""
-    today = date.today()
+    today = datetime.now(TZ).date()
     overview = []
     for entry in ORDERS:
         try:
@@ -193,7 +196,7 @@ def submit_order():
     payment_method = data.get("paymentMethod", "").lower()
 
     # ✅ 添加 created_at 时间戳，并加入 data 中
-    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    created_at = datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')
     data["created_at"] = created_at
 
     order_text = message
@@ -227,8 +230,8 @@ def submit_order():
         "house_number": data.get("houseNumber", ""),
         "postcode": data.get("postcode", ""),
         "city": data.get("city", ""),
-        "delivery_time": data.get("deliveryTime", ""),
-        "pickup_time": data.get("pickupTime", "")
+        "deliveryTime": data.get("deliveryTime", ""),
+        "pickupTime": data.get("pickupTime", "")
     }
     socketio.emit("new_order", socket_order)
 
