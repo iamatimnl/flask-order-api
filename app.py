@@ -110,15 +110,17 @@ def send_pos_order(order_data):
 
 
 def record_order(order_data, pos_ok):
-    """Store minimal order info for today's overview."""
     ORDERS.append({
         "timestamp": datetime.now(TZ).isoformat(timespec="seconds"),
         "name": order_data.get("name"),
         "items": order_data.get("items"),
         "paymentMethod": order_data.get("paymentMethod"),
         "orderType": order_data.get("orderType"),
+        "pickupTime": order_data.get("pickupTime"),
+        "deliveryTime": order_data.get("deliveryTime"),
         "pos_ok": pos_ok,
     })
+
 
 
 def _orders_overview():
@@ -139,6 +141,8 @@ def _orders_overview():
                 "paymentMethod": entry.get("paymentMethod"),
                 "orderType": entry.get("orderType"),
                 "pos_ok": entry.get("pos_ok"),
+                "pickupTime": entry.get("pickupTime"),
+                "deliveryTime": entry.get("deliveryTime"),
             })
     return overview
 
