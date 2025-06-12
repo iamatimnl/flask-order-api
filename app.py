@@ -191,7 +191,11 @@ def submit_order():
     remark = data.get("remark", "")
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
+
+    # ✅ 添加 created_at 时间戳，并加入 data 中
     created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    data["created_at"] = created_at
+
     order_text = message
     if remark:
         order_text += f"\nOpmerking: {remark}"
@@ -208,27 +212,25 @@ def submit_order():
     if customer_email:
         send_confirmation_email(order_text, customer_email)
 
-    # ✅ 构造完整订单信息用于 SocketIO 推送
+    # ✅ 实时推送完整订单数据给前端 POS（包含时间、地址、姓名等）
     socket_order = {
-    "message": message,
-    "remark": remark,
-    "customer_name": data.get("name", ""),
-    "order_type": data.get("orderType", ""),
-    "created_at": created_at, 
-    "phone": data.get("phone", ""),
-    "email": data.get("email", ""),  # ✅ 加上 email
-    "payment_method": payment_method,
-    "items": data.get("items", {}),
-    "street": data.get("street", ""),             # ✅ 地址部分
-    "house_number": data.get("houseNumber", ""),
-    "postcode": data.get("postcode", ""),
-    "city": data.get("city", ""),
-    "delivery_time": data.get("deliveryTime", ""),  # ✅ Tijdslot
-    "pickup_time": data.get("pickupTime", "")
-}
-
-
-    socketio.emit('new_order', socket_order)
+        "message": message,
+        "remark": remark,
+        "customer_name": data.get("name", ""),
+        "order_type": data.get("orderType", ""),
+        "created_at": created_at,
+        "phone": data.get("phone", ""),
+        "email": data.get("email", ""),
+        "payment_method": payment_method,
+        "items": data.get("items", {}),
+        "street": data.get("street", ""),
+        "house_number": data.get("houseNumber", ""),
+        "postcode": data.get("postcode", ""),
+        "city": data.get("city", ""),
+        "delivery_time": data.get("deliveryTime", ""),
+        "pickup_time": data.get("pickupTime", "")
+    }
+    socketio.emit("new_order", socket_order)
 
     if telegram_ok and email_ok and pos_ok:
         resp = {"status": "ok"}
