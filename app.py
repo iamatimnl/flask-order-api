@@ -116,8 +116,9 @@ def record_order(order_data, pos_ok):
         "items": order_data.get("items"),
         "paymentMethod": order_data.get("paymentMethod"),
         "orderType": order_data.get("orderType"),
-        "pickupTime": order_data.get("pickupTime"),
-        "deliveryTime": order_data.get("deliveryTime"),
+        # Use snake_case for time fields when storing orders
+        "pickup_time": order_data.get("pickup_time") or order_data.get("pickupTime"),
+        "delivery_time": order_data.get("delivery_time") or order_data.get("deliveryTime"),
         "pos_ok": pos_ok,
     })
 
@@ -141,8 +142,9 @@ def _orders_overview():
                 "paymentMethod": entry.get("paymentMethod"),
                 "orderType": entry.get("orderType"),
                 "pos_ok": entry.get("pos_ok"),
-                "pickupTime": entry.get("pickupTime"),
-                "deliveryTime": entry.get("deliveryTime"),
+                # Older entries may still use camelCase; support both
+                "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
+                "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
             })
     return overview
 
@@ -234,8 +236,9 @@ def submit_order():
         "house_number": data.get("houseNumber", ""),
         "postcode": data.get("postcode", ""),
         "city": data.get("city", ""),
-        "deliveryTime": data.get("deliveryTime", ""),
-        "pickupTime": data.get("pickupTime", "")
+        # Emit snake_case keys for frontend templates
+        "delivery_time": data.get("delivery_time") or data.get("deliveryTime", ""),
+        "pickup_time": data.get("pickup_time") or data.get("pickupTime", "")
     }
     socketio.emit("new_order", socket_order)
 
