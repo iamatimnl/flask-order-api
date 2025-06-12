@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -8,6 +7,10 @@ from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
 from datetime import datetime, date
+
+
+
+created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
@@ -211,7 +214,7 @@ def submit_order():
     "remark": remark,
     "customer_name": data.get("name", ""),
     "order_type": data.get("orderType", ""),
-    "created_at": created_at,
+    "created_at": created_at, 
     "phone": data.get("phone", ""),
     "email": data.get("email", ""),  # ✅ 加上 email
     "payment_method": payment_method,
