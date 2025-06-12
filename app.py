@@ -8,10 +8,7 @@ from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
 from datetime import datetime, date
-import pytz
 
-nl = pytz.timezone('Europe/Amsterdam')
-created_at = datetime.now(nl).strftime('%Y-%m-%d %H:%M:%S')
 
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 
