@@ -10,7 +10,7 @@ from datetime import datetime, date
 
 
 
-created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
 
 
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
@@ -191,7 +191,7 @@ def submit_order():
     remark = data.get("remark", "")
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
-
+    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     order_text = message
     if remark:
         order_text += f"\nOpmerking: {remark}"
