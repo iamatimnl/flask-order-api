@@ -210,15 +210,23 @@ def submit_order():
 
     # ✅ 构造完整订单信息用于 SocketIO 推送
     socket_order = {
-         "message": message,
-         "remark": remark,
-         "customer_name": data.get("name", ""),
-         "order_type": data.get("orderType", ""),
-         "created_at": created_at,  # ✅ 这里要改成冒号、双引号对称
-         "phone": data.get("phone", ""),
-         "payment_method": payment_method,
-         "items": data.get("items", {})
-    }
+    "message": message,
+    "remark": remark,
+    "customer_name": data.get("name", ""),
+    "order_type": data.get("orderType", ""),
+    "created_at": created_at,
+    "phone": data.get("phone", ""),
+    "email": data.get("email", ""),  # ✅ 加上 email
+    "payment_method": payment_method,
+    "items": data.get("items", {}),
+    "street": data.get("street", ""),             # ✅ 地址部分
+    "house_number": data.get("houseNumber", ""),
+    "postcode": data.get("postcode", ""),
+    "city": data.get("city", ""),
+    "delivery_time": data.get("deliveryTime", ""),  # ✅ Tijdslot
+    "pickup_time": data.get("pickupTime", "")
+}
+
 
     socketio.emit('new_order', socket_order)
 
