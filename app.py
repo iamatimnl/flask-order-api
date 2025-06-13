@@ -277,7 +277,8 @@ def submit_order():
         "house_number": data.get("houseNumber", ""),
         "postcode": data.get("postcode", ""),
         "city": data.get("city", ""),
-        "google_maps_link": maps_link,
+        "maps_link": maps_link,                 # ✅ 前端想要的字段名
+        "google_maps_link": maps_link,         # （可选）保留原字段用于后续兼容或调试
         # Emit snake_case keys for frontend templates
         "delivery_time": data.get("delivery_time") or data.get("deliveryTime", ""),
         "pickup_time": data.get("pickup_time") or data.get("pickupTime", "")
