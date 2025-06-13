@@ -8,6 +8,7 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from urllib.parse import quote_plus
 
 TZ = ZoneInfo("Europe/Amsterdam")
 
@@ -39,6 +40,28 @@ TIKKIE_PAYMENT_LINK = "https://tikkie.me/pay/example"
 
 # In-memory log of orders for today's overview
 ORDERS = []
+
+def build_google_maps_link(data):
+    """Return a Google Maps search link for the order address."""
+    street = data.get("street", "").strip()
+    house_number = data.get("houseNumber") or data.get("house_number", "")
+    postcode = data.get("postcode", "").strip()
+    city = data.get("city", "").strip()
+
+    if street:
+        first_part = f"{street} {house_number}".strip()
+    else:
+        first_part = house_number
+
+    second_part = " ".join(part for part in [postcode, city] if part).strip()
+
+    address_parts = [part for part in [first_part, second_part] if part]
+    if not address_parts:
+        return None
+
+    address = ", ".join(address_parts)
+    query = quote_plus(address)
+    return f"https://www.google.com/maps/search/?api=1&query={query}"
 
 def send_telegram_message(order_text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -166,6 +189,10 @@ def api_send_order():
     if remark:
         order_text += f"\nOpmerking: {remark}"
 
+    maps_link = build_google_maps_link(data)
+    if maps_link:
+        order_text += f"\n📍 Google Maps: {maps_link}"
+
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
@@ -209,6 +236,10 @@ def submit_order():
     if remark:
         order_text += f"\nOpmerking: {remark}"
 
+    maps_link = build_google_maps_link(data)
+    if maps_link:
+        order_text += f"\n📍 Google Maps: {maps_link}"
+
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
@@ -236,6 +267,7 @@ def submit_order():
         "house_number": data.get("houseNumber", ""),
         "postcode": data.get("postcode", ""),
         "city": data.get("city", ""),
+        "google_maps_link": maps_link,
         # Emit snake_case keys for frontend templates
         "delivery_time": data.get("delivery_time") or data.get("deliveryTime", ""),
         "pickup_time": data.get("pickup_time") or data.get("pickupTime", "")
