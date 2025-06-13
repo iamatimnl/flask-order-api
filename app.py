@@ -139,6 +139,7 @@ def record_order(order_data, pos_ok):
         "items": order_data.get("items"),
         "paymentMethod": order_data.get("paymentMethod"),
         "orderType": order_data.get("orderType"),
+        "opmerking": order_data.get("opmerking") or order_data.get("remark"),
         # Use snake_case for time fields when storing orders
         "pickup_time": order_data.get("pickup_time") or order_data.get("pickupTime"),
         "delivery_time": order_data.get("delivery_time") or order_data.get("deliveryTime"),
@@ -164,6 +165,7 @@ def _orders_overview():
                 "items": entry.get("items"),
                 "paymentMethod": entry.get("paymentMethod"),
                 "orderType": entry.get("orderType"),
+                "opmerking": entry.get("opmerking") or entry.get("remark"),
                 "pos_ok": entry.get("pos_ok"),
                 # Older entries may still use camelCase; support both
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
@@ -181,7 +183,8 @@ def get_orders_today():
 def api_send_order():
     data = request.get_json()
     message = data.get("message", "")
-    remark = data.get("remark", "")
+    remark = data.get("opmerking") or data.get("remark", "")
+    data["opmerking"] = remark
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
 
@@ -224,7 +227,8 @@ def api_send_order():
 def submit_order():
     data = request.get_json()
     message = data.get("message", "")
-    remark = data.get("remark", "")
+    remark = data.get("opmerking") or data.get("remark", "")
+    data["opmerking"] = remark
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
 
@@ -255,7 +259,7 @@ def submit_order():
     # ✅ 实时推送完整订单数据给前端 POS（包含时间、地址、姓名等）
     socket_order = {
         "message": message,
-        "remark": remark,
+        "opmerking": remark,
         "customer_name": data.get("name", ""),
         "order_type": data.get("orderType", ""),
         "created_at": created_at,
