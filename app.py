@@ -233,7 +233,9 @@ def submit_order():
     payment_method = data.get("paymentMethod", "").lower()
 
     # ✅ 添加 created_at 时间戳，并加入 data 中
-    created_at = datetime.now(TZ).strftime('%Y-%m-%d %H:%M:%S')
+    created_at = now.strftime('%Y-%m-%d %H:%M:%S')
+    created_date = now.strftime('%Y-%m-%d')
+
     data["created_at"] = created_at
 
     order_text = message
@@ -262,7 +264,8 @@ def submit_order():
         "opmerking": remark,
         "customer_name": data.get("name", ""),
         "order_type": data.get("orderType", ""),
-        "created_at": created_at,
+        "created_at": data["created_at"],
+        "created_date": created_date,
         "phone": data.get("phone", ""),
         "email": data.get("email", ""),
         "payment_method": payment_method,
