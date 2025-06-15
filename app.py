@@ -176,6 +176,10 @@ def format_order_notification(data):
         if addr:
             lines.append(f"Adres: {addr}")
 
+    payment_method = data.get("payment_method") or data.get("paymentMethod")
+    if payment_method:
+        lines.append(f"Betaling: {payment_method}")
+
     # Support both snake_case and camelCase keys for time values
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
     if delivery_time:
@@ -333,6 +337,10 @@ def submit_order():
         send_confirmation_email(order_text, customer_email)
 
     # ✅ 实时推送完整订单数据给前端 POS（包含时间、地址、姓名等）
+    delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
+    pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
+    tijdslot = delivery_time or pickup_time
+
     socket_order = {
         "message": message,
         "opmerking": remark,
@@ -340,7 +348,7 @@ def submit_order():
         "order_type": data.get("orderType", ""),
         "created_at": data["created_at"],
         "created_date": created_date,
-        "time": created_time, 
+        "time": created_time,
         "phone": data.get("phone", ""),
         "email": data.get("email", ""),
         "payment_method": payment_method,
@@ -352,8 +360,9 @@ def submit_order():
         "maps_link": maps_link,                 # ✅ 前端想要的字段名
         "google_maps_link": maps_link,         # （可选）保留原字段用于后续兼容或调试
         # Emit snake_case keys for frontend templates
-        "delivery_time": data.get("delivery_time") or data.get("deliveryTime", ""),
-        "pickup_time": data.get("pickup_time") or data.get("pickupTime", "")
+        "delivery_time": delivery_time,
+        "pickup_time": pickup_time,
+        "tijdslot": tijdslot,
     }
     socketio.emit("new_order", socket_order)
 
