@@ -187,16 +187,35 @@ def format_order_notification(data):
         lines.append(message)
 
     remark = data.get("opmerking") or data.get("remark")
-    if remark:
+    if remark and (not message or f"Opmerking: {remark}" not in message):
         lines.append(f"Opmerking: {remark}")
 
     summary = data.get("summary") or {}
+
+    def fmt(value):
+        try:
+            return f"€{float(value):.2f}"
+        except (TypeError, ValueError):
+            return str(value)
+
+    subtotal = summary.get("subtotal")
+    if subtotal is not None:
+        lines.append(f"Subtotaal: {fmt(subtotal)}")
+    packaging = summary.get("packaging")
+    if packaging:
+        lines.append(f"Verpakkingskosten: {fmt(packaging)}")
+    delivery_cost = summary.get("delivery")
+    if delivery_cost:
+        lines.append(f"Bezorgkosten: {fmt(delivery_cost)}")
+    discount_amount = summary.get("discountAmount")
+    if discount_amount:
+        lines.append(f"Korting: -{fmt(discount_amount)}")
+    btw_amount = summary.get("btw")
+    if btw_amount is not None:
+        lines.append(f"BTW: {fmt(btw_amount)}")
     total = summary.get("total")
     if total is not None:
-        try:
-            lines.append(f"Totaal: €{float(total):.2f}")
-        except (TypeError, ValueError):
-            lines.append(f"Totaal: {total}")
+        lines.append(f"Totaal: {fmt(total)}")
 
     return "\n".join(lines)
 
