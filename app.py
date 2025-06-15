@@ -165,9 +165,10 @@ def format_order_notification(data):
         lines.append(f"Type: {order_type}")
 
     if order_type == "bezorgen":
+        # Accept both snake_case and camelCase field names for address parts
         addr_parts = [
             data.get("street"),
-            data.get("house_number"),
+            data.get("house_number") or data.get("houseNumber"),
             data.get("postcode"),
             data.get("city"),
         ]
@@ -175,6 +176,7 @@ def format_order_notification(data):
         if addr:
             lines.append(f"Adres: {addr}")
 
+    # Support both snake_case and camelCase keys for time values
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
     if delivery_time:
         lines.append(f"Bezorgtijd: {delivery_time}")
