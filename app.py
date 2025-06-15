@@ -133,6 +133,17 @@ def send_pos_order(order_data):
 
 
 def record_order(order_data, pos_ok):
+    """Store a simplified snapshot of the order for today's overview."""
+    pickup_time = order_data.get("pickup_time") or order_data.get("pickupTime")
+    delivery_time = order_data.get("delivery_time") or order_data.get("deliveryTime")
+    if not pickup_time and not delivery_time:
+        tijdslot = order_data.get("tijdslot")
+        if tijdslot:
+            if order_data.get("orderType") == "bezorgen":
+                delivery_time = tijdslot
+            else:
+                pickup_time = tijdslot
+
     ORDERS.append({
         "timestamp": datetime.now(TZ).isoformat(timespec="seconds"),
         "name": order_data.get("name"),
@@ -141,8 +152,8 @@ def record_order(order_data, pos_ok):
         "orderType": order_data.get("orderType"),
         "opmerking": order_data.get("opmerking") or order_data.get("remark"),
         # Use snake_case for time fields when storing orders
-        "pickup_time": order_data.get("pickup_time") or order_data.get("pickupTime"),
-        "delivery_time": order_data.get("delivery_time") or order_data.get("deliveryTime"),
+        "pickup_time": pickup_time,
+        "delivery_time": delivery_time,
         "pos_ok": pos_ok,
     })
 
@@ -182,11 +193,19 @@ def format_order_notification(data):
 
     # Support both snake_case and camelCase keys for time values
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
-    if delivery_time:
-        lines.append(f"Bezorgtijd: {delivery_time}")
     pickup_time = data.get("pickup_time") or data.get("pickupTime")
-    if pickup_time:
-        lines.append(f"Afhaaltijd: {pickup_time}")
+    tijdslot = data.get("tijdslot")
+
+    if tijdslot and not delivery_time and not pickup_time:
+        if order_type == "bezorgen":
+            lines.append(f"Bezorgtijd: {tijdslot}")
+        else:
+            lines.append(f"Afhaaltijd: {tijdslot}")
+    else:
+        if delivery_time:
+            lines.append(f"Bezorgtijd: {delivery_time}")
+        if pickup_time:
+            lines.append(f"Afhaaltijd: {pickup_time}")
 
     message = data.get("message")
     if message:
@@ -339,7 +358,14 @@ def submit_order():
     # ✅ 实时推送完整订单数据给前端 POS（包含时间、地址、姓名等）
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
-    tijdslot = delivery_time or pickup_time
+    tijdslot = data.get("tijdslot") or delivery_time or pickup_time
+
+    if tijdslot:
+        if not delivery_time and not pickup_time:
+            if data.get("orderType") == "bezorgen":
+                delivery_time = tijdslot
+            else:
+                pickup_time = tijdslot
 
     socket_order = {
         "message": message,
