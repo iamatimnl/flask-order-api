@@ -147,6 +147,60 @@ def record_order(order_data, pos_ok):
     })
 
 
+def format_order_notification(data):
+    """Create a readable notification message from the order payload."""
+    lines = []
+    name = data.get("name")
+    if name:
+        lines.append(f"Naam: {name}")
+    phone = data.get("phone")
+    if phone:
+        lines.append(f"Tel: {phone}")
+    email = data.get("email") or data.get("customerEmail")
+    if email:
+        lines.append(f"Email: {email}")
+
+    order_type = data.get("orderType")
+    if order_type:
+        lines.append(f"Type: {order_type}")
+
+    if order_type == "bezorgen":
+        addr_parts = [
+            data.get("street"),
+            data.get("house_number"),
+            data.get("postcode"),
+            data.get("city"),
+        ]
+        addr = " ".join(str(p) for p in addr_parts if p)
+        if addr:
+            lines.append(f"Adres: {addr}")
+
+    delivery_time = data.get("delivery_time") or data.get("deliveryTime")
+    if delivery_time:
+        lines.append(f"Bezorgtijd: {delivery_time}")
+    pickup_time = data.get("pickup_time") or data.get("pickupTime")
+    if pickup_time:
+        lines.append(f"Afhaaltijd: {pickup_time}")
+
+    message = data.get("message")
+    if message:
+        lines.append(message)
+
+    remark = data.get("opmerking") or data.get("remark")
+    if remark:
+        lines.append(f"Opmerking: {remark}")
+
+    summary = data.get("summary") or {}
+    total = summary.get("total")
+    if total is not None:
+        try:
+            lines.append(f"Totaal: €{float(total):.2f}")
+        except (TypeError, ValueError):
+            lines.append(f"Totaal: {total}")
+
+    return "\n".join(lines)
+
+
 
 def _orders_overview():
     """Return a simplified overview of today's orders."""
@@ -240,10 +294,7 @@ def submit_order():
 
     data["created_at"] = created_at
 
-    order_text = message
-    if remark:
-        order_text += f"\nOpmerking: {remark}"
-
+    order_text = format_order_notification(data)
     maps_link = build_google_maps_link(data)
     if maps_link:
         order_text += f"\n📍 Google Maps: {maps_link}"
