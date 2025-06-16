@@ -223,22 +223,42 @@ def format_order_notification(data):
         except (TypeError, ValueError):
             return str(value)
 
-    subtotal = summary.get("subtotal")
+    # Support new top-level price fields with legacy summary fallbacks
+    subtotal = data.get("subtotal")
+    if subtotal is None:
+        subtotal = summary.get("subtotal")
     if subtotal is not None:
         lines.append(f"Subtotaal: {fmt(subtotal)}")
-    packaging = summary.get("packaging")
-    if packaging:
-        lines.append(f"Verpakkingskosten: {fmt(packaging)}")
-    delivery_cost = summary.get("delivery")
-    if delivery_cost:
-        lines.append(f"Bezorgkosten: {fmt(delivery_cost)}")
+
+    packaging_fee = data.get("packaging_fee")
+    if packaging_fee is None:
+        packaging_fee = summary.get("packaging")
+    if packaging_fee:
+        lines.append(f"Verpakkingskosten: {fmt(packaging_fee)}")
+
+    delivery_fee = data.get("delivery_fee")
+    if delivery_fee is None:
+        delivery_fee = summary.get("delivery")
+    if delivery_fee:
+        lines.append(f"Bezorgkosten: {fmt(delivery_fee)}")
+
+    tip = data.get("tip")
+    if tip:
+        lines.append(f"Fooi: {fmt(tip)}")
+
     discount_amount = summary.get("discountAmount")
     if discount_amount:
         lines.append(f"Korting: -{fmt(discount_amount)}")
-    btw_amount = summary.get("btw")
+
+    btw_amount = data.get("btw")
+    if btw_amount is None:
+        btw_amount = summary.get("btw")
     if btw_amount is not None:
         lines.append(f"BTW: {fmt(btw_amount)}")
-    total = summary.get("total")
+
+    total = data.get("totaal")
+    if total is None:
+        total = summary.get("total")
     if total is not None:
         lines.append(f"Totaal: {fmt(total)}")
 
@@ -389,6 +409,14 @@ def submit_order():
         "delivery_time": delivery_time,
         "pickup_time": pickup_time,
         "tijdslot": tijdslot,
+        # Order pricing fields (new checkout data)
+        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
+        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
+        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
+        "tip": data.get("tip"),
+        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+        "discount_amount": (data.get("summary") or {}).get("discountAmount"),
     }
     socketio.emit("new_order", socket_order)
 
