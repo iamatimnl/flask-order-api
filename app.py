@@ -306,13 +306,17 @@ def api_send_order():
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
 
-    order_text = message
-    if remark:
-        order_text += f"\nOpmerking: {remark}"
-
+    order_text = format_order_notification(data)
     maps_link = build_google_maps_link(data)
     if maps_link:
         order_text += f"\n📍 Google Maps: {maps_link}"
+
+    now = datetime.now(TZ)
+    created_at = now.strftime('%Y-%m-%d %H:%M:%S')
+    created_date = now.strftime('%Y-%m-%d')
+    created_time = now.strftime('%H:%M')
+
+    data["created_at"] = created_at
 
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
@@ -325,6 +329,48 @@ def api_send_order():
 
     if customer_email:
         send_confirmation_email(order_text, customer_email)
+
+    delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
+    pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
+    tijdslot = data.get("tijdslot") or delivery_time or pickup_time
+
+    if tijdslot:
+        if not delivery_time and not pickup_time:
+            if data.get("orderType") == "bezorgen":
+                delivery_time = tijdslot
+            else:
+                pickup_time = tijdslot
+
+    socket_order = {
+        "message": message,
+        "opmerking": remark,
+        "customer_name": data.get("name", ""),
+        "order_type": data.get("orderType", ""),
+        "created_at": data["created_at"],
+        "created_date": created_date,
+        "time": created_time,
+        "phone": data.get("phone", ""),
+        "email": data.get("email", ""),
+        "payment_method": payment_method,
+        "items": data.get("items", {}),
+        "street": data.get("street", ""),
+        "house_number": data.get("houseNumber", ""),
+        "postcode": data.get("postcode", ""),
+        "city": data.get("city", ""),
+        "maps_link": maps_link,
+        "google_maps_link": maps_link,
+        "delivery_time": delivery_time,
+        "pickup_time": pickup_time,
+        "tijdslot": tijdslot,
+        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
+        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
+        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
+        "tip": data.get("tip"),
+        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+        "discount_amount": (data.get("summary") or {}).get("discountAmount"),
+    }
+    socketio.emit("new_order", socket_order)
 
     if telegram_ok and email_ok and pos_ok:
         resp = {"status": "ok"}
