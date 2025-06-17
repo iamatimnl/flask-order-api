@@ -41,12 +41,6 @@ TIKKIE_PAYMENT_LINK = "https://tikkie.me/pay/example"
 # In-memory log of orders for today's overview
 ORDERS = []
 
-def safe_float(value):
-    try:
-        return round(float(value), 2)
-    except (TypeError, ValueError):
-        return 0.00
-
 def build_google_maps_link(data):
     """Return a Google Maps search link for the order address."""
     street = data.get("street", "").strip()
@@ -368,15 +362,13 @@ def api_send_order():
         "delivery_time": delivery_time,
         "pickup_time": pickup_time,
         "tijdslot": tijdslot,
-
-        # ⬇️ 关键字段：确保永远为数字
-        "subtotal": safe_float(data.get("subtotal") or (data.get("summary") or {}).get("subtotal")),
-        "packaging_fee": safe_float(data.get("packaging_fee") or (data.get("summary") or {}).get("packaging")),
-        "delivery_fee": safe_float(data.get("delivery_fee") or (data.get("summary") or {}).get("delivery")),
-        "tip": safe_float(data.get("tip")),
-        "btw": safe_float(data.get("btw") or (data.get("summary") or {}).get("btw")),
-        "totaal": safe_float(data.get("totaal") or (data.get("summary") or {}).get("total")),
-        "discount_amount": safe_float((data.get("summary") or {}).get("discountAmount")),
+        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
+        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
+        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
+        "tip": data.get("tip"),
+        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+        "discount_amount": (data.get("summary") or {}).get("discountAmount"),
     }
     socketio.emit("new_order", socket_order)
 
@@ -457,20 +449,20 @@ def submit_order():
         "house_number": data.get("houseNumber", ""),
         "postcode": data.get("postcode", ""),
         "city": data.get("city", ""),
-        "maps_link": maps_link,
-        "google_maps_link": maps_link,
+        "maps_link": maps_link,                 # ✅ 前端想要的字段名
+        "google_maps_link": maps_link,         # （可选）保留原字段用于后续兼容或调试
+        # Emit snake_case keys for frontend templates
         "delivery_time": delivery_time,
         "pickup_time": pickup_time,
         "tijdslot": tijdslot,
-
-        # ⬇️ 关键字段：确保永远为数字
-        "subtotal": safe_float(data.get("subtotal") or (data.get("summary") or {}).get("subtotal")),
-        "packaging_fee": safe_float(data.get("packaging_fee") or (data.get("summary") or {}).get("packaging")),
-        "delivery_fee": safe_float(data.get("delivery_fee") or (data.get("summary") or {}).get("delivery")),
-        "tip": safe_float(data.get("tip")),
-        "btw": safe_float(data.get("btw") or (data.get("summary") or {}).get("btw")),
-        "totaal": safe_float(data.get("totaal") or (data.get("summary") or {}).get("total")),
-        "discount_amount": safe_float((data.get("summary") or {}).get("discountAmount")),
+        # Order pricing fields (new checkout data)
+        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
+        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
+        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
+        "tip": data.get("tip"),
+        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+        "discount_amount": (data.get("summary") or {}).get("discountAmount"),
     }
     socketio.emit("new_order", socket_order)
 
