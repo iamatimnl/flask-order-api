@@ -41,13 +41,6 @@ TIKKIE_PAYMENT_LINK = "https://tikkie.me/pay/example"
 # In-memory log of orders for today's overview
 ORDERS = []
 
-def safe_float(value, default=0.0):
-    """Return value as float if possible, otherwise default."""
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
 def build_google_maps_link(data):
     """Return a Google Maps search link for the order address."""
     street = data.get("street", "").strip()
@@ -374,9 +367,7 @@ def api_send_order():
         "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
         "tip": data.get("tip"),
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
-        "totaal": safe_float(
-            data.get("totaal") or (data.get("summary") or {}).get("total")
-        ),
+        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
         "discount_amount": (data.get("summary") or {}).get("discountAmount"),
     }
     socketio.emit("new_order", socket_order)
@@ -470,9 +461,7 @@ def submit_order():
         "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
         "tip": data.get("tip"),
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
-        "totaal": safe_float(
-            data.get("totaal") or (data.get("summary") or {}).get("total")
-        ),
+        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
         "discount_amount": (data.get("summary") or {}).get("discountAmount"),
     }
     socketio.emit("new_order", socket_order)
