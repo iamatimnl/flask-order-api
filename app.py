@@ -155,6 +155,19 @@ def record_order(order_data, pos_ok):
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
+        # Persist pricing fields for the POS overview
+        "subtotal": order_data.get("subtotal")
+        or (order_data.get("summary") or {}).get("subtotal"),
+        "packaging_fee": order_data.get("packaging_fee")
+        or (order_data.get("summary") or {}).get("packaging"),
+        "delivery_fee": order_data.get("delivery_fee")
+        or (order_data.get("summary") or {}).get("delivery"),
+        "tip": order_data.get("tip"),
+        "btw": order_data.get("btw")
+        or (order_data.get("summary") or {}).get("btw"),
+        "totaal": order_data.get("totaal")
+        or (order_data.get("summary") or {}).get("total"),
+        "discount_amount": (order_data.get("summary") or {}).get("discountAmount"),
     })
 
 
@@ -288,6 +301,13 @@ def _orders_overview():
                 # Older entries may still use camelCase; support both
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
+                "subtotal": entry.get("subtotal"),
+                "packaging_fee": entry.get("packaging_fee"),
+                "delivery_fee": entry.get("delivery_fee"),
+                "tip": entry.get("tip"),
+                "btw": entry.get("btw"),
+                "totaal": entry.get("totaal"),
+                "discount_amount": entry.get("discount_amount"),
             })
     return overview
 
