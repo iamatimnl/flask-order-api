@@ -315,7 +315,7 @@ def api_send_order():
     created_at = now.strftime('%Y-%m-%d %H:%M:%S')
     created_date = now.strftime('%Y-%m-%d')
     created_time = now.strftime('%H:%M')
-
+    data["total"] = data.get("totaal") or (data.get("summary") or {}).get("total")
     data["created_at"] = created_at
 
     telegram_ok = send_telegram_message(order_text)
@@ -401,6 +401,8 @@ def submit_order():
     created_at = now.strftime('%Y-%m-%d %H:%M:%S')
     created_date = now.strftime('%Y-%m-%d')
     created_time = now.strftime('%H:%M')  # ✅ 新增，只包含时间部分
+    # 👇 添加双字段支持
+    data["total"] = data.get("totaal") or (data.get("summary") or {}).get("total")
 
     data["created_at"] = created_at
 
