@@ -286,7 +286,7 @@ def _orders_overview():
                 "orderType": entry.get("orderType"),
                 "opmerking": entry.get("opmerking") or entry.get("remark"),
                 "pos_ok": entry.get("pos_ok"),
-                "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total")  # ✅ 添加这行
+                "totaal": entry.get("totaal"),
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
             })
