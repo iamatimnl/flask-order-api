@@ -14,6 +14,9 @@ from io import BytesIO
 import pandas as pd
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from flask import Flask, request, redirect, url_for, render_template, session
+from functools import wraps
+
 TZ = ZoneInfo("Europe/Amsterdam")
 
 
@@ -22,6 +25,8 @@ TZ = ZoneInfo("Europe/Amsterdam")
 
 
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
+app = Flask(__name__)
+app.secret_key = "geheime_sleutel"
 
 app = Flask(__name__)
 CORS(app)
@@ -295,6 +300,33 @@ def _orders_overview():
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
             })
     return overview
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        if username == "admin" and password == "novaasia3693":
+            session["logged_in"] = True
+            return redirect(url_for("admin_orders"))
+        else:
+            return "Ongeldige gegevens", 401
+    return render_template("login.html")
+
+@app.route("/admin/orders")
+@login_required
+def admin_orders():
+    return render_template("admin_orders.html")
+
+
 
 
 
