@@ -9,9 +9,7 @@ from email.utils import formataddr
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
-import random
-import string
-from datetime import datetime
+
 TZ = ZoneInfo("Europe/Amsterdam")
 
 
@@ -293,12 +291,8 @@ def _orders_overview():
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
             })
     return overview
-  
-def generate_order_number():
-    now = datetime.now().strftime('%y%m%d')  # 生成如 250619 这样的日期
-    rand = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
-    return f"{now}-{rand}"
-   
+
+
 @app.route("/api/orders/today", methods=["GET"])
 @app.route("/api/orders", methods=["GET"])
 def get_orders_today():
@@ -312,7 +306,6 @@ def api_send_order():
     data["opmerking"] = remark
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
-    order_number = generate_order_number()
 
     order_text = format_order_notification(data)
     maps_link = build_google_maps_link(data)
@@ -377,8 +370,6 @@ def api_send_order():
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
         "discount_amount": (data.get("summary") or {}).get("discountAmount"),
-        "order_number": order_number,
-
     }
     socketio.emit("new_order", socket_order)
 
@@ -405,7 +396,6 @@ def submit_order():
     data["opmerking"] = remark
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
-    order_number = generate_order_number()
 
     # ✅ 添加 created_at 时间戳，并加入 data 中
     now = datetime.now(TZ)
@@ -476,9 +466,7 @@ def submit_order():
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
         "discount_amount": (data.get("summary") or {}).get("discountAmount"),
-        "order_number": order_number,
-
-    }   
+    }
     socketio.emit("new_order", socket_order)
 
     if telegram_ok and email_ok and pos_ok:
