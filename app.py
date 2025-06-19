@@ -1,23 +1,14 @@
-from flask import Flask, request, jsonify, redirect, url_for, render_template, session, make_response, send_file
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_socketio import SocketIO
-from functools import wraps
-from datetime import datetime, time
-from zoneinfo import ZoneInfo
-from io import BytesIO
-from urllib.parse import quote_plus
-
-# 数据与导出工具
-import pandas as pd
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-
-# 通知或邮件支持（如有启用）
 import requests
 import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from urllib.parse import quote_plus
 
 TZ = ZoneInfo("Europe/Amsterdam")
 
@@ -27,8 +18,6 @@ TZ = ZoneInfo("Europe/Amsterdam")
 
 
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
-app = Flask(__name__)
-app.secret_key = "geheime_sleutel"
 
 app = Flask(__name__)
 CORS(app)
@@ -302,94 +291,6 @@ def _orders_overview():
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
             })
     return overview
-
-def login_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get("logged_in"):
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return decorated_function
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        if username == "admin" and password == "novaasia3693":
-            session["logged_in"] = True
-            return redirect(url_for("admin_orders"))
-        else:
-            return "Ongeldige gegevens", 401
-    return render_template("login.html")
-
-@app.route("/admin/orders")
-@login_required
-def admin_orders():
-    return render_template("admin_orders.html")
-
-
-
-
-
-@app.route("/admin/orders/download/excel")
-@login_required
-def download_orders_excel():
-    today = datetime.now(NL_TZ).date()
-    start = datetime.combine(today, datetime.min.time(), tzinfo=NL_TZ).astimezone(UTC).replace(tzinfo=None)
-    orders = Order.query.filter(Order.created_at >= start).order_by(Order.created_at).all()
-
-    data = []
-    for o in orders:
-        data.append({
-            "ID": o.id,
-            "Tijd": to_nl(o.created_at).strftime("%H:%M"),
-            "Naam": o.customer_name,
-            "Betaalwijze": o.payment_method,
-            "Totaal": f"€{o.totaal:.2f}"
-        })
-
-    df = pd.DataFrame(data)
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df.to_excel(writer, index=False, sheet_name="Bestellingen")
-
-    output.seek(0)
-    response = make_response(output.read())
-    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    response.headers['Content-Disposition'] = f'attachment; filename=orders_{today}.xlsx'
-    return response
-@app.route("/admin/orders/download/pdf")
-@login_required
-def download_orders_pdf():
-    today = datetime.now(NL_TZ).date()
-    start = datetime.combine(today, datetime.min.time(), tzinfo=NL_TZ).astimezone(UTC).replace(tzinfo=None)
-    orders = Order.query.filter(Order.created_at >= start).order_by(Order.created_at).all()
-
-    buffer = BytesIO()
-    c = canvas.Canvas(buffer, pagesize=A4)
-    y = 800
-
-    c.setFont("Helvetica", 12)
-    c.drawString(100, y, f"Orders – {today.strftime('%d-%m-%Y')}")
-    y -= 30
-
-    for o in orders:
-        c.drawString(100, y, f"Order #{o.id} – €{o.totaal:.2f} – {o.payment_method}")
-        y -= 20
-        if y < 100:
-            c.showPage()
-            y = 800
-
-    c.save()
-    buffer.seek(0)
-
-    response = make_response(buffer.read())
-    response.headers['Content-Type'] = 'application/pdf'
-    response.headers['Content-Disposition'] = f'attachment; filename=orders_{today}.pdf'
-    return response
-
-
 
 
 @app.route("/api/orders/today", methods=["GET"])
