@@ -9,7 +9,11 @@ from email.utils import formataddr
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
-
+from flask import make_response
+from io import BytesIO
+import pandas as pd
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
 TZ = ZoneInfo("Europe/Amsterdam")
 
 
@@ -292,6 +296,64 @@ def _orders_overview():
             })
     return overview
 
+
+
+@app.route("/admin/orders/download/excel")
+@login_required
+def download_orders_excel():
+    today = datetime.now(NL_TZ).date()
+    start = datetime.combine(today, datetime.min.time(), tzinfo=NL_TZ).astimezone(UTC).replace(tzinfo=None)
+    orders = Order.query.filter(Order.created_at >= start).order_by(Order.created_at).all()
+
+    data = []
+    for o in orders:
+        data.append({
+            "ID": o.id,
+            "Tijd": to_nl(o.created_at).strftime("%H:%M"),
+            "Naam": o.customer_name,
+            "Betaalwijze": o.payment_method,
+            "Totaal": f"€{o.totaal:.2f}"
+        })
+
+    df = pd.DataFrame(data)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
+        df.to_excel(writer, index=False, sheet_name="Bestellingen")
+
+    output.seek(0)
+    response = make_response(output.read())
+    response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    response.headers['Content-Disposition'] = f'attachment; filename=orders_{today}.xlsx'
+    return response
+@app.route("/admin/orders/download/pdf")
+@login_required
+def download_orders_pdf():
+    today = datetime.now(NL_TZ).date()
+    start = datetime.combine(today, datetime.min.time(), tzinfo=NL_TZ).astimezone(UTC).replace(tzinfo=None)
+    orders = Order.query.filter(Order.created_at >= start).order_by(Order.created_at).all()
+
+    buffer = BytesIO()
+    c = canvas.Canvas(buffer, pagesize=A4)
+    y = 800
+
+    c.setFont("Helvetica", 12)
+    c.drawString(100, y, f"Orders – {today.strftime('%d-%m-%Y')}")
+    y -= 30
+
+    for o in orders:
+        c.drawString(100, y, f"Order #{o.id} – €{o.totaal:.2f} – {o.payment_method}")
+        y -= 20
+        if y < 100:
+            c.showPage()
+            y = 800
+
+    c.save()
+    buffer.seek(0)
+
+    response = make_response(buffer.read())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = f'attachment; filename=orders_{today}.pdf'
+    return response
 
 @app.route("/api/orders/today", methods=["GET"])
 @app.route("/api/orders", methods=["GET"])
