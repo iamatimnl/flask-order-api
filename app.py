@@ -1,23 +1,23 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect, url_for, render_template, session, make_response, send_file
 from flask_cors import CORS
 from flask_socketio import SocketIO
+from functools import wraps
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
+from io import BytesIO
+from urllib.parse import quote_plus
+
+# 数据与导出工具
+import pandas as pd
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+
+# 通知或邮件支持（如有启用）
 import requests
 import smtplib
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
-from datetime import datetime
-from zoneinfo import ZoneInfo
-from urllib.parse import quote_plus
-from flask import make_response
-from io import BytesIO
-import pandas as pd
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
-from flask import Flask, request, redirect, url_for, render_template, session
-from functools import wraps
-from functools import wraps
-from flask import session, redirect, url_for
 
 TZ = ZoneInfo("Europe/Amsterdam")
 
@@ -388,6 +388,9 @@ def download_orders_pdf():
     response.headers['Content-Type'] = 'application/pdf'
     response.headers['Content-Disposition'] = f'attachment; filename=orders_{today}.pdf'
     return response
+
+
+
 
 @app.route("/api/orders/today", methods=["GET"])
 @app.route("/api/orders", methods=["GET"])
