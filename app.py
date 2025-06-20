@@ -406,16 +406,18 @@ def submit_order():
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error, pos_response = send_pos_order(data)
+
     if pos_ok and isinstance(pos_response, dict):
-    order_number = pos_response.get("order_number")
-    if order_number:
-        data["order_number"] = order_number
+        order_number = pos_response.get("order_number")
+        if order_number:
+            data["order_number"] = order_number
 
     record_order(data, pos_ok)
 
     payment_link = None
     if payment_method and payment_method != "cash":
         payment_link = TIKKIE_PAYMENT_LINK
+
 
     if customer_email:
         send_confirmation_email(order_text, customer_email)
