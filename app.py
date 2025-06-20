@@ -380,6 +380,7 @@ def api_send_order():
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
         "discount_amount": (data.get("summary") or {}).get("discountAmount"),
+        "order_number": order_number 
     }
     socketio.emit("new_order", socket_order)
 
@@ -481,6 +482,8 @@ def submit_order():
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
         "discount_amount": (data.get("summary") or {}).get("discountAmount"),
+        "order_number": order_number 
+        
     }
     socketio.emit("new_order", socket_order)
 
