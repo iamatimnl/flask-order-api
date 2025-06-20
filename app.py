@@ -119,18 +119,17 @@ def send_confirmation_email(order_text, customer_email):
         print(f"❌ Klantbevestiging-fout: {e}")
 
 def send_pos_order(order_data):
-    """Forward the order data to the POS system and return the response."""
+    """Forward the order data to the POS system."""
     try:
         response = requests.post(POS_API_URL, json=order_data)
         if response.status_code == 200:
             print("✅ POS-bestelling verzonden!")
-            return True, None, response.json()  # ✅ 返回响应体
+            return True, None
         print(f"❌ POS-response: {response.status_code} {response.text}")
-        return False, f"status {response.status_code}", None
+        return False, f"status {response.status_code}"
     except Exception as e:
         print(f"❌ POS-fout: {e}")
-        return False, str(e), None
-
+        return False, str(e)
 
 
 def record_order(order_data, pos_ok):
@@ -163,10 +162,6 @@ def record_order(order_data, pos_ok):
 def format_order_notification(data):
     """Create a readable notification message from the order payload."""
     lines = []
-    order_number = data.get("order_number")
-    if order_number:
-        lines.append(f"🧾 Bestelnummer: {order_number}")
-
     name = data.get("name")
     if name:
         lines.append(f"Naam: {name}")
@@ -326,12 +321,7 @@ def api_send_order():
 
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
-    pos_ok, pos_error, pos_response = send_pos_order(data)
-    if pos_ok and isinstance(pos_response, dict):
-    order_number = pos_response.get("order_number")
-    if order_number:
-        data["order_number"] = order_number
-
+    pos_ok, pos_error = send_pos_order(data)
     record_order(data, pos_ok)
 
     payment_link = None
@@ -380,7 +370,6 @@ def api_send_order():
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
         "discount_amount": (data.get("summary") or {}).get("discountAmount"),
-        "order_number": order_number 
     }
     socketio.emit("new_order", socket_order)
 
@@ -425,12 +414,7 @@ def submit_order():
 
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
-    pos_ok, pos_error, pos_response = send_pos_order(data)
-    if pos_ok and isinstance(pos_response, dict):
-    order_number = pos_response.get("order_number")
-    if order_number:
-        data["order_number"] = order_number
-
+    pos_ok, pos_error = send_pos_order(data)
     record_order(data, pos_ok)
 
     payment_link = None
@@ -482,8 +466,6 @@ def submit_order():
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
         "discount_amount": (data.get("summary") or {}).get("discountAmount"),
-        "order_number": order_number 
-        
     }
     socketio.emit("new_order", socket_order)
 
