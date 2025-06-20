@@ -182,6 +182,7 @@ def format_order_notification(data):
         lines.append(f"Type: {order_type}")
 
     if order_type == "bezorgen":
+        # Accept both snake_case and camelCase field names for address parts
         addr_parts = [
             data.get("street"),
             data.get("house_number") or data.get("houseNumber"),
@@ -196,23 +197,30 @@ def format_order_notification(data):
     if payment_method:
         lines.append(f"Betaling: {payment_method}")
 
-    tijdslot = (
-        data.get("tijdslot")
-        or data.get("delivery_time")
-        or data.get("deliveryTime")
-        or data.get("pickup_time")
-        or data.get("pickupTime")
-    )
-    if tijdslot:
-        tijd_label = "Bezorgtijd" if order_type == "bezorgen" else "Afhaaltijd"
-        lines.append(f"{tijd_label}: {tijdslot}")
+    # Support both snake_case and camelCase keys for time values
+    delivery_time = data.get("delivery_time") or data.get("deliveryTime")
+    pickup_time = data.get("pickup_time") or data.get("pickupTime")
+    tijdslot = data.get("tijdslot")
 
-    # Opmerking统一处理
-    final_remark = data.get("message") or data.get("opmerking") or data.get("remark")
-    if final_remark:
-        lines.append(f"Opmerking: {final_remark}")
+    if tijdslot and not delivery_time and not pickup_time:
+        if order_type == "bezorgen":
+            lines.append(f"Bezorgtijd: {tijdslot}")
+        else:
+            lines.append(f"Afhaaltijd: {tijdslot}")
+    else:
+        if delivery_time:
+            lines.append(f"Bezorgtijd: {delivery_time}")
+        if pickup_time:
+            lines.append(f"Afhaaltijd: {pickup_time}")
 
-    # Prijs信息
+    message = data.get("message")
+    if message:
+        lines.append(message)
+
+    remark = data.get("opmerking") or data.get("remark")
+    if remark and (not message or f"Opmerking: {remark}" not in message):
+        lines.append(f"Opmerking: {remark}")
+
     summary = data.get("summary") or {}
 
     def fmt(value):
@@ -221,15 +229,22 @@ def format_order_notification(data):
         except (TypeError, ValueError):
             return str(value)
 
-    subtotal = data.get("subtotal", summary.get("subtotal"))
+    # Support new top-level price fields with legacy summary fallbacks
+    subtotal = data.get("subtotal")
+    if subtotal is None:
+        subtotal = summary.get("subtotal")
     if subtotal is not None:
         lines.append(f"Subtotaal: {fmt(subtotal)}")
 
-    packaging_fee = data.get("packaging_fee", summary.get("packaging"))
+    packaging_fee = data.get("packaging_fee")
+    if packaging_fee is None:
+        packaging_fee = summary.get("packaging")
     if packaging_fee:
         lines.append(f"Verpakkingskosten: {fmt(packaging_fee)}")
 
-    delivery_fee = data.get("delivery_fee", summary.get("delivery"))
+    delivery_fee = data.get("delivery_fee")
+    if delivery_fee is None:
+        delivery_fee = summary.get("delivery")
     if delivery_fee:
         lines.append(f"Bezorgkosten: {fmt(delivery_fee)}")
 
@@ -241,15 +256,20 @@ def format_order_notification(data):
     if discount_amount:
         lines.append(f"Korting: -{fmt(discount_amount)}")
 
-    btw_amount = data.get("btw", summary.get("btw"))
+    btw_amount = data.get("btw")
+    if btw_amount is None:
+        btw_amount = summary.get("btw")
     if btw_amount is not None:
         lines.append(f"BTW: {fmt(btw_amount)}")
 
-    total = data.get("totaal", summary.get("total"))
+    total = data.get("totaal")
+    if total is None:
+        total = summary.get("total")
     if total is not None:
         lines.append(f"Totaal: {fmt(total)}")
 
     return "\n".join(lines)
+
 
 
 def _orders_overview():
