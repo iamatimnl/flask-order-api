@@ -307,7 +307,7 @@ def api_send_order():
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
 
-    order_text = format_order_notification(data)
+    order_text = data.get("message") or format_order_notification(data)
     maps_link = build_google_maps_link(data)
     if maps_link:
         order_text += f"\n📍 Google Maps: {maps_link}"
