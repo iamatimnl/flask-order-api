@@ -44,6 +44,11 @@ from reportlab.platypus import (
     TableStyle,
 )
 import eventlet
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app, origins=["https://www.novaasia.nl"])
+
 
 eventlet.monkey_patch()
 
@@ -59,7 +64,8 @@ SENDER_EMAIL = "qianchennl@gmail.com"
 SENDER_PASSWORD = "wtuyxljsjwftyzfm"
 RECEIVER_EMAIL = "qianchennl@gmail.com"
 
-app = Flask(__name__)
+
+
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
 app.config["SECRET_KEY"] = "replace-this"
