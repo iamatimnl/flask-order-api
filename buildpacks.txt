@@ -1,0 +1,1 @@
+https://github.com/render-oss/heroku-buildpack-python.git
