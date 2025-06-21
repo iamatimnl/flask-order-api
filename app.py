@@ -1,17 +1,61 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from flask_socketio import SocketIO
-import requests
+import os
+import json
+import random
+import string
 import smtplib
+from datetime import datetime, timezone
+from io import BytesIO
+from urllib.parse import quote_plus, quote
+
+import pandas as pd
+import requests
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
-from datetime import datetime
+from flask import (
+    Flask,
+    render_template,
+    request,
+    jsonify,
+    redirect,
+    url_for,
+    send_file,
+)
+from flask_cors import CORS
+from flask_socketio import SocketIO
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import (
+    LoginManager,
+    UserMixin,
+    login_user,
+    logout_user,
+    login_required,
+)
+from flask_migrate import Migrate
+from sqlalchemy import text
 from zoneinfo import ZoneInfo
-from urllib.parse import quote_plus
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.pdfgen import canvas
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+)
+import eventlet
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app, origins=["https://www.novaasia.nl"])
 
 TZ = ZoneInfo("Europe/Amsterdam")
+@app.route('/')
+def index():
+    return render_template('index.html')
 
+@app.route('/menu')
+def menu():
+    return render_template('menu.html')
 
 
 
