@@ -3,7 +3,6 @@ services:
     name: nova-asia-backend
     env: python
     buildCommand: pip install -r requirements.txt
-   
     startCommand: gunicorn --worker-class eventlet -w 1 wsgi:app
     envVars:
       - key: FLASK_ENV
@@ -28,6 +27,4 @@ services:
         value: qianchennl@gmail.com
       - key: TIKKIE_URL
         value: https://tikkie.me/pay/example
-
-       autoDeploy: true
-
+    autoDeploy: true   # ✅ 需要顶格对齐 services 的子项
