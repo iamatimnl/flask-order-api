@@ -208,9 +208,7 @@ def format_order_notification(data):
         if pickup_time:
             lines.append(f"Afhaaltijd: {pickup_time}")
 
-    message = data.get("message")
-    if message:
-        lines.append(message)
+    
 
     remark = data.get("opmerking") or data.get("remark")
     if remark and (not message or f"Opmerking: {remark}" not in message):
