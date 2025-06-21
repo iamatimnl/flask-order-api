@@ -269,7 +269,6 @@ def format_order_notification(data):
         lines.append(f"Type: {order_type}")
 
     if order_type == "bezorgen":
-        # Accept both snake_case and camelCase field names for address parts
         addr_parts = [
             data.get("street"),
             data.get("house_number") or data.get("houseNumber"),
@@ -284,7 +283,6 @@ def format_order_notification(data):
     if payment_method:
         lines.append(f"Betaling: {payment_method}")
 
-    # Support both snake_case and camelCase keys for time values
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
     pickup_time = data.get("pickup_time") or data.get("pickupTime")
     tijdslot = data.get("tijdslot")
@@ -316,7 +314,6 @@ def format_order_notification(data):
         except (TypeError, ValueError):
             return str(value)
 
-    # Support new top-level price fields with legacy summary fallbacks
     subtotal = data.get("subtotal")
     if subtotal is None:
         subtotal = summary.get("subtotal")
@@ -355,7 +352,20 @@ def format_order_notification(data):
     if total is not None:
         lines.append(f"Totaal: {fmt(total)}")
 
+    # ✅ 修复部分：格式化 items 列表
+    items = data.get("items")
+    if items:
+        lines.append("")  # 空行分隔
+        lines.append("Bestelling:")
+        for item in items:
+            menu = item.get("menu", "Onbekend item")
+            aantal = item.get("aantal", 1)
+            verpakkingskosten = item.get("verpakkingskosten", 0)
+            verpakkings_str = f" + verpakking €{verpakkingskosten:.2f}" if verpakkingskosten else ""
+            lines.append(f"- {menu} x{aantal}{verpakkings_str}")
+
     return "\n".join(lines)
+
 
 def _orders_overview():
     today = datetime.now(TZ).date()
