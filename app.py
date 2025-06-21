@@ -79,9 +79,6 @@ def menu():
     return render_template('menu.html')
 
 
-@app.route('/pos')
-def pos():
-    return render_template('pos.html')
 
 @app.route('/login')
 def login():
