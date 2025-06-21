@@ -78,9 +78,6 @@ def index():
 def menu():
     return render_template('menu.html')
 
-@app.route('/admin')
-def admin():
-    return render_template('admin.html')
 
 @app.route('/pos')
 def pos():
