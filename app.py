@@ -161,9 +161,12 @@ def to_nl(dt: datetime) -> datetime:
 def generate_order_number(length=8):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
-def send_telegram_message(order_text: str) -> bool:
+def send_telegram_message(order_text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    data = {'chat_id': CHAT_ID, 'text': order_text}
+    data = {
+        'chat_id': CHAT_ID,
+        'text': order_text
+    }
     try:
         response = requests.post(url, json=data)
         print("✅ Telegram bericht verzonden!")
@@ -172,12 +175,13 @@ def send_telegram_message(order_text: str) -> bool:
         print(f"❌ Telegram-fout: {e}")
         return False
 
-def send_email_notification(order_text: str) -> bool:
+def send_email_notification(order_text):
     subject = "Nova Asia - Nieuwe bestelling"
     msg = MIMEText(order_text, "plain", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
     msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = RECEIVER_EMAIL
+
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
@@ -189,17 +193,19 @@ def send_email_notification(order_text: str) -> bool:
         print(f"❌ Verzendfout: {e}")
         return False
 
-def send_confirmation_email(order_text: str, customer_email: str) -> None:
+def send_confirmation_email(order_text, customer_email):
+    """Send order confirmation to the customer. Errors are only logged."""
     subject = "Nova Asia - Bevestiging van je bestelling"
     html_body = (
-        "Bedankt voor je bestelling bij Nova Asia!<br><br>" +
-        order_text.replace("\n", "<br>") +
-        "<br><br>Met vriendelijke groet,<br>Nova Asia"
+        "Bedankt voor je bestelling bij Nova Asia!<br><br>"
+        + order_text.replace("\n", "<br>")
+        + "<br><br>Met vriendelijke groet,<br>Nova Asia"
     )
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
     msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = customer_email
+
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
@@ -207,9 +213,11 @@ def send_confirmation_email(order_text: str, customer_email: str) -> None:
             server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
         print("✅ Klantbevestiging verzonden!")
     except Exception as e:
+        # Failure should not affect order processing
         print(f"❌ Klantbevestiging-fout: {e}")
 
 def send_pos_order(order_data):
+    """Forward the order data to the POS system."""
     try:
         response = requests.post(POS_API_URL, json=order_data)
         if response.status_code == 200:
@@ -245,10 +253,8 @@ def record_order(order_data, pos_ok):
     })
 
 def format_order_notification(data):
+    """Create a readable notification message from the order payload."""
     lines = []
-    order_number = data.get("order_number")
-    if order_number:
-        lines.append(f"Bestelnummer: {order_number}")
     name = data.get("name")
     if name:
         lines.append(f"Naam: {name}")
@@ -258,10 +264,13 @@ def format_order_notification(data):
     email = data.get("email") or data.get("customerEmail")
     if email:
         lines.append(f"Email: {email}")
+
     order_type = data.get("orderType")
     if order_type:
         lines.append(f"Type: {order_type}")
+
     if order_type == "bezorgen":
+        # Accept both snake_case and camelCase field names for address parts
         addr_parts = [
             data.get("street"),
             data.get("house_number") or data.get("houseNumber"),
@@ -271,12 +280,16 @@ def format_order_notification(data):
         addr = " ".join(str(p) for p in addr_parts if p)
         if addr:
             lines.append(f"Adres: {addr}")
+
     payment_method = data.get("payment_method") or data.get("paymentMethod")
     if payment_method:
         lines.append(f"Betaling: {payment_method}")
+
+    # Support both snake_case and camelCase keys for time values
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
     pickup_time = data.get("pickup_time") or data.get("pickupTime")
     tijdslot = data.get("tijdslot")
+
     if tijdslot and not delivery_time and not pickup_time:
         if order_type == "bezorgen":
             lines.append(f"Bezorgtijd: {tijdslot}")
@@ -287,49 +300,62 @@ def format_order_notification(data):
             lines.append(f"Bezorgtijd: {delivery_time}")
         if pickup_time:
             lines.append(f"Afhaaltijd: {pickup_time}")
+
     message = data.get("message")
     if message:
         lines.append(message)
+
     remark = data.get("opmerking") or data.get("remark")
     if remark and (not message or f"Opmerking: {remark}" not in message):
         lines.append(f"Opmerking: {remark}")
+
     summary = data.get("summary") or {}
+
     def fmt(value):
         try:
             return f"€{float(value):.2f}"
         except (TypeError, ValueError):
             return str(value)
+
+    # Support new top-level price fields with legacy summary fallbacks
     subtotal = data.get("subtotal")
     if subtotal is None:
         subtotal = summary.get("subtotal")
     if subtotal is not None:
         lines.append(f"Subtotaal: {fmt(subtotal)}")
+
     packaging_fee = data.get("packaging_fee")
     if packaging_fee is None:
         packaging_fee = summary.get("packaging")
     if packaging_fee:
         lines.append(f"Verpakkingskosten: {fmt(packaging_fee)}")
+
     delivery_fee = data.get("delivery_fee")
     if delivery_fee is None:
         delivery_fee = summary.get("delivery")
     if delivery_fee:
         lines.append(f"Bezorgkosten: {fmt(delivery_fee)}")
+
     tip = data.get("tip")
     if tip:
         lines.append(f"Fooi: {fmt(tip)}")
+
     discount_amount = summary.get("discountAmount")
     if discount_amount:
         lines.append(f"Korting: -{fmt(discount_amount)}")
+
     btw_amount = data.get("btw")
     if btw_amount is None:
         btw_amount = summary.get("btw")
     if btw_amount is not None:
         lines.append(f"BTW: {fmt(btw_amount)}")
+
     total = data.get("totaal")
     if total is None:
         total = summary.get("total")
     if total is not None:
         lines.append(f"Totaal: {fmt(total)}")
+
     return "\n".join(lines)
 
 def _orders_overview():
