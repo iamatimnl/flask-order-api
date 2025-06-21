@@ -1,0 +1,8 @@
+<!doctype html>
+<title>Login</title>
+{% if error %}<p style="color:red;">Invalid credentials</p>{% endif %}
+<form method="post">
+  <input name="username" placeholder="Username">
+  <input name="password" type="password" placeholder="Password">
+  <button type="submit">Login</button>
+</form>

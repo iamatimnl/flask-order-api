@@ -7,3 +7,6 @@ eventlet==0.33.3
 reportlab==4.1.0
 pandas==2.2.2
 xlsxwriter==3.2.0
+Flask-SQLAlchemy==3.1.1
+Flask-Login==0.6.3
+Flask-Migrate==4.0.5

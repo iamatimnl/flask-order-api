@@ -1,0 +1,12 @@
+<!doctype html>
+<title>Orders</title>
+<table>
+<tr><th>ID</th><th>Customer</th><th>Total</th></tr>
+{% for entry in order_data %}
+<tr>
+  <td>{{ entry.order.id }}</td>
+  <td>{{ entry.order.customer_name }}</td>
+  <td>{{ entry.totaal }}</td>
+</tr>
+{% endfor %}
+</table>
