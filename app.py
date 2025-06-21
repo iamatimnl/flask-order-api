@@ -10,6 +10,9 @@ from urllib.parse import quote_plus, quote
 
 import pandas as pd
 import requests
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+import time
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
@@ -161,6 +164,23 @@ def to_nl(dt: datetime) -> datetime:
 def generate_order_number(length=8):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
 
+def _requests_session_with_retries(retries=3, backoff_factor=0.5, status=(500, 502, 503, 504)):
+    session = requests.Session()
+    retry = Retry(
+        total=retries,
+        read=retries,
+        connect=retries,
+        backoff_factor=backoff_factor,
+        status_forcelist=status,
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    return session
+
+_SESSION = _requests_session_with_retries()
+
 def send_telegram_message(order_text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     data = {
@@ -168,7 +188,7 @@ def send_telegram_message(order_text):
         'text': order_text
     }
     try:
-        response = requests.post(url, json=data)
+        response = _SESSION.post(url, json=data, timeout=10)
         print("✅ Telegram bericht verzonden!")
         return response.status_code == 200
     except Exception as e:
@@ -182,16 +202,19 @@ def send_email_notification(order_text):
     msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = RECEIVER_EMAIL
 
-    try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, [RECEIVER_EMAIL], msg.as_string())
-        print("✅ E-mail verzonden!")
-        return True
-    except Exception as e:
-        print(f"❌ Verzendfout: {e}")
-        return False
+    for attempt in range(3):
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+                server.starttls()
+                server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                server.sendmail(SENDER_EMAIL, [RECEIVER_EMAIL], msg.as_string())
+            print("✅ E-mail verzonden!")
+            return True
+        except Exception as e:
+            print(f"❌ Verzendfout: {e}")
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+    return False
 
 def send_confirmation_email(order_text, customer_email):
     """Send order confirmation to the customer. Errors are only logged."""
@@ -206,20 +229,23 @@ def send_confirmation_email(order_text, customer_email):
     msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = customer_email
 
-    try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
-        print("✅ Klantbevestiging verzonden!")
-    except Exception as e:
-        # Failure should not affect order processing
-        print(f"❌ Klantbevestiging-fout: {e}")
+    for attempt in range(3):
+        try:
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as server:
+                server.starttls()
+                server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
+            print("✅ Klantbevestiging verzonden!")
+            return
+        except Exception as e:
+            print(f"❌ Klantbevestiging-fout: {e}")
+            if attempt < 2:
+                time.sleep(2 ** attempt)
 
 def send_pos_order(order_data):
     """Forward the order data to the POS system."""
     try:
-        response = requests.post(POS_API_URL, json=order_data)
+        response = _SESSION.post(POS_API_URL, json=order_data, timeout=10)
         if response.status_code == 200:
             print("✅ POS-bestelling verzonden!")
             return True, None
