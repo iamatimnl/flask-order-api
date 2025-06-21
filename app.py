@@ -44,7 +44,6 @@ from reportlab.platypus import (
     TableStyle,
 )
 import eventlet
-from flask import Flask, render_template
 
 eventlet.monkey_patch()
 
@@ -416,9 +415,6 @@ def generate_pdf_today():
     return buffer
 
 # === Routes ===
-@app.route('/')
-def home():
-    return render_template('index.html')
 
 @app.route('/api/orders/today', methods=['GET'])
 @app.route('/api/orders', methods=['GET'])
