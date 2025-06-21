@@ -211,7 +211,7 @@ def format_order_notification(data):
     
 
     remark = data.get("opmerking") or data.get("remark")
-    if remark and (not message or f"Opmerking: {remark}" not in message):
+    if remark:
         lines.append(f"Opmerking: {remark}")
 
     summary = data.get("summary") or {}
