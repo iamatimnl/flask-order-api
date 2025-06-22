@@ -257,7 +257,7 @@ def format_order_notification(data):
     if btw_amount is None:
         btw_amount = summary.get("btw")
     if btw_amount is not None:
-        lines.append(f"BTW: {fmt(btw_amount)}")
+        lines.append(f"BTW(9%): {fmt(btw_amount)}")
 
     total = data.get("totaal")
     if total is None:
