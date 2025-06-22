@@ -154,7 +154,6 @@ def record_order(order_data, pos_ok):
         # Use snake_case for time fields when storing orders
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
-        "order_number": order_data.get("order_number") or order_data.get("orderNumber"),
         "pos_ok": pos_ok,
         "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total")  # ✅ 添加这行
     })
@@ -163,9 +162,6 @@ def record_order(order_data, pos_ok):
 def format_order_notification(data):
     """Create a readable notification message from the order payload."""
     lines = []
-    order_number = data.get("order_number") or data.get("orderNumber")
-    if order_number:
-        lines.append(f"🧾 Bestelnummer: {order_number}")
     name = data.get("name")
     if name:
         lines.append(f"Naam: {name}")
@@ -291,7 +287,6 @@ def _orders_overview():
                 "totaal": entry.get("totaal"),
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
-                "order_number": entry.get("order_number") or entry.get("orderNumber"),
             })
     return overview
 
@@ -357,7 +352,6 @@ def api_send_order():
         "email": data.get("email", ""),
         "payment_method": payment_method,
         "items": data.get("items", {}),
-        "order_number": data.get("order_number") or data.get("orderNumber"),
         "street": data.get("street", ""),
         "house_number": data.get("houseNumber", ""),
         "postcode": data.get("postcode", ""),
@@ -452,7 +446,6 @@ def submit_order():
         "email": data.get("email", ""),
         "payment_method": payment_method,
         "items": data.get("items", {}),
-        "order_number": data.get("order_number") or data.get("orderNumber"),
         "street": data.get("street", ""),
         "house_number": data.get("houseNumber", ""),
         "postcode": data.get("postcode", ""),
