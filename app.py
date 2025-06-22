@@ -12,6 +12,13 @@ from urllib.parse import quote_plus
 
 TZ = ZoneInfo("Europe/Amsterdam")
 
+
+
+
+
+
+POS_API_URL = "https://nova-asia.onrender.com/api/orders"
+
 app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -26,6 +33,9 @@ SENDER_PASSWORD = "wtuyxljsjwftyzfm"
 RECEIVER_EMAIL = "qianchennl@gmail.com"
 
 # === POS 配置 ===
+# Endpoint for forwarding orders to the POS system. Replace with the actual URL.
+POS_API_URL = "https://nova-asia.onrender.com/api/orders"
+
 TIKKIE_PAYMENT_LINK = "https://tikkie.me/pay/example"
 
 # In-memory log of orders for today's overview
@@ -108,8 +118,21 @@ def send_confirmation_email(order_text, customer_email):
         # Failure should not affect order processing
         print(f"❌ Klantbevestiging-fout: {e}")
 
+def send_pos_order(order_data):
+    """Forward the order data to the POS system."""
+    try:
+        response = requests.post(POS_API_URL, json=order_data)
+        if response.status_code == 200:
+            print("✅ POS-bestelling verzonden!")
+            return True, None
+        print(f"❌ POS-response: {response.status_code} {response.text}")
+        return False, f"status {response.status_code}"
+    except Exception as e:
+        print(f"❌ POS-fout: {e}")
+        return False, str(e)
 
-def record_order(order_data):
+
+def record_order(order_data, pos_ok):
     """Store a simplified snapshot of the order for today's overview."""
     pickup_time = order_data.get("pickup_time") or order_data.get("pickupTime")
     delivery_time = order_data.get("delivery_time") or order_data.get("deliveryTime")
@@ -131,6 +154,7 @@ def record_order(order_data):
         # Use snake_case for time fields when storing orders
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
+        "pos_ok": pos_ok,
         "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total")  # ✅ 添加这行
     })
 
@@ -259,6 +283,7 @@ def _orders_overview():
                 "paymentMethod": entry.get("paymentMethod"),
                 "orderType": entry.get("orderType"),
                 "opmerking": entry.get("opmerking") or entry.get("remark"),
+                "pos_ok": entry.get("pos_ok"),
                 "totaal": entry.get("totaal"),
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
@@ -294,7 +319,8 @@ def api_send_order():
 
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
-    record_order(data)
+    pos_ok, pos_error = send_pos_order(data)
+    record_order(data, pos_ok)
 
     payment_link = None
     if payment_method and payment_method != "cash":
@@ -314,7 +340,38 @@ def api_send_order():
             else:
                 pickup_time = tijdslot
 
-    if telegram_ok and email_ok:
+    socket_order = {
+        "message": message,
+        "opmerking": remark,
+        "customer_name": data.get("name", ""),
+        "order_type": data.get("orderType", ""),
+        "created_at": data["created_at"],
+        "created_date": created_date,
+        "time": created_time,
+        "phone": data.get("phone", ""),
+        "email": data.get("email", ""),
+        "payment_method": payment_method,
+        "items": data.get("items", {}),
+        "street": data.get("street", ""),
+        "house_number": data.get("houseNumber", ""),
+        "postcode": data.get("postcode", ""),
+        "city": data.get("city", ""),
+        "maps_link": maps_link,
+        "google_maps_link": maps_link,
+        "delivery_time": delivery_time,
+        "pickup_time": pickup_time,
+        "tijdslot": tijdslot,
+        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
+        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
+        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
+        "tip": data.get("tip"),
+        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+        "discount_amount": (data.get("summary") or {}).get("discountAmount"),
+    }
+    socketio.emit("new_order", socket_order)
+
+    if telegram_ok and email_ok and pos_ok:
         resp = {"status": "ok"}
         if payment_link:
             resp["paymentLink"] = payment_link
@@ -324,6 +381,8 @@ def api_send_order():
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
     if not email_ok:
         return jsonify({"status": "fail", "error": "E-mailfout"}), 500
+    if not pos_ok:
+        return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
@@ -353,7 +412,8 @@ def submit_order():
 
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
-    record_order(data)
+    pos_ok, pos_error = send_pos_order(data)
+    record_order(data, pos_ok)
 
     payment_link = None
     if payment_method and payment_method != "cash":
@@ -374,7 +434,40 @@ def submit_order():
             else:
                 pickup_time = tijdslot
 
-    if telegram_ok and email_ok:
+    socket_order = {
+        "message": message,
+        "opmerking": remark,
+        "customer_name": data.get("name", ""),
+        "order_type": data.get("orderType", ""),
+        "created_at": data["created_at"],
+        "created_date": created_date,
+        "time": created_time,
+        "phone": data.get("phone", ""),
+        "email": data.get("email", ""),
+        "payment_method": payment_method,
+        "items": data.get("items", {}),
+        "street": data.get("street", ""),
+        "house_number": data.get("houseNumber", ""),
+        "postcode": data.get("postcode", ""),
+        "city": data.get("city", ""),
+        "maps_link": maps_link,                 # ✅ 前端想要的字段名
+        "google_maps_link": maps_link,         # （可选）保留原字段用于后续兼容或调试
+        # Emit snake_case keys for frontend templates
+        "delivery_time": delivery_time,
+        "pickup_time": pickup_time,
+        "tijdslot": tijdslot,
+        # Order pricing fields (new checkout data)
+        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
+        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
+        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
+        "tip": data.get("tip"),
+        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+        "discount_amount": (data.get("summary") or {}).get("discountAmount"),
+    }
+    socketio.emit("new_order", socket_order)
+
+    if telegram_ok and email_ok and pos_ok:
         resp = {"status": "ok"}
         if payment_link:
             resp["paymentLink"] = payment_link
@@ -384,6 +477,8 @@ def submit_order():
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
     if not email_ok:
         return jsonify({"status": "fail", "error": "E-mailfout"}), 500
+    if not pos_ok:
+        return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
