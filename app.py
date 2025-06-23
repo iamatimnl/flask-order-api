@@ -161,8 +161,8 @@ def record_order(order_data, pos_ok):
 
 
 def format_order_notification(data):
-    """Create a readable notification message from the order payload."""
     lines = []
+
     order_number = data.get("order_number") or data.get("orderNumber")
     if order_number:
         lines.append(f"Ordernr: {order_number}")
@@ -175,13 +175,10 @@ def format_order_notification(data):
     email = data.get("email") or data.get("customerEmail")
     if email:
         lines.append(f"Email: {email}")
-
     order_type = data.get("orderType")
     if order_type:
         lines.append(f"Type: {order_type}")
-
     if order_type == "bezorgen":
-        # Accept both snake_case and camelCase field names for address parts
         addr_parts = [
             data.get("street"),
             data.get("house_number") or data.get("houseNumber"),
@@ -196,11 +193,9 @@ def format_order_notification(data):
     if payment_method:
         lines.append(f"Betaling: {payment_method}")
 
-    # Support both snake_case and camelCase keys for time values
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
     pickup_time = data.get("pickup_time") or data.get("pickupTime")
     tijdslot = data.get("tijdslot")
-
     if tijdslot and not delivery_time and not pickup_time:
         if order_type == "bezorgen":
             lines.append(f"Bezorgtijd: {tijdslot}")
@@ -212,18 +207,20 @@ def format_order_notification(data):
         if pickup_time:
             lines.append(f"Afhaaltijd: {pickup_time}")
 
-    
-
     remark = data.get("opmerking") or data.get("remark")
     if remark:
         lines.append(f"Opmerking: {remark}")
 
     items = data.get("items", {})
     if items:
-        lines.append("Bestelde items:")
+        lines.append("\nBestelde items:")
+        lines.append("+---------------------------+--------+")
+        lines.append("| Item                      | Aantal |")
+        lines.append("+---------------------------+--------+")
         for name, item in items.items():
-             qty = item.get("qty", 1)
-             lines.append(f"- {name} x {qty}")
+            qty = item.get("qty", 1)
+            lines.append(f"| {name:<25} | {qty:^6} |")
+        lines.append("+---------------------------+--------+")
 
     summary = data.get("summary") or {}
 
@@ -233,46 +230,22 @@ def format_order_notification(data):
         except (TypeError, ValueError):
             return str(value)
 
-    # Support new top-level price fields with legacy summary fallbacks
-    subtotal = data.get("subtotal")
-    if subtotal is None:
-        subtotal = summary.get("subtotal")
-    if subtotal is not None:
-        lines.append(f"Subtotaal: {fmt(subtotal)}")
+    fields = [
+        ("Subtotaal", data.get("subtotal") or summary.get("subtotal")),
+        ("Verpakkingskosten", data.get("packaging_fee") or summary.get("packaging")),
+        ("Bezorgkosten", data.get("delivery_fee") or summary.get("delivery")),
+        ("Fooi", data.get("tip")),
+        ("Korting", summary.get("discountAmount")),
+        ("BTW", data.get("btw") or summary.get("btw")),
+        ("Totaal", data.get("totaal") or summary.get("total")),
+    ]
 
-    packaging_fee = data.get("packaging_fee")
-    if packaging_fee is None:
-        packaging_fee = summary.get("packaging")
-    if packaging_fee:
-        lines.append(f"Verpakkingskosten: {fmt(packaging_fee)}")
-
-    delivery_fee = data.get("delivery_fee")
-    if delivery_fee is None:
-        delivery_fee = summary.get("delivery")
-    if delivery_fee:
-        lines.append(f"Bezorgkosten: {fmt(delivery_fee)}")
-
-    tip = data.get("tip")
-    if tip:
-        lines.append(f"Fooi: {fmt(tip)}")
-
-    discount_amount = summary.get("discountAmount")
-    if discount_amount:
-        lines.append(f"Korting: -{fmt(discount_amount)}")
-
-    btw_amount = data.get("btw")
-    if btw_amount is None:
-        btw_amount = summary.get("btw")
-    if btw_amount is not None:
-        lines.append(f"BTW(9%): {fmt(btw_amount)}")
-
-    total = data.get("totaal")
-    if total is None:
-        total = summary.get("total")
-    if total is not None:
-        lines.append(f"Totaal: {fmt(total)}")
+    for label, value in fields:
+        if value is not None:
+            lines.append(f"{label}: {fmt(value)}")
 
     return "\n".join(lines)
+
 
 
 
