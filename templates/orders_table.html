@@ -68,7 +68,7 @@ th:last-child {
           </ul>
         </td>
        <td>{{ order.opmerking or '-' }}</td>
-       <td>{{ '%.2f' % (order.total or 0) }}</td>
+       <td>€{{ '%.2f' % (order.subtotaal or 0) }}</td>
         <td>€{{ '%.2f' % (order.totaal or 0) }}</td>
 
         <td>
