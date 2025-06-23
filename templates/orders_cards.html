@@ -1,0 +1,100 @@
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  .sections { display: flex; flex-direction: column; gap: 20px; }
+  @media (min-width: 768px){ .sections { flex-direction: row; align-items: flex-start; } }
+  .status-section { flex: 1; background:#fafafa; padding:10px; border-radius:8px; }
+  .status-section h2 { margin-top:0; font-size:1.2rem; text-align:center; }
+  .order-card { border:1px solid #ddd; border-radius:8px; padding:10px; margin-bottom:10px; background:#fff; position:relative; box-shadow:0 1px 3px rgba(0,0,0,0.1); }
+  .order-card .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .order-card .customer{font-weight:bold;}
+  .order-card .time{font-size:1.2rem;font-weight:bold;}
+  .order-card .items { overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; font-size:0.9rem; margin-top:6px; }
+  .label-delivery { color:red; font-weight:bold; }
+  .label-pickup { color:green; font-weight:bold; }
+  .remark-btn { position:absolute; top:8px; right:8px; cursor:pointer; background:none; border:none; font-size:1.1rem; }
+  .status-btn{margin-top:8px;}
+  .highlight { animation: highlightBlink 1s ease-in-out; animation-iteration-count:10; }
+  @keyframes highlightBlink {0%,100%{background:#eaffea;}50%{background:#fff;}}
+</style>
+<div class="sections">
+  <div class="status-section" id="sec-new">
+    <h2>🟥 New Orders</h2>
+    <div class="cards"></div>
+  </div>
+  <div class="status-section" id="sec-progress">
+    <h2>🟨 In Progress</h2>
+    <div class="cards"></div>
+  </div>
+  <div class="status-section" id="sec-ready">
+    <h2>🟩 Ready for Pickup / Delivery</h2>
+    <div class="cards"></div>
+  </div>
+</div>
+<script>
+const sections={
+  'new': document.querySelector('#sec-new .cards'),
+  'in_progress': document.querySelector('#sec-progress .cards'),
+  'ready': document.querySelector('#sec-ready .cards')
+};
+const beepAudio=new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YRAAAAAA');
+function beep(){try{beepAudio.currentTime=0;beepAudio.play();}catch(e){}
+}
+function cardCount(){return document.querySelectorAll('.order-card').length;}
+function updateBadge(){document.querySelectorAll('.today-badge').forEach(b=>{b.textContent=hasNewOrder?'New':cardCount();});}
+function createCard(o,highlight){
+  const card=document.createElement('div');
+  card.className='order-card';
+  card.dataset.id=o.id;
+  card.dataset.status=o.status||'new';
+  const isDelivery=['delivery','bezorgen'].includes(o.order_type||o.orderType);
+  const items=Object.entries(o.items||{}).map(([n,i])=>`${n} x ${i.qty}`).join(', ');
+  card.innerHTML=`
+    <div class="header">
+      <div class="order-num"><strong>${o.order_number||''}</strong></div>
+      <div class="customer">${o.customer_name||''}</div>
+    </div>
+    <div class="time">${o.delivery_time||o.pickup_time||''}</div>
+    <div class="${isDelivery?'label-delivery':'label-pickup'}">${isDelivery?'Bezorging':'Afhalen'}</div>
+    <div class="items">${items}</div>
+    <button class="remark-btn">${o.opmerking?'💬':''}</button>
+    <button class="status-btn"></button>`;
+
+  const btn=card.querySelector('.status-btn');
+  function setBtn(){
+    if(card.dataset.status==='new'){btn.textContent='Start';}
+    else if(card.dataset.status==='in_progress'){btn.textContent='Ready';}
+    else{btn.textContent='Done';btn.disabled=true;}
+  }
+  setBtn();
+  btn.addEventListener('click',()=>{
+    const next=card.dataset.status==='new'?'in_progress':'ready';
+    card.dataset.status=next;
+    sections[next].appendChild(card);
+    setBtn();
+    fetch(`/api/orders/${card.dataset.id}/status`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({status:next})
+    });
+    updateBadge();
+  });
+  if(o.opmerking){
+    card.querySelector('.remark-btn').addEventListener('click',()=>alert(o.opmerking));
+  }
+  if(highlight){
+    card.classList.add('highlight');
+    setTimeout(()=>card.classList.remove('highlight'),10000);
+    beep();
+  }
+  sections[card.dataset.status].appendChild(card);
+}
+function loadOrders(){fetch('/pos/orders_today?json=1').then(r=>r.json()).then(data=>{Object.values(sections).forEach(s=>s.innerHTML='');data.forEach(o=>createCard(o,false));updateBadge();});}
+const socket=io(location.origin,{transports:['websocket']});let pollTimer;let hasNewOrder=false;
+socket.on('disconnect',()=>{startPolling();});
+socket.on('connect',()=>{stopPolling();});
+socket.on('connect_error',()=>{startPolling();setTimeout(()=>socket.connect(),1000);});
+socket.on('new_order',o=>{hasNewOrder=true;createCard(o,true);updateBadge();if(confirm('Nieuwe bestelling ontvangen!')){const el=document.querySelector(`.order-card[data-id="${o.id}"]`);if(el){el.scrollIntoView({behavior:'smooth',block:'center'});}hasNewOrder=false;updateBadge();}});
+function startPolling(){if(pollTimer)return;loadOrders();pollTimer=setInterval(loadOrders,10000);}
+function stopPolling(){if(pollTimer){clearInterval(pollTimer);pollTimer=null;}}
+loadOrders();
+</script>
