@@ -4,6 +4,48 @@
     max-width: 100%;
   }
 
+.orders-wrapper {
+    overflow-x: auto;
+    display: block;
+    width: 100%;
+    max-width: 100vw;
+  }
+
+  table.orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1200px;
+  }
+
+  .orders-table th, .orders-table td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    white-space: nowrap;
+    text-align: left;
+  }
+
+  .orders-table thead {
+    background-color: #f9f9f9;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  td:last-child,
+  th:last-child {
+    padding-right: 20px;
+  }
+
+  .type-bezorging {
+    color: red;
+    font-weight: bold;
+  }
+
+  .type-afhalen {
+    color: green;
+    font-weight: bold;
+  }
+  
   table.orders-table {
     width: 100%;
     border-collapse: collapse;
@@ -42,7 +84,7 @@ th:last-child {
        <th>Email</th>
        <th>Items</th>
        <th>Opmerking</th>
-       <th>Subtotaal</th>
+       <th>Fooi</th>
        <th>Totaal</th>
        <th>Adres</th>
        <th>Tijdslot</th>
@@ -56,7 +98,11 @@ th:last-child {
         <td>{{ order.created_at_local.strftime('%Y-%m-%d') }}</td>
         <td>{{ order.created_at_local.strftime('%H:%M') }}</td>
         {% set is_delivery = order.order_type in ['delivery', 'bezorgen'] %}
-        <td>{{ 'Bezorgen' if is_delivery else 'Afhalen' }}</td>
+        <td>
+          <span class="{{ 'type-bezorging' if is_delivery else 'type-afhalen' }}">
+            {{ 'Bezorging' if is_delivery else 'Afhalen' }}
+          </span>
+        </td>
         <td>{{ order.customer_name or '' }}</td>
         <td>{{ order.phone or '' }}</td>
         <td>{{ order.email or '-' }}</td>
@@ -68,7 +114,8 @@ th:last-child {
           </ul>
         </td>
        <td>{{ order.opmerking or '-' }}</td>
-       <td>€{{ '%.2f' % (order.subtotaal or 0) }}</td>
+       <td>€{{ '%.2f' % (order.fooi or order.tip or 0) }}</td>
+
         <td>€{{ '%.2f' % (order.totaal or 0) }}</td>
 
         <td>
