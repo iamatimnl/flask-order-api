@@ -20,6 +20,19 @@ th:last-child {
   padding-right: 20px;
 }
 
+.type-bezorging { color: red; font-weight: bold; }
+.type-afhalen { color: green; font-weight: bold; }
+
+/* 新订单动画效果 */
+.new-order {
+  animation: highlightBlink 1s ease-in-out;
+  animation-iteration-count: 10;
+}
+@keyframes highlightBlink {
+  0%,100% { background-color: #eaffea; }
+  50% { background-color: #fff; }
+}
+
   </style>
 </head>
 <body>
@@ -50,7 +63,7 @@ th:last-child {
       <td>{{ order.order_number or '' }}</td>
       
       {% set is_delivery = order.order_type in ['delivery', 'bezorgen'] %}
-      <td>{{ 'Bezorgen' if is_delivery else 'Afhalen' }}</td>
+      <td><span class="{{ 'type-bezorging' if is_delivery else 'type-afhalen' }}">{{ 'Bezorging' if is_delivery else 'Afhalen' }}</span></td>
 
       <td>{{ order.customer_name or '' }}</td>
       <td>{{ order.phone or '' }}</td>
@@ -100,7 +113,7 @@ th:last-child {
     socket.on('connect_error',()=>{setTimeout(()=>socket.connect(),1000);});
     socket.on('disconnect', startPolling);
     socket.on('connect', stopPolling);
-    function formatCurrency(value) {
+function formatCurrency(value) {
   if (typeof value === 'string') {
     value = value.replace(/[^\d,.-]/g, '').replace(',', '.').trim();
   }
@@ -108,10 +121,55 @@ th:last-child {
   return isNaN(num) ? "€0.00" : `€${num.toFixed(2)}`;
 }
 
+function pad(num) {
+  return num.toString().padStart(2, '0');
+}
+
+// 声音提示
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function beep(){
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(660, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.2);
+}
+
+function parseTimeToMinutes(str){
+  if(!str) return Infinity;
+  const p=str.split(':');
+  const h=parseInt(p[0],10);
+  const m=parseInt(p[1],10);
+  if(isNaN(h)||isNaN(m)) return Infinity;
+  return h*60+m;
+}
+
+function getSortKey(order){
+  const isDelivery=['delivery','bezorgen'].includes(order.order_type);
+  const t=isDelivery ? (order.delivery_time||order.deliveryTime) : (order.pickup_time||order.pickupTime);
+  return parseTimeToMinutes(t);
+}
+
+function insertSorted(tbody,tr){
+  const val=parseFloat(tr.dataset.sortKey);
+  const rows=Array.from(tbody.querySelectorAll('tr'));
+  for(const row of rows){
+    if(parseFloat(row.dataset.sortKey)>val){
+      tbody.insertBefore(tr,row);
+      return;
+    }
+  }
+  tbody.appendChild(tr);
+}
+
      
 
 
-    function addRow(order) {
+    function addRow(order, highlight=false) {
   const tbody = document.querySelector('table tbody');
   const tr = document.createElement('tr');
   const isDelivery = ['delivery','bezorgen'].includes(order.order_type);
@@ -136,9 +194,19 @@ th:last-child {
   const pickup = order.pickup_time || order.pickupTime;
   const delivery = order.delivery_time || order.deliveryTime;
 
+  let time = order.created_at || '';
+  if (time && time.length > 5) {
+    if (time.includes('T')) {
+      const d = new Date(time);
+      if (!isNaN(d)) time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } else if (time.includes(' ')) {
+      time = time.split(' ')[1].slice(0,5);
+    }
+  }
+
   tr.innerHTML = `
   <td>${order.created_date || ''}</td>
-  <td>${order.created_at || ''}</td>
+
   <td>${isDelivery ? 'Bezorgen' : 'Afhalen'}</td>
   <td>${order.customer_name || ''}</td>
   <td>${order.phone || ''}</td>
@@ -152,9 +220,14 @@ th:last-child {
   <td>${order.order_number || ''}</td>
 `;
 
-
-
-  tbody.prepend(tr);
+  tr.dataset.sortKey = getSortKey(order);
+  if(highlight){
+    tr.classList.add('new-order');
+    setTimeout(()=>tr.classList.remove('new-order'),10000);
+    beep();
+  }
+  insertSorted(tbody, tr);
+  return tr;
 }
 
     socket.on('new_order', order => {
@@ -162,7 +235,10 @@ th:last-child {
       if(!('totaal' in order) && !('total' in order)){
         console.warn('⚠️ totaal 字段缺失，请联系后端');
       }
-      addRow(order);
+      const row = addRow(order, true);
+      if(confirm('Nieuwe bestelling ontvangen!')){
+        if(row) row.scrollIntoView({behavior:'smooth', block:'center'});
+      }
     });
 
     function fetchOrders(){
@@ -170,7 +246,7 @@ th:last-child {
         const tbody = document.querySelector('table tbody');
         if(!tbody) return;
         tbody.innerHTML='';
-        data.forEach(addRow);
+        data.sort((a,b)=>getSortKey(a)-getSortKey(b)).forEach(o=>addRow(o));
       }).catch(()=>{});
     }
 
@@ -189,3 +265,4 @@ th:last-child {
   </script>
 </body>
 </html>
+
