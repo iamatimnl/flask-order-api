@@ -1099,7 +1099,8 @@ function formatCurrency(value){
         <td>${order.email || '-'}</td>
         <td><ul>${items}</ul></td>
         <td>${remark || '-'}</td>
-        <td>${subtotal.toFixed(2)}</td>
+        <td>&euro;${subtotal.toFixed(2)}</td>
+
         <td>€${parseFloat(order.totaal).toFixed(2)}</td>
         <td>${isDelivery ? `${order.street} ${order.house_number} ${order.postcode} ${order.city}${order.maps_link ? ` <a href="${order.maps_link}" target="_blank">📍Maps</a>` : ''}` : '-'}</td>
         <td>${isDelivery ? (delivery || '-') : (pickup || '-')}</td>
