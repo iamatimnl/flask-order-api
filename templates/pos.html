@@ -87,6 +87,10 @@
   transition: all 0.2s ease-in-out;
   cursor: pointer;
   font-size: 1rem;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000;
 }
 .today-btn:hover {
   background: linear-gradient(to bottom, #b2eadd, #86dcc3);
@@ -225,20 +229,20 @@
   }
   .orders-slide {
     position: fixed;
-    left: -95%;
-    top: 60px;
-    height: calc(100vh - 60px);
-    width: 90%;
-    max-width: 1200px;
-    background: rgba(255,255,255,0.7);
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.95);
     backdrop-filter: blur(8px);
     overflow: auto;
-    transition: left 0.3s;
-    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+    z-index: 9999;
     padding: 10px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.12);
   }
-  .orders-slide.visible { left: 5%; }
+  .orders-slide.visible { transform: translateX(0); }
   .orders-panel table { width:100%; border-collapse: collapse; }
   @media (max-width: 768px) {
     .orders-panel table { display:block; overflow-x:auto; white-space:nowrap; }
@@ -379,7 +383,7 @@
   background: #fff;
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
   font-size: 1.4rem;
-  z-index: 1100;
+  z-index: 10000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -423,8 +427,7 @@
   }
   @media (max-width: 768px) {
     .cart-toggle { display: block; }
-    .today-toggle { display: block; }
-    .today-btn { display: none; }
+  
     .cart-panel {
       position: fixed;
       inset: 0;
@@ -444,6 +447,32 @@
   white-space: nowrap;
   padding: 8px;
 }
+/* 默认隐藏圆按钮 */
+.today-toggle {
+  display: none;
+}
+
+/* 手机显示圆按钮，隐藏长按钮 */
+@media (max-width: 768px) {
+  .today-btn { display: none; }
+  .today-toggle { display: flex; }
+}
+
+/* 🔔 新订单闪烁效果 */
+.new-order {
+  animation: highlightBlink 1s ease-in-out;
+  animation-iteration-count: 10;
+}
+@keyframes highlightBlink {
+  0%,100% { background-color: #eaffea; }
+  50% { background-color: #fff; }
+}
+
+/* 桌面显示长按钮，确保隐藏圆按钮 */
+@media (min-width: 768px) {
+  .today-btn { display: block; }
+  .today-toggle { display: none; }
+}
 
   
 </style>
@@ -460,7 +489,6 @@
       <a href="#snack">Snack</a>
       <a href="#vegan">Vegan</a>
     </div>
-    <button id="toggleToday" class="today-btn">Bestellingen Vandaag</button>
     <div class="indicator" id="indicator"></div>
   </nav>
 </div>
@@ -575,10 +603,14 @@
   </div>
 </div>
 <button id="cartToggle" class="cart-toggle">🛒<span id="cartCount" class="badge">0</span></button>
-<<button id="todayToggleMobile" class="today-toggle">
+<button id="toggleToday" class="today-btn">
+  Bestelling Vandaag
+  <span class="badge-text-only today-badge"></span>
+</button>
+<button id="todayToggleMobile" class="today-toggle">
   <span class="emoji-wrapper">
     📋
-    <span id="todayBadge" class="badge-text-only">3</span>
+    <span class="badge-text-only today-badge"></span>
   </span>
 </button>
 
@@ -744,7 +776,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
   document.getElementById('discountType').addEventListener('change',updateCart);
   document.getElementById('discountValue').addEventListener('input',updateCart);
-  document.getElementById('toggleToday').addEventListener('click',toggleToday);
+  const toggleTodayBtn = document.getElementById('toggleToday');
+  if (toggleTodayBtn) {
+    toggleTodayBtn.addEventListener('click', toggleToday);
+  }
   const todayToggleMobile=document.getElementById('todayToggleMobile');
   if(todayToggleMobile){
     todayToggleMobile.addEventListener('click',toggleToday);
@@ -793,9 +828,18 @@ function toggleToday(){
   if(panel.classList.contains('visible')){
     fetchOrders();
     newOrderCount = 0;
+    hasNewOrder = false;
     updateTabTitle();
   }
   updateTodayBadge();
+}
+
+function showTodayOrders(){
+  const panel=document.getElementById('todayOrders');
+  if(!panel.classList.contains('visible')){
+    panel.classList.add('visible');
+    fetchOrders();
+  }
 }
 
 function toggleAddress(){
@@ -869,6 +913,13 @@ function clearForm(){
   updateCart();
   toggleAddress();
 }
+
+function generateOrderNumber(){
+  const now = new Date();
+  const date = now.toISOString().slice(0,10).replace(/-/g,'');
+  const rand = Math.random().toString(36).substring(2,6).toUpperCase();
+  return `NV${date}-${rand}`;
+}
 function submitOrder() {
   const name = document.getElementById('custName').value.trim();
   const phone = document.getElementById('custPhone').value.trim();
@@ -918,6 +969,8 @@ function submitOrder() {
     if (qty > 0) itemsToSend[extras[id].label] = { price: 0, qty };
   });
 
+  const orderNumber = generateOrderNumber();
+
   // ✅ 获取结账明细数据
   const subtotal = Object.values(cart).reduce((sum, item) => sum + item.price * item.qty, 0);
   const packagingTotal = Object.values(cart).reduce((sum, item) => sum + (item.packaging || 0) * item.qty, 0);
@@ -962,6 +1015,7 @@ function submitOrder() {
     house_number: delivery ? document.getElementById('houseNumber').value.trim() : '',
     street: delivery ? document.getElementById('street').value.trim() : '',
     city: delivery ? document.getElementById('city').value.trim() : '',
+    order_number: orderNumber,
     items: itemsToSend,
     message: orderText,
     opmerking: remark,
@@ -979,7 +1033,7 @@ function submitOrder() {
     .then(r => r.json())
     .then(res => {
       if (res.success || res.status === 'ok') {
-        alert('Bestelling succesvol verzonden!');
+        alert('Bestelling succesvol verzonden! Bestelnummer: ' + orderNumber);
         clearForm();
         fetchOrders();
       } else {
@@ -1045,15 +1099,20 @@ function formatCurrency(value){
 
   let pollTimer;
   const baseTitle = document.title;
-  let newOrderCount = 0;
+  let newOrderCount = 0; // unseen orders for title
+  let hasNewOrder = false;
   function updateTabTitle(){
     document.title = newOrderCount ? `${baseTitle} (${newOrderCount})` : baseTitle;
   }
+  function getOrderCount(){
+    const tbody = document.querySelector('.orders-panel tbody');
+    return tbody ? tbody.children.length : 0;
+  }
   function updateTodayBadge(){
-    const badge=document.getElementById('todayBadge');
-    if(badge){
-      badge.textContent = newOrderCount > 0 ? newOrderCount : '';
-    }
+    const count = getOrderCount();
+    document.querySelectorAll('.today-badge').forEach(badge => {
+      badge.textContent = hasNewOrder ? 'New' : count;
+    });
   }
 
   // 音效播放
@@ -1070,8 +1129,36 @@ function formatCurrency(value){
     osc.stop(audioCtx.currentTime + 0.2);
   }
 
+  function parseTimeToMinutes(str){
+    if(!str) return Infinity;
+    const parts = str.split(':');
+    const h = parseInt(parts[0],10);
+    const m = parseInt(parts[1],10);
+    if(isNaN(h) || isNaN(m)) return Infinity;
+    return h*60+m;
+  }
+
+  function getSortKey(order){
+    const isDelivery = ['delivery','bezorgen'].includes(order.order_type);
+    const t = isDelivery ? (order.delivery_time || order.deliveryTime)
+                         : (order.pickup_time || order.pickupTime);
+    return parseTimeToMinutes(t);
+  }
+
+  function insertSorted(tbody, tr){
+    const val = parseFloat(tr.dataset.sortKey);
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    for(const row of rows){
+      if(parseFloat(row.dataset.sortKey) > val){
+        tbody.insertBefore(tr, row);
+        return;
+      }
+    }
+    tbody.appendChild(tr);
+  }
+
   // 添加订单到表格
-  function addRow(order) {
+  function addRow(order, highlight=false) {
     const tbody = document.querySelector('.orders-panel tbody');
     if (!tbody) return;
 
@@ -1079,9 +1166,9 @@ function formatCurrency(value){
     if (order.id) tr.dataset.id = order.id;
     const isDelivery = ['delivery', 'bezorgen'].includes(order.order_type);
     const items = Object.entries(order.items || {}).map(([n, i]) => `<li>${n} x ${i.qty}</li>`).join('');
-      let subtotal = parseFloat(order.subtotal);
-    if (isNaN(subtotal)) {
-      subtotal = Object.values(order.items || {}).reduce((s, i) => s + (parseFloat(i.price || 0) * parseInt(i.qty || 0)), 0);
+    let fooi = parseFloat(order.fooi ?? order.tip);
+    if (isNaN(fooi)) {
+      fooi = 0;
     }
     if(!('totaal' in order)){
       console.warn('⚠️ totaal 字段缺失，请联系后端');
@@ -1090,44 +1177,58 @@ function formatCurrency(value){
     const pickup = order.pickup_time || order.pickupTime;
     const delivery = order.delivery_time || order.deliveryTime;
 
+    let time = order.created_at || '';
+    if (time && time.length > 5) {
+      if (time.includes('T')) {
+        const d = new Date(time);
+        if (!isNaN(d)) time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } else if (time.includes(' ')) {
+        time = time.split(' ')[1].slice(0,5);
+      }
+    }
+
       tr.innerHTML = `
         <td>${order.created_date || ''}</td>
-        <td>${order.created_at || ''}</td>
+        <td>${time}</td>
         <td>${isDelivery ? 'Bezorgen' : 'Afhalen'}</td>
         <td>${order.customer_name || ''}</td>
         <td>${order.phone || ''}</td>
         <td>${order.email || '-'}</td>
         <td><ul>${items}</ul></td>
         <td>${remark || '-'}</td>
-        <td>&euro;${subtotal.toFixed(2)}</td>
-
+        <td>€${parseFloat(fooi).toFixed(2)}</td>
         <td>€${parseFloat(order.totaal).toFixed(2)}</td>
         <td>${isDelivery ? `${order.street} ${order.house_number} ${order.postcode} ${order.city}${order.maps_link ? ` <a href="${order.maps_link}" target="_blank">📍Maps</a>` : ''}` : '-'}</td>
         <td>${isDelivery ? (delivery || '-') : (pickup || '-')}</td>
         <td>${order.payment_method || ''}</td>
         <td>${order.order_number || '-'}</td>`;
       
-    tbody.prepend(tr);
+    tr.dataset.sortKey = getSortKey(order);
+    if(highlight){
+      tr.classList.add('new-order');
+      setTimeout(()=>tr.classList.remove('new-order'),10000);
+    }
+    insertSorted(tbody, tr);
+    updateTodayBadge();
+    return tr;
   }
 
   // Socket 监听新订单
   socket.on('new_order', order => {
-    console.log('🆕 Nieuwe bestelling:', order);
-    if(!('totaal' in order)){
-      console.warn('⚠️ totaal 字段缺失，请联系后端');
-    }
-    beep();
-    alert('Nieuwe bestelling ontvangen!');
-    addRow(order);
-    const panel=document.getElementById('todayOrders');
-    if(panel && panel.classList.contains('visible')){
-      newOrderCount = 0;
-    }else{
-      newOrderCount++;
-    }
-    updateTabTitle();
+  console.log('🆕 Nieuwe bestelling ontvangen!', order);
+  beep();
+  hasNewOrder = true;
+  const row = addRow(order, true);
+  updateTodayBadge();
+  newOrderCount++;
+  updateTabTitle();
+  if(confirm('Nieuwe bestelling ontvangen!')){
+    showTodayOrders();
+    if(row) row.scrollIntoView({behavior:'smooth', block:'center'});
+    hasNewOrder = false;
     updateTodayBadge();
-  });
+  }
+});
 
   // 断线后启用轮询
   socket.on('disconnect', () => {
@@ -1152,7 +1253,8 @@ function formatCurrency(value){
       const tbody = document.querySelector('.orders-panel tbody');
       if (!tbody) return;
       tbody.innerHTML = '';
-      data.reverse().forEach(addRow); // 让最新订单在最上面
+      data.sort((a,b)=>getSortKey(a)-getSortKey(b)).forEach(o=>addRow(o));
+      updateTodayBadge();
     }).catch(() => {});
  }
 
@@ -1171,7 +1273,7 @@ function formatCurrency(value){
   }
 
   window.addEventListener('beforeunload', () => socket.disconnect());
-  window.addEventListener('focus', () => { newOrderCount = 0; updateTabTitle(); updateTodayBadge(); });
+  window.addEventListener('focus', () => { newOrderCount = 0; hasNewOrder = false; updateTabTitle(); updateTodayBadge(); });
 </script>
 
 
