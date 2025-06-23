@@ -345,6 +345,7 @@ def api_send_order():
         "city": data.get("city", ""),
         "maps_link": maps_link,
         "google_maps_link": maps_link,
+        "isNew": True,
         "delivery_time": delivery_time,
         "pickup_time": pickup_time,
         "tijdslot": tijdslot,
@@ -441,6 +442,7 @@ def submit_order():
         "city": data.get("city", ""),
         "maps_link": maps_link,                 # ✅ 前端想要的字段名
         "google_maps_link": maps_link,         # （可选）保留原字段用于后续兼容或调试
+        "isNew": True,
         # Emit snake_case keys for frontend templates
         "delivery_time": delivery_time,
         "pickup_time": pickup_time,
