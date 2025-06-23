@@ -498,7 +498,7 @@
     <div id="todayOrders" class="orders-slide">
       <button id="closeToday">×</button>
       <div class="orders-panel">
-        {% include 'orders_table.html' %}
+        {% include 'orders_cards.html' %}
       </div>
     </div>
   </div>
@@ -812,12 +812,10 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   updateCart();
   toggleAddress();
-  updateTodayBadge();
-  // 🔊 解锁 AudioContext
+  if(typeof updateBadge==='function') updateBadge();
+  // 🔊 init audio on first user interaction
   document.body.addEventListener('click', () => {
-    if (audioCtx.state === 'suspended') {
-      audioCtx.resume();
-    }
+    if(typeof beep==='function') beep();
   }, { once: true });
 
 });
@@ -826,19 +824,17 @@ function toggleToday(){
   const panel=document.getElementById('todayOrders');
   panel.classList.toggle('visible');
   if(panel.classList.contains('visible')){
-    fetchOrders();
-    newOrderCount = 0;
+    if(typeof loadOrders==='function') loadOrders();
     hasNewOrder = false;
-    updateTabTitle();
   }
-  updateTodayBadge();
+  if(typeof updateBadge==='function') updateBadge();
 }
 
 function showTodayOrders(){
   const panel=document.getElementById('todayOrders');
   if(!panel.classList.contains('visible')){
     panel.classList.add('visible');
-    fetchOrders();
+    if(typeof loadOrders==='function') loadOrders();
   }
 }
 
@@ -1035,7 +1031,7 @@ function submitOrder() {
       if (res.success || res.status === 'ok') {
         alert('Bestelling succesvol verzonden! Bestelnummer: ' + orderNumber);
         clearForm();
-        fetchOrders();
+        if(typeof loadOrders==='function') loadOrders();
       } else {
         alert('Er is een fout opgetreden bij het verzenden van uw bestelling. Probeer het opnieuw.');
       }
@@ -1093,188 +1089,6 @@ function formatCurrency(value){
 </script>
 
   
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script>
-  const socket = io('https://flask-order-api.onrender.com', { transports: ['websocket'] });
-
-  let pollTimer;
-  const baseTitle = document.title;
-  let newOrderCount = 0; // unseen orders for title
-  let hasNewOrder = false;
-  function updateTabTitle(){
-    document.title = newOrderCount ? `${baseTitle} (${newOrderCount})` : baseTitle;
-  }
-  function getOrderCount(){
-    const tbody = document.querySelector('.orders-panel tbody');
-    return tbody ? tbody.children.length : 0;
-  }
-  function updateTodayBadge(){
-    const count = getOrderCount();
-    document.querySelectorAll('.today-badge').forEach(badge => {
-      badge.textContent = hasNewOrder ? 'New' : count;
-    });
-  }
-
-  // 音效播放
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  function beep() {
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(660, audioCtx.currentTime);
-    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.2);
-  }
-
-  function parseTimeToMinutes(str){
-    if(!str) return Infinity;
-    const parts = str.split(':');
-    const h = parseInt(parts[0],10);
-    const m = parseInt(parts[1],10);
-    if(isNaN(h) || isNaN(m)) return Infinity;
-    return h*60+m;
-  }
-
-  function getSortKey(order){
-    const isDelivery = ['delivery','bezorgen'].includes(order.order_type);
-    const t = isDelivery ? (order.delivery_time || order.deliveryTime)
-                         : (order.pickup_time || order.pickupTime);
-    return parseTimeToMinutes(t);
-  }
-
-  function insertSorted(tbody, tr){
-    const val = parseFloat(tr.dataset.sortKey);
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    for(const row of rows){
-      if(parseFloat(row.dataset.sortKey) > val){
-        tbody.insertBefore(tr, row);
-        return;
-      }
-    }
-    tbody.appendChild(tr);
-  }
-
-  // 添加订单到表格
-  function addRow(order, highlight=false) {
-    const tbody = document.querySelector('.orders-panel tbody');
-    if (!tbody) return;
-
-    const tr = document.createElement('tr');
-    if (order.id) tr.dataset.id = order.id;
-    const isDelivery = ['delivery', 'bezorgen'].includes(order.order_type);
-    const items = Object.entries(order.items || {}).map(([n, i]) => `<li>${n} x ${i.qty}</li>`).join('');
-    let fooi = parseFloat(order.fooi ?? order.tip);
-    if (isNaN(fooi)) {
-      fooi = 0;
-    }
-    if(!('totaal' in order)){
-      console.warn('⚠️ totaal 字段缺失，请联系后端');
-    }
-    const remark = order.opmerking || order.remark || '';
-    const pickup = order.pickup_time || order.pickupTime;
-    const delivery = order.delivery_time || order.deliveryTime;
-
-    let time = order.created_at || '';
-    if (time && time.length > 5) {
-      if (time.includes('T')) {
-        const d = new Date(time);
-        if (!isNaN(d)) time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      } else if (time.includes(' ')) {
-        time = time.split(' ')[1].slice(0,5);
-      }
-    }
-
-      tr.innerHTML = `
-        <td>${order.created_date || ''}</td>
-        <td>${time}</td>
-        <td>${isDelivery ? 'Bezorgen' : 'Afhalen'}</td>
-        <td>${order.customer_name || ''}</td>
-        <td>${order.phone || ''}</td>
-        <td>${order.email || '-'}</td>
-        <td><ul>${items}</ul></td>
-        <td>${remark || '-'}</td>
-        <td>€${parseFloat(fooi).toFixed(2)}</td>
-        <td>€${parseFloat(order.totaal).toFixed(2)}</td>
-        <td>${isDelivery ? `${order.street} ${order.house_number} ${order.postcode} ${order.city}${order.maps_link ? ` <a href="${order.maps_link}" target="_blank">📍Maps</a>` : ''}` : '-'}</td>
-        <td>${isDelivery ? (delivery || '-') : (pickup || '-')}</td>
-        <td>${order.payment_method || ''}</td>
-        <td>${order.order_number || '-'}</td>`;
-      
-    tr.dataset.sortKey = getSortKey(order);
-    if(highlight){
-      tr.classList.add('new-order');
-      setTimeout(()=>tr.classList.remove('new-order'),10000);
-    }
-    insertSorted(tbody, tr);
-    updateTodayBadge();
-    return tr;
-  }
-
-  // Socket 监听新订单
-  socket.on('new_order', order => {
-  console.log('🆕 Nieuwe bestelling ontvangen!', order);
-  beep();
-  hasNewOrder = true;
-  const row = addRow(order, true);
-  updateTodayBadge();
-  newOrderCount++;
-  updateTabTitle();
-  if(confirm('Nieuwe bestelling ontvangen!')){
-    showTodayOrders();
-    if(row) row.scrollIntoView({behavior:'smooth', block:'center'});
-    hasNewOrder = false;
-    updateTodayBadge();
-  }
-});
-
-  // 断线后启用轮询
-  socket.on('disconnect', () => {
-    console.warn('⚠️ Socket verbroken – schakel over op polling');
-    startPolling();
-  });
-
-  socket.on('connect', () => {
-    console.log('✅ Socket verbonden');
-    stopPolling();
-  });
-
-  socket.on('connect_error', () => {
-    setTimeout(() => socket.connect(), 1000);
-  });
-
-  // 轮询作为备份
-  function fetchOrders() {
-  fetch('/pos/orders_today?json=1')
-    .then(r => r.json())
-    .then(data => {
-      const tbody = document.querySelector('.orders-panel tbody');
-      if (!tbody) return;
-      tbody.innerHTML = '';
-      data.sort((a,b)=>getSortKey(a)-getSortKey(b)).forEach(o=>addRow(o));
-      updateTodayBadge();
-    }).catch(() => {});
- }
-
-
-  function startPolling() {
-    if (pollTimer) return;
-    fetchOrders();
-    pollTimer = setInterval(fetchOrders, 10000); // 每10秒
-  }
-
-  function stopPolling() {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
-  }
-
-  window.addEventListener('beforeunload', () => socket.disconnect());
-  window.addEventListener('focus', () => { newOrderCount = 0; hasNewOrder = false; updateTabTitle(); updateTodayBadge(); });
-</script>
 
 
 

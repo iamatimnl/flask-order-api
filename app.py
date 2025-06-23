@@ -9,6 +9,7 @@ from email.utils import formataddr
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
+from uuid import uuid4
 
 TZ = ZoneInfo("Europe/Amsterdam")
 
@@ -144,7 +145,8 @@ def record_order(order_data, pos_ok):
             else:
                 pickup_time = tijdslot
 
-    ORDERS.append({
+    order_entry = {
+        "id": str(uuid4()),
         "timestamp": datetime.now(TZ).isoformat(timespec="seconds"),
         "name": order_data.get("name"),
         "items": order_data.get("items"),
@@ -156,8 +158,11 @@ def record_order(order_data, pos_ok):
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
-        "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total")  # ✅ 添加这行
-    })
+        "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total"),
+        "status": "new",
+    }
+    ORDERS.append(order_entry)
+    return order_entry
 
 
 def format_order_notification(data):
@@ -261,6 +266,7 @@ def _orders_overview():
             continue
         if ts.date() == today:
             overview.append({
+                "id": entry.get("id"),
                 "time": ts.strftime("%H:%M"),
                 "customerName": entry.get("name"),
                 "items": entry.get("items"),
@@ -272,6 +278,7 @@ def _orders_overview():
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
                 "order_number": entry.get("order_number"),
+                "status": entry.get("status", "new"),
             })
     return overview
 
@@ -280,6 +287,16 @@ def _orders_overview():
 @app.route("/api/orders", methods=["GET"])
 def get_orders_today():
     return jsonify(_orders_overview())
+
+
+@app.route("/api/orders/<order_id>/status", methods=["POST"])
+def update_order_status(order_id):
+    new_status = request.get_json().get("status")
+    for entry in ORDERS:
+        if entry.get("id") == order_id:
+            entry["status"] = new_status
+            break
+    return jsonify({"status": "ok"})
 
 @app.route("/api/send", methods=["POST"])
 def api_send_order():
@@ -306,7 +323,7 @@ def api_send_order():
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
-    record_order(data, pos_ok)
+    order_entry = record_order(data, pos_ok)
 
     payment_link = None
     if payment_method and payment_method != "cash":
@@ -327,6 +344,8 @@ def api_send_order():
                 pickup_time = tijdslot
 
     socket_order = {
+        "id": order_entry["id"],
+        "status": order_entry.get("status"),
         "message": message,
         "opmerking": remark,
         "customer_name": data.get("name", ""),
@@ -402,7 +421,7 @@ def submit_order():
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
-    record_order(data, pos_ok)
+    order_entry = record_order(data, pos_ok)
 
     payment_link = None
     if payment_method and payment_method != "cash":
@@ -424,6 +443,8 @@ def submit_order():
                 pickup_time = tijdslot
 
     socket_order = {
+        "id": order_entry["id"],
+        "status": order_entry.get("status"),
         "message": message,
         "opmerking": remark,
         "customer_name": data.get("name", ""),
