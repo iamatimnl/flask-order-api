@@ -218,6 +218,13 @@ def format_order_notification(data):
     if remark:
         lines.append(f"Opmerking: {remark}")
 
+    items = data.get("items", {})
+    if items:
+        lines.append("Bestelde items:")
+        for name, item in items.items():
+             qty = item.get("qty", 1)
+             lines.append(f"- {name} x {qty}")
+
     summary = data.get("summary") or {}
 
     def fmt(value):
