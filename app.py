@@ -95,14 +95,18 @@ def send_email_notification(order_text):
         print(f"❌ Verzendfout: {e}")
         return False
 
-def send_confirmation_email(order_text, customer_email):
-    """Send order confirmation to the customer. Errors are only logged."""
+def send_confirmation_email(order_text, customer_email, order_number):
+    """Send order confirmation to the customer with review link."""
+    review_link = f"https://www.novaasia.nl/review?order={order_number}"
+    
     subject = "Nova Asia - Bevestiging van je bestelling"
     html_body = (
         "Bedankt voor je bestelling bij Nova Asia!<br><br>"
         + order_text.replace("\n", "<br>")
+        + f"<br><br>We horen graag je mening! Laat hier je review achter: <a href='{review_link}' target='_blank'>{review_link}</a>"
         + "<br><br>Met vriendelijke groet,<br>Nova Asia"
     )
+
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
     msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
@@ -115,8 +119,8 @@ def send_confirmation_email(order_text, customer_email):
             server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
         print("✅ Klantbevestiging verzonden!")
     except Exception as e:
-        # Failure should not affect order processing
         print(f"❌ Klantbevestiging-fout: {e}")
+
 
 def send_pos_order(order_data):
     """Forward the order data to the POS system."""
