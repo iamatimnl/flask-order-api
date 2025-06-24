@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>POS Interface</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding: 20px;
+    max-width: 1200px;
+    margin: auto;
+    background: var(--primary-color);
+    color: var(--secondary-color);
+    padding-top: 60px;
+    text-align: center;
+  }
+  @media (max-width: 480px) {
+    body { padding: 10px; }
+  }
+
+  :root {
+    --primary-color: #f2e9d8;
+    --secondary-color: #333333;
+    --accent-color: #3f5c4b;
+    --off-white: #faf8f3;
+    --section-alt-bg: #f0e6d7;
+    --sakura: #f6d4dc;
+    --gold: #c5a253;
+  }
+  .navbar-container::-webkit-scrollbar { display: none; }
+  .navbar-container {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    padding: 0;
+    margin: 0;
+    background: rgba(255,255,255,0.65);
+    backdrop-filter: blur(12px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+    z-index: 999;
+  }
+  .navbar {
+    display: flex;
+    flex-direction: row;
+    white-space: nowrap;
+    position: relative;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    scroll-behavior: auto;
+  }
+  .nav-categories { display: flex; white-space: nowrap; }
+  @media (min-width: 768px) { .nav-categories { margin: 0 auto; } }
+  .navbar a {
+    flex: 0 0 auto;
+    padding: 14px 20px;
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: bold;
+    border-radius: 24px;
+    transition: all 0.3s ease;
+    position: relative;
+    z-index: 2;
+  }
+  @media (max-width: 480px) {
+    .navbar a { padding: 10px 14px; font-size: 0.9rem; }
+    .today-btn { padding: 8px 14px; }
+  }
+  .navbar a.active { color: white; }
+ .today-btn {
+  background: linear-gradient(to bottom, #d0f0e8, #a3e4ce);
+  color: #1f2e2d;
+  font-weight: 600;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12),
+              inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(6px);
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+  font-size: 1rem;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 10000;
+}
+.today-btn:hover {
+  background: linear-gradient(to bottom, #b2eadd, #86dcc3);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+  .indicator {
+    position: absolute;
+    height: 32px;
+    background-color: var(--accent-color);
+    border-radius: 24px;
+    bottom: 8px;
+    z-index: 1;
+    transition: all 0.3s ease;
+    will-change: transform;
+  }
+  .navbar::after { content: ""; flex: 0 0 50vw; }
+  section {
+    padding: 40px 20px;
+    box-sizing: border-box;
+    border-bottom: 1px solid #ccc;
+    border-radius: 16px;
+    background: var(--off-white);
+    margin-bottom: 20px;
+  }
+  section:nth-child(even) { background: var(--section-alt-bg); }
+  h1,h2,h3,h4,h5,h6,p { text-align: center; }
+  .menu-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 16px;
+    margin-bottom: 12px;
+    border-radius: 16px;
+    background: var(--off-white);
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  img { max-width: 100%; height: auto; }
+  .menu-item img { width: 100%; max-width: 120px; height: auto; object-fit: cover; border-radius: 12px; flex-shrink: 0; }
+  .menu-item select, .menu-item button {
+    margin-top: 8px;
+    padding: 6px 8px;
+    font-size: 0.85rem;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+  }
+  .menu-item button {
+    width: 2.2rem;
+    height: 2.2rem;
+    font-size: 1rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background:#e5e5ea;
+    color:#333;
+    transition: background 0.2s ease;
+  }
+  .menu-item button:hover { background:#dcdce0; }
+  .add-button { background:#b3d4ff; color:#333; }
+  .add-button:hover { background:#a3c8ff; }
+  .remove-button { background:#ffd6d6; color:#333; }
+  .remove-button:hover { background:#ffc2c2; }
+  @media (max-width: 600px) {
+    .menu-item button { width:1.8rem; height:1.8rem; font-size:0.9rem; }
+    .menu-item img { max-width:80px; }
+  }
+  @media (max-width: 600px) { .menu-item { flex-direction: column; align-items: flex-start; } }
+  .pos-layout { display: flex; flex-direction: column; gap:20px; }
+  .side-tools { width: 180px; }
+  .center-area { flex:1; }
+  .checkout-panel {
+  position: sticky;
+  top: 80px; /* 与导航栏保持一定距离 */
+  align-self: flex-start;
+  flex: 1.4;
+  max-width: 420px;
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  padding: 20px;
+  background: linear-gradient(to bottom, #fdfaf6, #f0e6d7);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+ .checkout-panel button {
+  background: linear-gradient(to bottom, #d8f4e7, #a9e5cd);
+  color: #1a2e28;
+  font-weight: 600;
+  padding: 12px;
+  width: 100%;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 14px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12),
+              inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(6px);
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+  
+  .checkout-panel button:hover {
+    background: linear-gradient(to bottom, #b2eadd, #86dcc3);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+
+  .order-type-switch {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .order-btn input {
+    display: none;
+  }
+  .order-btn span {
+    display: block;
+    padding: 8px 16px;
+    border: 1px solid var(--accent-color);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .order-btn input:checked + span {
+    background: var(--accent-color);
+    color: #fff;
+  }
+
+  @media (max-width: 600px) {
+    .checkout-panel { width:100%; }
+  }
+  .orders-slide {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(8px);
+    overflow: auto;
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+    z-index: 9999;
+    padding: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+  }
+  .orders-slide.visible { transform: translateX(0); }
+  .orders-panel table { width:100%; border-collapse: collapse; }
+  @media (max-width: 768px) {
+    .orders-panel table { display:block; overflow-x:auto; white-space:nowrap; }
+  }
+  .orders-panel th, .orders-panel td { border:1px solid #ddd; padding:8px; text-align:left; }
+  .orders-panel th { background:#f2f2f2; }
+  .orders-panel ul { margin:0; padding-left:20px; }
+  input, select, textarea {
+    border:1px solid rgba(255,255,255,0.4);
+    border-radius:8px;
+    padding:6px 10px;
+    background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(6px);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    transition:border-color 0.2s, box-shadow 0.2s;
+  }
+  input:hover, select:hover, textarea:hover {
+    border-color:#999;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline:none;
+    border-color:var(--accent-color);
+    box-shadow:0 0 0 2px rgba(63,92,75,0.2);
+  }
+  #closeToday {
+    position:absolute;
+    top:10px;
+    right:10px;
+    background:#eee;
+    border:1px solid #ccc;
+    border-radius:8px;
+    padding:4px 8px;
+    cursor:pointer;
+  }
+  #closeToday:hover { background:#e0e0e0; }
+  .cart-area {
+    background: linear-gradient(to bottom right, #fdfaf6, #f0e6d7);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    backdrop-filter: blur(8px);
+    border: 1px solid #e0e0e0;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom:20px;
+    position: sticky;
+    top: 70px;
+  }
+  .supply-row {
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:10px 0;
+  }
+  .supply-select {
+    min-width:80px;
+    padding:6px 10px;
+    font-size:0.95rem;
+    border-radius:10px;
+    border:1px solid #ccc;
+    background:white;
+    appearance:none;
+  }
+  @media (min-width: 768px) {
+    .pos-layout { flex-direction: row; align-items:flex-start; }
+    .side-tools { flex:0 0 180px; }
+    .center-area { flex:2; margin-right:20px; }
+  }
+  .cart-area button {
+    width:100%;
+    margin-top:10px;
+    padding:12px;
+    font-size:1.1rem;
+    background:#b3d4ff;
+    color:#333;
+    border:none;
+    border-radius:12px;
+    transition: background 0.3s ease;
+  }
+  .cart-area button:hover { background:#a3c8ff; }
+  .hidden { display:none; }
+@media (min-width: 768px) {
+  .pos-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .center-area {
+    flex: 3;
+    margin-right: 20px;
+  }
+    .checkout-panel {
+      flex: 1.4;
+      max-width: 420px;
+    }
+}
+
+/* Floating cart and checkout panel */
+  .cart-panel {
+    position: sticky;
+    top: 80px;
+    align-self: flex-start;
+    flex: 1.4;
+    max-width: 420px;
+  }
+  .close-btn { display:none; }
+  .cart-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    border: none;
+    background: #fff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    font-size: 1.4rem;
+    cursor: pointer;
+    z-index: 1100;
+    display: none;
+  }
+  .cart-toggle .badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ff3b30;
+    color: #fff;
+    border-radius: 50%;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+  }
+  .today-toggle {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  font-size: 1.4rem;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  border: none;
+}
+
+.emoji-wrapper {
+  position: relative;  /* ✅ 必须有这行 */
+  display: inline-block;
+}
+
+.badge-text-only {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: red; /* 纯红色字体 */
+  background: none;
+  padding: 0;
+  line-height: 1;
+  pointer-events: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+
+
+  #closeCartPanel {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #e5e5ea;
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+  @media (max-width: 768px) {
+    .cart-toggle { display: block; }
+  
+    .cart-panel {
+      position: fixed;
+      inset: 0;
+      overflow-y: auto;
+      background: rgba(255,255,255,0.95);
+      padding: 20px;
+      z-index: 1050;
+      display: none;
+    }
+    .cart-panel.open { display: block; }
+    .close-btn { display: block; }
+    .cart-panel .cart-area { position: static; top: auto; }
+    .pos-layout { flex-direction: column; align-items: center; }
+    .center-area { width:100%; margin-right:0; }
+  }
+  .orders-table td, .orders-table th {
+  white-space: nowrap;
+  padding: 8px;
+}
+/* 默认隐藏圆按钮 */
+.today-toggle {
+  display: none;
+}
+
+/* 手机显示圆按钮，隐藏长按钮 */
+@media (max-width: 768px) {
+  .today-btn { display: none; }
+  .today-toggle { display: flex; }
+}
+
+/* 🔔 新订单闪烁效果 */
+.new-order {
+  animation: highlightBlink 1s ease-in-out;
+  animation-iteration-count: 10;
+}
+@keyframes highlightBlink {
+  0%,100% { background-color: #eaffea; }
+  50% { background-color: #fff; }
+}
+
+/* 桌面显示长按钮，确保隐藏圆按钮 */
+@media (min-width: 768px) {
+  .today-btn { display: block; }
+  .today-toggle { display: none; }
+}
+
+  
+</style>
+</head>
+<body>
+<div class="navbar-container" id="navbar-container">
+  <nav class="navbar" id="navbar">
+    <div class="nav-categories">
+      <a href="#customer-info">Klant</a>
+      <a href="#bento">Bento Box</a>
+      <a href="#sushi">Sushi Rolls</a>
+      <a href="#bubble">Bubble Tea</a>
+      <a href="#dessert">Dessert</a>
+      <a href="#snack">Snack</a>
+      <a href="#vegan">Vegan</a>
+    </div>
+    <div class="indicator" id="indicator"></div>
+  </nav>
+</div>
+<h1>Menu</h1>
+<div class="pos-layout">
+  <div class="side-tools">
+    <div id="todayOrders" class="orders-slide">
+      <button id="closeToday">×</button>
+      <div class="orders-panel">
+        {% include 'orders_table.html' %}
+      </div>
+    </div>
+  </div>
+  <div class="center-area">
+    <div class="product-list">
+      {% include 'menu.html' %}
+    </div>
+  </div>
+  <div id="cartPanel" class="cart-panel">
+    <button id="closeCartPanel" class="close-btn">×</button>
+    <div class="cart-area">
+      <h2>Overzicht</h2>
+      <ul id="cart"></ul>
+      <div class="supply-row">
+        <label for="chopstickCount">Aantal stokjes</label>
+        <select id="chopstickCount" class="supply-select"></select>
+      </div>
+      <div class="supply-row">
+        <label for="soyCount">Aantal sojasaus flesjes</label>
+        <select id="soyCount" class="supply-select"></select>
+      </div>
+      <div class="supply-row">
+        <label for="gemberCount">Aantal gember porties</label>
+        <select id="gemberCount" class="supply-select"></select>
+      </div>
+      <div class="supply-row">
+        <label for="wasabiCount">Aantal wasabi flesjes</label>
+        <select id="wasabiCount" class="supply-select"></select>
+      </div>
+      <div>Subtotaal: <span id="summarySubtotal">€0,00</span></div>
+      <div>Verpakkingskosten: <span id="summaryPackaging">€0,00</span></div>
+      <div id="summaryDeliveryRow" class="hidden">Bezorgkosten: <span id="summaryDelivery">€0,00</span></div>
+      <div>
+        Korting:
+        <select id="discountType">
+          <option value="amount">€</option>
+          <option value="percent">%</option>
+        </select>
+        <input id="discountValue" type="number" value="0" min="0" step="0.01" />
+        <span id="summaryDiscount">€0,00</span>
+      </div>
+      <div>BTW (9%): <span id="summaryBtw">€0,00</span></div>
+      <div><strong>Totaal: <span id="total">€0,00</span></strong></div>
+      <label for="remark" style="display:block;margin-top:10px;">Opmerking:</label>
+      <textarea id="remark" rows="2" placeholder="Bijv. geen komkomer, extra mayo"></textarea>
+    </div>
+    <div class="checkout-panel">
+      <section id="customer-info">
+        <div class="delivery-options">
+          <h2>Klantgegevens</h2>
+        <label for="custName">Naam*</label>
+        <input id="custName" type="text" placeholder="Naam" required />
+        <label for="custPhone">Telefoonnummer*</label>
+        <input id="custPhone" type="tel" placeholder="Telefoonnummer" required />
+        <div class="order-type-switch">
+          <label class="order-btn">
+            <input type="radio" id="typePickup" name="orderType" value="pickup" checked />
+            <span>Afhalen</span>
+          </label>
+          <label class="order-btn">
+            <input type="radio" id="typeDelivery" name="orderType" value="delivery" />
+            <span>Bezorging</span>
+          </label>
+        </div>
+        <div id="pickupFields" style="margin-top:10px;">
+          <label for="pickup_time">Pickup Tijd*</label>
+          <select id="pickup_time"></select>
+          <label for="pickupPayment">Betaalmethode*</label>
+          <select id="pickupPayment">
+            <option value="pin">Pin</option>
+            <option value="cash">Contant</option>
+            <option value="oprekening">Oprekening</option>
+          </select>
+        </div>
+        <div id="deliveryFields" class="hidden" style="margin-top:10px;">
+          <label for="postcode">Postcode*</label>
+          <input id="postcode" type="text" placeholder="1234AB" />
+          <label for="houseNumber">Huisnummer*</label>
+          <input id="houseNumber" type="text" placeholder="1" />
+          <label for="street">Straat*</label>
+          <input id="street" type="text" placeholder="Straat" />
+          <label for="city">Plaats*</label>
+          <input id="city" type="text" placeholder="Plaats" />
+          <label for="delivery_time">Bezorgtijd (optioneel)</label>
+          <select id="delivery_time"></select>
+          <label for="deliveryPayment">Betaalmethode*</label>
+          <select id="deliveryPayment">
+            <option value="pin">Pin</option>
+            <option value="cash">Contant</option>
+            <option value="oprekening">Oprekening</option>
+          </select>
+        </div>
+        <div id="qrCodeContainer" class="hidden" style="text-align:center;margin-top:10px;">
+          <p><strong>📍 Scan voor navigatie:</strong></p>
+          <img id="qrCodePreview" src="" alt="QR Code" />
+          <div id="mapsLinkContainer" style="margin-top:4px;"></div>
+        </div>
+        </div>
+      </section>
+      <button id="submitOrder">Submit Order</button>
+    </div>
+  </div>
+</div>
+<button id="cartToggle" class="cart-toggle">🛒<span id="cartCount" class="badge">0</span></button>
+<button id="toggleToday" class="today-btn">
+  Bestelling Vandaag
+  <span class="badge-text-only today-badge"></span>
+</button>
+<button id="todayToggleMobile" class="today-toggle">
+  <span class="emoji-wrapper">
+    📋
+    <span class="badge-text-only today-badge"></span>
+  </span>
+</button>
+
+
+
+<audio id="notifySound" src="/sound/beep.mp3" preload="auto"></audio>
+
+<script>
+const cart = {};
+const extras = {
+  chopstickCount: { label: 'Stokjes', price: 0 },
+  soyCount: { label: 'Sojasaus', price: 0 },
+  gemberCount: { label: 'Gember', price: 0 },
+  wasabiCount: { label: 'Wasabi', price: 0 }
+};
+
+function changeBubbleQty(delta){
+  const sel=document.getElementById('bubbleTeaQty');
+  let val=parseInt(sel.value||0);
+  val=Math.max(0,Math.min(20,val+delta));
+  sel.value=val;
+  const type=document.getElementById('bubbleType').value;
+  const flavor=document.getElementById('bubbleFlavor').value;
+  const topping=document.getElementById('bubbleTopping').value;
+  if(!type||!flavor||!topping) return;
+  const name=`Bubble Tea (${type}, ${flavor}, ${topping})`;
+  setQty(name,5,val,0.2);
+}
+
+function changeXbentoQty(delta){
+  const sel=document.getElementById('xBentoQty');
+  let val=parseInt(sel.value||0);
+  const main=document.getElementById('xBentoMain').value;
+  const side=document.getElementById('xBentoSide').value;
+  const rice=document.getElementById('xBentoRice').value;
+  if(!main||!side||!rice) return;
+  val=Math.max(0,Math.min(20,val+delta));
+  sel.value=val;
+  let price=14;
+  if(rice.includes('Fried rice')) price+=5;
+  const name=`Xbento (${main}, ${side}, ${rice})`;
+  setQty(name,price,val,0.2);
+}
+function populateSelect(sel){
+  for(let i=0;i<=20;i++){ const opt=document.createElement('option'); opt.value=i; opt.textContent=i; sel.appendChild(opt); }
+}
+function createSelect(current,onChange){
+  const sel=document.createElement('select');
+  for(let i=0;i<=20;i++){ const opt=document.createElement('option'); opt.value=i; opt.textContent=i; if(i===current) opt.selected=true; sel.appendChild(opt); }
+  sel.addEventListener('change',()=>onChange(parseInt(sel.value))); return sel;
+}
+function setQty(name,price,qty,packaging=0){
+  if(qty===0){
+    delete cart[name];
+  } else {
+    cart[name]={price,qty,packaging};
+  }
+  updateCart();
+}
+function updateCart(){
+  const list=document.getElementById('cart');
+  list.innerHTML='';
+  let subtotal=0;
+  let packagingTotal=0;
+  let count=0;
+  Object.entries(cart).forEach(([name,item])=>{
+    const li=document.createElement('li');
+    const sel=createSelect(item.qty,val=>{
+      document.querySelector(`[data-name="${name}"] select`).value=val;
+      setQty(name,item.price,val,item.packaging);
+    });
+    const rowTotal=item.qty*item.price;
+    li.textContent=`${name} = €${rowTotal.toFixed(2)} `;
+    li.appendChild(sel);
+    list.appendChild(li);
+    if(item.qty>0){
+      subtotal+=rowTotal;
+      packagingTotal+=(item.packaging||0)*item.qty;
+    }
+    count+=item.qty;
+  });
+
+  const delivery=document.getElementById('typeDelivery').checked ? 2.5 : 0;
+  const discountType=document.getElementById('discountType').value;
+  let discountVal=parseFloat(document.getElementById('discountValue').value)||0;
+  let discount=0;
+  if(discountType==='amount'){ discount=Math.min(discountVal,subtotal); }
+  else if(discountType==='percent'){ discount=Math.min(discountVal,100)/100*subtotal; }
+  if(discount<0||isNaN(discount)) discount=0;
+
+  const total = subtotal + packagingTotal + delivery - discount;
+  const btwBase = delivery ? total - delivery : total;
+  const btw = btwBase * 0.09;
+
+  const fmt=n=>`€${n.toFixed(2).replace('.',',')}`;
+  document.getElementById('summarySubtotal').textContent=fmt(subtotal);
+  document.getElementById('summaryPackaging').textContent=fmt(packagingTotal);
+  document.getElementById('summaryDelivery').textContent=fmt(delivery);
+  document.getElementById('summaryDeliveryRow').classList.toggle('hidden',!delivery);
+  document.getElementById('summaryDiscount').textContent=discount ? `- ${fmt(discount)}` : '€0,00';
+  document.getElementById('summaryBtw').textContent=fmt(btw);
+  document.getElementById('total').textContent=fmt(total);
+
+  const badge=document.getElementById('cartCount');
+  if(badge) badge.textContent=count;
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  const skip=['bubbleTeaQty','bubbleType','bubbleFlavor','bubbleTopping','xBentoMain','xBentoSide','xBentoRice'];
+  document.querySelectorAll('.menu-item select').forEach(sel=>{
+    if(!skip.includes(sel.id)){
+      populateSelect(sel);
+      const parent=sel.closest('.menu-item');
+      const name=parent.dataset.name;
+      const price=parseFloat(parent.dataset.price);
+      const pack=parseFloat(parent.dataset.packaging||0);
+      sel.addEventListener('change',()=>{ setQty(name,price,parseInt(sel.value),pack); });
+    }
+  });
+
+  ['bubbleTeaQty','xBentoQty'].forEach(id=>{
+    const s=document.getElementById(id);
+    for(let i=0;i<=20;i++){const opt=document.createElement('option');opt.value=i;opt.text=i;s.appendChild(opt);} s.value=0;
+  });
+
+  document.querySelector('.qty-plus[data-target="bubbleTeaQty"]').addEventListener('click',()=>{
+    if(!document.getElementById('bubbleType').value||!document.getElementById('bubbleFlavor').value||!document.getElementById('bubbleTopping').value){alert('🧋 Kies eerst type, smaak en topping voor je bubble tea.');return;}changeBubbleQty(1);});
+  document.querySelector('.qty-minus[data-target="bubbleTeaQty"]').addEventListener('click',()=>{
+    if(!document.getElementById('bubbleType').value||!document.getElementById('bubbleFlavor').value||!document.getElementById('bubbleTopping').value){alert('🧋 Kies eerst type, smaak en topping voor je bubble tea.');return;}changeBubbleQty(-1);});
+  document.getElementById('bubbleTeaQty').addEventListener('change',()=>{if(!document.getElementById('bubbleType').value||!document.getElementById('bubbleFlavor').value||!document.getElementById('bubbleTopping').value){alert('🧋 Kies eerst type, smaak en topping voor je bubble tea.');document.getElementById('bubbleTeaQty').value=0;return;}changeBubbleQty(0);});
+
+  document.querySelector('.qty-plus[data-target="xBentoQty"]').addEventListener('click',()=>{
+    if(!document.getElementById('xBentoMain').value||!document.getElementById('xBentoSide').value||!document.getElementById('xBentoRice').value){alert('🍱 Kies eerst hoofdgerecht, bijgerecht en rijstsoort voor je Xbento.');return;}changeXbentoQty(1);});
+  document.querySelector('.qty-minus[data-target="xBentoQty"]').addEventListener('click',()=>{
+    if(!document.getElementById('xBentoMain').value||!document.getElementById('xBentoSide').value||!document.getElementById('xBentoRice').value){alert('🍱 Kies eerst hoofdgerecht, bijgerecht en rijstsoort voor je Xbento.');return;}changeXbentoQty(-1);});
+  document.getElementById('xBentoQty').addEventListener('change',()=>{if(!document.getElementById('xBentoMain').value||!document.getElementById('xBentoSide').value||!document.getElementById('xBentoRice').value){alert('🍱 Kies eerst hoofdgerecht, bijgerecht en rijstsoort voor je Xbento.');document.getElementById('xBentoQty').value=0;return;}changeXbentoQty(0);});
+
+  document.querySelectorAll('.qty-plus').forEach(btn=>{
+    if(['bubbleTeaQty','xBentoQty'].includes(btn.dataset.target)) return;
+    btn.addEventListener('click',()=>{
+      const sel=document.getElementById(btn.dataset.target);
+      let val=parseInt(sel.value);
+      if(val<20) val++;
+      sel.value=val;
+      const parent=sel.closest('.menu-item');
+      setQty(parent.dataset.name,parseFloat(parent.dataset.price),val,parseFloat(parent.dataset.packaging||0));
+    });
+  });
+  document.querySelectorAll('.qty-minus').forEach(btn=>{
+    if(['bubbleTeaQty','xBentoQty'].includes(btn.dataset.target)) return;
+    btn.addEventListener('click',()=>{
+      const sel=document.getElementById(btn.dataset.target);
+      let val=parseInt(sel.value);
+      if(val>0) val--;
+      sel.value=val;
+      const parent=sel.closest('.menu-item');
+      setQty(parent.dataset.name,parseFloat(parent.dataset.price),val,parseFloat(parent.dataset.packaging||0));
+    });
+  });
+  ['chopstickCount','soyCount','gemberCount','wasabiCount'].forEach(id=>{
+    populateSelect(document.getElementById(id));
+    document.getElementById(id).addEventListener('change',updateCart);
+  });
+  document.getElementById('discountType').addEventListener('change',updateCart);
+  document.getElementById('discountValue').addEventListener('input',updateCart);
+  const toggleTodayBtn = document.getElementById('toggleToday');
+  if (toggleTodayBtn) {
+    toggleTodayBtn.addEventListener('click', toggleToday);
+  }
+  const todayToggleMobile=document.getElementById('todayToggleMobile');
+  if(todayToggleMobile){
+    todayToggleMobile.addEventListener('click',toggleToday);
+  }
+  document.getElementById('closeToday').addEventListener('click',toggleToday);
+  document.getElementById('typePickup').addEventListener('change',toggleAddress);
+  document.getElementById('typeDelivery').addEventListener('change',toggleAddress);
+  document.getElementById('postcode').addEventListener('blur',fetchAddress);
+  document.getElementById('houseNumber').addEventListener('blur',fetchAddress);
+  document.getElementById('postcode').addEventListener('blur',updateQRCode);
+  document.getElementById('houseNumber').addEventListener('blur',updateQRCode);
+  document.getElementById('street').addEventListener('blur',updateQRCode);
+  document.getElementById('city').addEventListener('blur',updateQRCode);
+  document.getElementById('submitOrder').addEventListener('click',submitOrder);
+  const cartToggle=document.getElementById('cartToggle');
+  const cartPanel=document.getElementById('cartPanel');
+  const closeCart=document.getElementById('closeCartPanel');
+  if(cartToggle){
+    cartToggle.addEventListener('click',()=>{
+      cartPanel.classList.toggle('open');
+    });
+  }
+  if(closeCart){
+    closeCart.addEventListener('click',()=>cartPanel.classList.remove('open'));
+  }
+  if(cartPanel){
+    cartPanel.addEventListener('click',e=>{
+      if(e.target===cartPanel) cartPanel.classList.remove('open');
+    });
+  }
+  updateCart();
+  toggleAddress();
+  updateTodayBadge();
+  // 🔊 解锁 AudioContext
+  document.body.addEventListener('click', () => {
+    if (audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }, { once: true });
+
+});
+
+function toggleToday(){
+  const panel=document.getElementById('todayOrders');
+  panel.classList.toggle('visible');
+  if(panel.classList.contains('visible')){
+    fetchOrders();
+    newOrderCount = 0;
+    hasNewOrder = false;
+    updateTabTitle();
+  }
+  updateTodayBadge();
+}
+
+function showTodayOrders(){
+  const panel=document.getElementById('todayOrders');
+  if(!panel.classList.contains('visible')){
+    panel.classList.add('visible');
+    fetchOrders();
+  }
+}
+
+function toggleAddress(){
+  const delivery=document.getElementById('typeDelivery').checked;
+  document.getElementById('pickupFields').classList.toggle('hidden',delivery);
+  document.getElementById('deliveryFields').classList.toggle('hidden',!delivery);
+  document.getElementById('pickup_time').required=!delivery?true:false;
+  document.getElementById('pickupPayment').required=!delivery?true:false;
+  document.getElementById('postcode').required=delivery;
+  document.getElementById('houseNumber').required=delivery;
+  document.getElementById('deliveryPayment').required=delivery;
+  if(!delivery){
+    populateTimeOptions('pickup_time',30);
+    document.getElementById('qrCodeContainer').classList.add('hidden');
+  } else {
+    populateTimeOptions('delivery_time',45);
+    updateQRCode();
+  }
+  updateCart();
+}
+async function fetchAddress(){
+  const pc=document.getElementById('postcode').value.trim();
+  const num=document.getElementById('houseNumber').value.trim();
+  if(pc && num){
+    const url=`https://api.postcodeapi.nu/v3/lookup/${encodeURIComponent(pc)}/${encodeURIComponent(num)}`;
+    try{
+      const res=await fetch(url,{headers:{'X-Api-Key':'juW6MEgEeL2BEM0rInEtB5a15BqXjWwO3YqrdH0z'}});
+      if(res.ok){
+        const d=await res.json();
+        if(d.street) document.getElementById('street').value=d.street;
+        if(d.city) document.getElementById('city').value=d.city;
+      }
+    }catch(e){console.warn('Adres ophalen mislukt');}
+    updateQRCode();
+  }
+}
+function updateQRCode(){
+  const street=document.getElementById('street').value.trim();
+  const house=document.getElementById('houseNumber').value.trim();
+  const pc=document.getElementById('postcode').value.trim();
+  const city=document.getElementById('city').value.trim();
+  const container=document.getElementById('qrCodeContainer');
+  const img=document.getElementById('qrCodePreview');
+  const linkContainer=document.getElementById('mapsLinkContainer');
+  if(street && house && pc && city){
+    const address=`${street} ${house}, ${pc} ${city}`;
+    const googleMapsLink=`https://www.google.com/maps?q=${encodeURIComponent(address)}`;
+    const qrCodeUrl=`https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(googleMapsLink)}`;
+    img.src=qrCodeUrl;
+    linkContainer.innerHTML=`<a href="${googleMapsLink}" target="_blank" style="color: var(--accent-color); text-decoration: underline;">Open in Google Maps</a>`;
+    container.classList.remove('hidden');
+  }else{
+    img.src='';
+    linkContainer.innerHTML='';
+    container.classList.add('hidden');
+  }
+}
+
+function clearForm(){
+  ['custName','custPhone','pickup_time','delivery_time','postcode','houseNumber','street','city'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value='';
+  });
+  ['pickupPayment','deliveryPayment','chopstickCount','soyCount','gemberCount','wasabiCount'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.value=el.options[0].value;
+  });
+  document.getElementById('remark').value='';
+  document.querySelectorAll('.product-list select').forEach(sel=>{sel.value=0;});
+  for(const k in cart) delete cart[k];
+  updateCart();
+  toggleAddress();
+}
+
+function generateOrderNumber(){
+  const now = new Date();
+  const date = now.toISOString().slice(0,10).replace(/-/g,'');
+  const rand = Math.random().toString(36).substring(2,6).toUpperCase();
+  return `NV${date}-${rand}`;
+}
+function submitOrder() {
+  const name = document.getElementById('custName').value.trim();
+  const phone = document.getElementById('custPhone').value.trim();
+  if (!name || !phone) {
+    alert('Vul naam en telefoon in.');
+    return;
+  }
+
+  const delivery = document.getElementById('typeDelivery').checked;
+
+  if (!delivery) {
+    if (!document.getElementById('pickup_time').value) {
+      alert('Pickup tijd is verplicht.');
+      return;
+    }
+  } else {
+    if (
+      !document.getElementById('postcode').value ||
+      !document.getElementById('houseNumber').value ||
+      !document.getElementById('street').value ||
+      !document.getElementById('city').value
+    ) {
+      alert('Adresgegevens zijn verplicht.');
+      return;
+    }
+  }
+
+  if (Object.keys(cart).length === 0) {
+    alert('Geen producten geselecteerd.');
+    return;
+  }
+
+  const remark = document.getElementById('remark').value.trim();
+
+  let orderText = Object.entries(cart).map(([name, item]) => {
+    return `${name} x ${item.qty} (€${(item.qty * item.price).toFixed(2)})`;
+  }).join(', ');
+  Object.keys(extras).forEach(id => {
+    const qty = parseInt(document.getElementById(id).value || 0);
+    if (qty > 0) orderText += `, ${extras[id].label} x ${qty}`;
+  });
+  if (remark) orderText += `, Opmerking: ${remark}`;
+
+  const itemsToSend = { ...cart };
+  Object.keys(extras).forEach(id => {
+    const qty = parseInt(document.getElementById(id).value || 0);
+    if (qty > 0) itemsToSend[extras[id].label] = { price: 0, qty };
+  });
+
+  const orderNumber = generateOrderNumber();
+
+  // ✅ 获取结账明细数据
+  const subtotal = Object.values(cart).reduce((sum, item) => sum + item.price * item.qty, 0);
+  const packagingTotal = Object.values(cart).reduce((sum, item) => sum + (item.packaging || 0) * item.qty, 0);
+  const deliveryCost = delivery ? 2.5 : 0;
+  const discountType = document.getElementById('discountType').value;
+  const discountVal = parseFloat(document.getElementById('discountValue').value) || 0;
+  let discount = 0;
+  if (discountType === 'amount') {
+    discount = Math.min(discountVal, subtotal);
+  } else if (discountType === 'percent') {
+    discount = Math.min(100, discountVal) / 100 * subtotal;
+  }
+  const totalBeforeBtw = subtotal + packagingTotal + deliveryCost - discount;
+  const btwBase = delivery ? totalBeforeBtw - deliveryCost : totalBeforeBtw;
+  const btw = btwBase * 0.09;
+  const total = totalBeforeBtw;
+
+  const summary = {
+    subtotal: parseFloat(subtotal.toFixed(2)),
+    packaging: parseFloat(packagingTotal.toFixed(2)),
+    delivery: parseFloat(deliveryCost.toFixed(2)),
+    discountType,
+    discountValue: parseFloat(discountVal.toFixed(2)),
+    discountAmount: parseFloat(discount.toFixed(2)),
+    btw: parseFloat(btw.toFixed(2)),
+    total: parseFloat(total.toFixed(2))
+  };
+
+  const orderType = delivery ? 'bezorgen' : 'afhalen';
+  const payload = {
+    orderType,
+    name,
+    phone,
+    email: '',
+    customerEmail: '',
+    pickup_time: !delivery ? document.getElementById('pickup_time').value : '',
+    delivery_time: delivery ? document.getElementById('delivery_time').value : '',
+    paymentMethod: delivery
+      ? document.getElementById('deliveryPayment').value
+      : document.getElementById('pickupPayment').value,
+    postcode: delivery ? document.getElementById('postcode').value.trim() : '',
+    house_number: delivery ? document.getElementById('houseNumber').value.trim() : '',
+    street: delivery ? document.getElementById('street').value.trim() : '',
+    city: delivery ? document.getElementById('city').value.trim() : '',
+    order_number: orderNumber,
+    items: itemsToSend,
+    message: orderText,
+    opmerking: remark,
+    totaal: total.toFixed(2),
+
+    summary  // ✅ 加入结账明细
+  };
+
+  // ✅ 提交到后端
+  fetch('https://flask-order-api.onrender.com/submit_order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+    .then(r => r.json())
+    .then(res => {
+      if (res.success || res.status === 'ok') {
+        alert('Bestelling succesvol verzonden! Bestelnummer: ' + orderNumber);
+        clearForm();
+        fetchOrders();
+      } else {
+        alert('Er is een fout opgetreden bij het verzenden van uw bestelling. Probeer het opnieuw.');
+      }
+    })
+    .catch(() => alert('Verzendfout – server niet bereikbaar.'));
+}
+
+
+
+
+  // ✅ 提交到远程 Flask Render 后端
+
+  function pad(num){
+    return num.toString().padStart(2,'0');
+  }
+
+  function populateTimeOptions(selectId,offsetMinutes){
+    const select=document.getElementById(selectId);
+    if(!select) return;
+    select.innerHTML='';
+    const now=new Date();
+    now.setMinutes(now.getMinutes()+offsetMinutes);
+
+    const open=new Date();
+    open.setHours(12,0,0,0);
+    const close=new Date();
+    close.setHours(23,59,0,0);
+
+    let start=now>open?now:open;
+    start=new Date(start);
+    start.setMinutes(Math.ceil(start.getMinutes()/15)*15,0,0);
+
+    for(let t=start;t<=close;t.setMinutes(t.getMinutes()+15)){
+      const hh=pad(t.getHours());
+      const mm=pad(t.getMinutes());
+      const timeStr=`${hh}:${mm}`;
+      const opt=document.createElement('option');
+      opt.value=timeStr;
+      opt.textContent=timeStr;
+      select.appendChild(opt);
+    }
+  }
+
+
+</script>
+
+<script>
+function formatCurrency(value){
+  if (typeof value === 'string') {
+    value = value.replace('€', '').replace(',', '.').trim();
+  }
+  const num = parseFloat(value);
+  return isNaN(num) ? "€0.00" : `€${num.toFixed(2)}`;
+}
+</script>
+
+  
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+  const socket = io('https://flask-order-api.onrender.com', { transports: ['websocket'] });
+
+  let pollTimer;
+  const baseTitle = document.title;
+  let newOrderCount = 0; // unseen orders for title
+  let hasNewOrder = false;
+  function updateTabTitle(){
+    document.title = newOrderCount ? `${baseTitle} (${newOrderCount})` : baseTitle;
+  }
+  function getOrderCount(){
+    const tbody = document.querySelector('.orders-panel tbody');
+    return tbody ? tbody.children.length : 0;
+  }
+  function updateTodayBadge(){
+    const count = getOrderCount();
+    document.querySelectorAll('.today-badge').forEach(badge => {
+      badge.textContent = hasNewOrder ? 'New' : count;
+    });
+  }
+
+  // 音效播放
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  function beep() {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(660, audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.2);
+  }
+
+  function parseTimeToMinutes(str){
+    if(!str) return Infinity;
+    const parts = str.split(':');
+    const h = parseInt(parts[0],10);
+    const m = parseInt(parts[1],10);
+    if(isNaN(h) || isNaN(m)) return Infinity;
+    return h*60+m;
+  }
+
+  function getSortKey(order){
+    const isDelivery = ['delivery','bezorgen'].includes(order.order_type);
+    const t = isDelivery ? (order.delivery_time || order.deliveryTime)
+                         : (order.pickup_time || order.pickupTime);
+    return parseTimeToMinutes(t);
+  }
+
+  function insertSorted(tbody, tr){
+    const val = parseFloat(tr.dataset.sortKey);
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    for(const row of rows){
+      if(parseFloat(row.dataset.sortKey) > val){
+        tbody.insertBefore(tr, row);
+        return;
+      }
+    }
+    tbody.appendChild(tr);
+  }
+
+  // 添加订单到表格
+  function addRow(order, highlight=false) {
+    const tbody = document.querySelector('.orders-panel tbody');
+    if (!tbody) return;
+
+    const tr = document.createElement('tr');
+    if (order.id) tr.dataset.id = order.id;
+    const isDelivery = ['delivery', 'bezorgen'].includes(order.order_type);
+    const items = Object.entries(order.items || {}).map(([n, i]) => `<li>${n} x ${i.qty}</li>`).join('');
+    let fooi = parseFloat(order.fooi ?? order.tip);
+    if (isNaN(fooi)) {
+      fooi = 0;
+    }
+    if(!('totaal' in order)){
+      console.warn('⚠️ totaal 字段缺失，请联系后端');
+    }
+    const remark = order.opmerking || order.remark || '';
+    const pickup = order.pickup_time || order.pickupTime;
+    const delivery = order.delivery_time || order.deliveryTime;
+
+    let time = order.created_at || '';
+    if (time && time.length > 5) {
+      if (time.includes('T')) {
+        const d = new Date(time);
+        if (!isNaN(d)) time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      } else if (time.includes(' ')) {
+        time = time.split(' ')[1].slice(0,5);
+      }
+    }
+
+      tr.innerHTML = `
+        <td>${order.created_date || ''}</td>
+        <td>${time}</td>
+        <td>${isDelivery ? 'Bezorgen' : 'Afhalen'}</td>
+        <td>${order.customer_name || ''}</td>
+        <td>${order.phone || ''}</td>
+        <td>${order.email || '-'}</td>
+        <td><ul>${items}</ul></td>
+        <td>${remark || '-'}</td>
+        <td>€${parseFloat(fooi).toFixed(2)}</td>
+        <td>€${parseFloat(order.totaal).toFixed(2)}</td>
+        <td>${isDelivery ? `${order.street} ${order.house_number} ${order.postcode} ${order.city}${order.maps_link ? ` <a href="${order.maps_link}" target="_blank">📍Maps</a>` : ''}` : '-'}</td>
+        <td>${isDelivery ? (delivery || '-') : (pickup || '-')}</td>
+        <td>${order.payment_method || ''}</td>
+        <td>${order.order_number || '-'}</td>`;
+      
+    tr.dataset.sortKey = getSortKey(order);
+    if(highlight){
+      tr.classList.add('new-order');
+      setTimeout(()=>tr.classList.remove('new-order'),10000);
+    }
+    insertSorted(tbody, tr);
+    updateTodayBadge();
+    return tr;
+  }
+
+  // Socket 监听新订单
+  socket.on('new_order', order => {
+  console.log('🆕 Nieuwe bestelling ontvangen!', order);
+  beep();
+  hasNewOrder = true;
+  const row = addRow(order, true);
+  updateTodayBadge();
+  newOrderCount++;
+  updateTabTitle();
+  if(confirm('Nieuwe bestelling ontvangen!')){
+    showTodayOrders();
+    if(row) row.scrollIntoView({behavior:'smooth', block:'center'});
+    hasNewOrder = false;
+    updateTodayBadge();
+  }
+});
+
+  // 断线后启用轮询
+  socket.on('disconnect', () => {
+    console.warn('⚠️ Socket verbroken – schakel over op polling');
+    startPolling();
+  });
+
+  socket.on('connect', () => {
+    console.log('✅ Socket verbonden');
+    stopPolling();
+  });
+
+  socket.on('connect_error', () => {
+    setTimeout(() => socket.connect(), 1000);
+  });
+
+  // 轮询作为备份
+  function fetchOrders() {
+  fetch('/pos/orders_today?json=1')
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.querySelector('.orders-panel tbody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      data.sort((a,b)=>getSortKey(a)-getSortKey(b)).forEach(o=>addRow(o));
+      updateTodayBadge();
+    }).catch(() => {});
+ }
+
+
+  function startPolling() {
+    if (pollTimer) return;
+    fetchOrders();
+    pollTimer = setInterval(fetchOrders, 10000); // 每10秒
+  }
+
+  function stopPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  window.addEventListener('beforeunload', () => socket.disconnect());
+  window.addEventListener('focus', () => { newOrderCount = 0; hasNewOrder = false; updateTabTitle(); updateTodayBadge(); });
+</script>
+
+
+
+ 
+  
+</body>
+</html>

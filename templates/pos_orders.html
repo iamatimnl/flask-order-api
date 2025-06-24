@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bestellingen Vandaag</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: auto;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    ul { margin: 0; padding-left: 20px; }
+    td:last-child,
+th:last-child {
+  padding-right: 20px;
+}
+
+.type-bezorging { color: red; font-weight: bold; }
+.type-afhalen { color: green; font-weight: bold; }
+
+/* 新订单动画效果 */
+.new-order {
+  animation: highlightBlink 1s ease-in-out;
+  animation-iteration-count: 10;
+}
+@keyframes highlightBlink {
+  0%,100% { background-color: #eaffea; }
+  50% { background-color: #fff; }
+}
+
+  </style>
+</head>
+<body>
+  <h1>Bestellingen Vandaag</h1>
+<table>
+  <thead>
+    <tr>
+      <th>Datum</th>
+      <th>Tijd</th>
+      <th>Type</th>
+      <th>Klant</th>
+      <th>Telefoon</th>
+      <th>Email</th>
+      <th>Items</th>
+      <th>Opmerking</th>
+      <th>Totaal (&euro;)</th>  <!-- ✅ 只保留一列价格 -->
+      <th>Adres</th>
+      <th>Tijdslot</th>
+      <th>Betaling</th>
+      <th>Bestelnummer</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for order in orders %}
+    <tr>
+      <td>{{ order.created_at_local.strftime('%Y-%m-%d') }}</td>
+      <td>{{ order.created_at_local.strftime('%H:%M') }}</td>
+      <td>{{ order.order_number or '' }}</td>
+      
+      {% set is_delivery = order.order_type in ['delivery', 'bezorgen'] %}
+      <td><span class="{{ 'type-bezorging' if is_delivery else 'type-afhalen' }}">{{ 'Bezorging' if is_delivery else 'Afhalen' }}</span></td>
+
+      <td>{{ order.customer_name or '' }}</td>
+      <td>{{ order.phone or '' }}</td>
+      <td>{{ order.email or '-' }}</td>
+
+      <td>
+        <ul>
+        {% for name, item in order.items_dict.items() %}
+          <li>{{ name }} x {{ item['qty'] }}</li>
+        {% endfor %}
+        </ul>
+      </td>
+
+      <td>{{ order.opmerking or '-' }}</td>
+
+      <!-- ✅ 只显示 één prijswaarde -->
+      <td>€{{ '%.2f' % (order.totaal or 0) }}</td>
+
+      <td>
+        {% if is_delivery %}
+          {{ order.street }} {{ order.house_number }} {{ order.postcode }} {{ order.city }}
+          {% if order.maps_link %}
+            <a href="{{ order.maps_link }}" target="_blank">📍Maps</a>
+          {% endif %}
+        {% else %}-{% endif %}
+      </td>
+
+      <td>
+        {% if is_delivery %}
+          {{ order.delivery_time or '-' }}
+        {% else %}
+          {{ order.pickup_time or '-' }}
+        {% endif %}
+      </td>
+
+      <td>{{ order.payment_method or '-' }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+  <p><a href="{{ url_for('pos') }}">Terug naar POS</a></p>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const socket = io({transports:['websocket']});
+    let pollTimer;
+    window.addEventListener('beforeunload',()=>socket.disconnect());
+    socket.on('connect_error',()=>{setTimeout(()=>socket.connect(),1000);});
+    socket.on('disconnect', startPolling);
+    socket.on('connect', stopPolling);
+function formatCurrency(value) {
+  if (typeof value === 'string') {
+    value = value.replace(/[^\d,.-]/g, '').replace(',', '.').trim();
+  }
+  const num = parseFloat(value);
+  return isNaN(num) ? "€0.00" : `€${num.toFixed(2)}`;
+}
+
+function pad(num) {
+  return num.toString().padStart(2, '0');
+}
+
+// 声音提示
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function beep(){
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(660, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.2);
+}
+
+function parseTimeToMinutes(str){
+  if(!str) return Infinity;
+  const p=str.split(':');
+  const h=parseInt(p[0],10);
+  const m=parseInt(p[1],10);
+  if(isNaN(h)||isNaN(m)) return Infinity;
+  return h*60+m;
+}
+
+function getSortKey(order){
+  const isDelivery=['delivery','bezorgen'].includes(order.order_type);
+  const t=isDelivery ? (order.delivery_time||order.deliveryTime) : (order.pickup_time||order.pickupTime);
+  return parseTimeToMinutes(t);
+}
+
+function insertSorted(tbody,tr){
+  const val=parseFloat(tr.dataset.sortKey);
+  const rows=Array.from(tbody.querySelectorAll('tr'));
+  for(const row of rows){
+    if(parseFloat(row.dataset.sortKey)>val){
+      tbody.insertBefore(tr,row);
+      return;
+    }
+  }
+  tbody.appendChild(tr);
+}
+
+     
+
+
+    function addRow(order, highlight=false) {
+  const tbody = document.querySelector('table tbody');
+  const tr = document.createElement('tr');
+  const isDelivery = ['delivery','bezorgen'].includes(order.order_type);
+  const items = Object.entries(order.items || {}).map(([n,i]) => `<li>${n} x ${i.qty}</li>`).join('');
+
+  // 安全获取 subtotal
+  let subtotal = parseFloat(order.subtotal);
+  if (isNaN(subtotal)) {
+    subtotal = Object.values(order.items || {}).reduce(
+      (s, i) => s + (parseFloat(i.price || 0) * parseInt(i.qty || 0)),
+      0
+    );
+  }
+
+  // 安全获取 totaal 值
+  let totaalVal = order.totaal ?? order.total ?? subtotal;
+  if (typeof totaalVal === 'string') {
+    totaalVal = parseFloat(totaalVal.replace(/[^\d,.-]/g, '').replace(',', '.').trim());
+  }
+
+  const remark = order.opmerking || order.remark || '';
+  const pickup = order.pickup_time || order.pickupTime;
+  const delivery = order.delivery_time || order.deliveryTime;
+
+  let time = order.created_at || '';
+  if (time && time.length > 5) {
+    if (time.includes('T')) {
+      const d = new Date(time);
+      if (!isNaN(d)) time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    } else if (time.includes(' ')) {
+      time = time.split(' ')[1].slice(0,5);
+    }
+  }
+
+  tr.innerHTML = `
+  <td>${order.created_date || ''}</td>
+
+  <td>${isDelivery ? 'Bezorgen' : 'Afhalen'}</td>
+  <td>${order.customer_name || ''}</td>
+  <td>${order.phone || ''}</td>
+  <td>${order.email || '-'}</td>
+  <td><ul>${items}</ul></td>
+  <td>${remark || '-'}</td>
+  <td>${formatCurrency(totaalVal)}</td>
+  <td>${isDelivery ? `${order.street} ${order.house_number} ${order.postcode} ${order.city}${order.maps_link ? ` <a href="${order.maps_link}" target="_blank">📍Maps</a>` : ''}` : '-'}</td>
+  <td>${isDelivery ? (delivery || '-') : (pickup || '-')}</td>
+  <td>${order.payment_method || '-'}</td>
+  <td>${order.order_number || ''}</td>
+`;
+
+  tr.dataset.sortKey = getSortKey(order);
+  if(highlight){
+    tr.classList.add('new-order');
+    setTimeout(()=>tr.classList.remove('new-order'),10000);
+    beep();
+  }
+  insertSorted(tbody, tr);
+  return tr;
+}
+
+    socket.on('new_order', order => {
+      console.log(order);
+      if(!('totaal' in order) && !('total' in order)){
+        console.warn('⚠️ totaal 字段缺失，请联系后端');
+      }
+      const row = addRow(order, true);
+      if(confirm('Nieuwe bestelling ontvangen!')){
+        if(row) row.scrollIntoView({behavior:'smooth', block:'center'});
+      }
+    });
+
+    function fetchOrders(){
+      fetch('/pos/orders_today?json=1').then(r=>r.json()).then(data=>{
+        const tbody = document.querySelector('table tbody');
+        if(!tbody) return;
+        tbody.innerHTML='';
+        data.sort((a,b)=>getSortKey(a)-getSortKey(b)).forEach(o=>addRow(o));
+      }).catch(()=>{});
+    }
+
+    function startPolling(){
+      if(pollTimer) return;
+      fetchOrders();
+      pollTimer = setInterval(fetchOrders,10000);
+    }
+
+    function stopPolling(){
+      if(pollTimer){
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
+    }
+  </script>
+</body>
+</html>

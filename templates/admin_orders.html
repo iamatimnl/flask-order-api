@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dagelijkse Bestellingen</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: auto;
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; vertical-align: top; }
+    th { background-color: #f2f2f2; }
+    ul { margin: 0; padding-left: 20px; }
+    #totals { margin-top: 20px; }
+    #totals table { width: auto; margin-top: 10px; }
+    .download-buttons {
+      margin-bottom: 20px;
+    }
+    .download-buttons button {
+      margin-right: 10px;
+      padding: 8px 16px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="dayHeading">Vandaag</h1>
+
+  <div class="download-buttons">
+    <button onclick="downloadExcel()">📥 Download Excel</button>
+    <button onclick="downloadPDF()">📄 Download PDF</button>
+  </div>
+
+  <div id="ordersContainer">
+    <p id="noOrders" style="display:none;">Geen bestellingen vandaag.</p>
+    <table id="ordersTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Datum</th>
+          <th>Tijd</th>
+          <th>Type</th>
+          <th>Klant</th>
+          <th>Telefoon</th>
+          <th>Email</th>
+          <th>Items</th>
+          <th>Opmerking</th>
+          <th>Fooi (€)</th>
+          <th>Totaal (€)</th>
+          <th>Adres</th>
+          <th>Tijdslot</th>
+          <th>Betaling</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="totals" style="display:none;">
+    <h2>Dagoverzicht</h2>
+    <table>
+      <tr><td>Totale omzet</td><td id="totalOmzet">€0,00</td></tr>
+      <tr><td>Pin betaling</td><td id="totalPin">€0,00</td></tr>
+      <tr><td>Online betaling</td><td id="totalOnline">€0,00</td></tr>
+      <tr><td>Contant</td><td id="totalContant">€0,00</td></tr>
+      <tr><td>Op rekening</td><td id="totalCredit">€0,00</td></tr>
+    </table>
+  </div>
+
+  <script>
+    function formatCurrency(value) {
+      if (typeof value === 'string') {
+        value = value.replace(/[^\d,.-]/g, '').replace(',', '.').trim();
+      }
+      const num = parseFloat(value);
+      return isNaN(num) ? '€0,00' : '€' + num.toFixed(2).replace('.', ',');
+    }
+
+    function downloadExcel() {
+      window.open("/admin/orders/download/excel", "_blank");
+     }
+
+   function downloadPDF() {
+   window.open("/admin/orders/download/pdf", "_blank");
+       }
+
+
+    function fetchOrders() {
+      fetch('/pos/orders_today?json=1')
+        .then(r => r.json())
+        .then(data => {
+          const tbody = document.querySelector('#ordersTable tbody');
+          const table = document.getElementById('ordersTable');
+          const msg = document.getElementById('noOrders');
+          tbody.innerHTML = '';
+          let total = 0, pin = 0, online = 0, contant = 0, credit = 0;
+
+          data.sort((a, b) => {
+            const t1 = (a.created_at || '').split(':');
+            const t2 = (b.created_at || '').split(':');
+            return (parseInt(t1[0]) * 60 + parseInt(t1[1])) - (parseInt(t2[0]) * 60 + parseInt(t2[1]));
+          });
+
+          if (data.length) {
+            table.style.display = '';
+            msg.style.display = 'none';
+          } else {
+            table.style.display = 'none';
+            msg.style.display = 'block';
+          }
+
+          const heading = document.getElementById('dayHeading');
+          if (data.length) {
+            const d = data[0].created_date.split('-');
+            heading.textContent = `Vandaag – ${d[2]}-${d[1]}-${d[0]}`;
+          } else {
+            const now = new Date();
+            const dd = String(now.getDate()).padStart(2, '0');
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const yy = now.getFullYear();
+            heading.textContent = `Vandaag – ${dd}-${mm}-${yy}`;
+          }
+
+          data.forEach(order => {
+            const tr = document.createElement('tr');
+            const isDelivery = ['delivery', 'bezorgen'].includes((order.order_type || '').toLowerCase());
+            const items = Object.entries(order.items || {}).map(([n, i]) => `<li>${n} x ${i.qty}</li>`).join('');
+            let fooi = parseFloat(order.fooi);
+            if (isNaN(fooi)) {
+              fooi = 0;
+            }
+            let tot = order.totaal ?? order.total ?? 0;
+            if (typeof tot === 'string') {
+              tot = parseFloat(tot.replace(/[^\d,.-]/g, '').replace(',', '.'));
+            }
+
+            total += tot;
+            const method = String(order.payment_method || '').toLowerCase();
+            if (method.includes('pin')) pin += tot;
+            else if (method.includes('online')) online += tot;
+            else if (method.includes('contant')) contant += tot;
+            else if (method.includes('rekening')) credit += tot;
+
+            tr.innerHTML = `
+              <td>${order.id || ''}</td>
+              <td>${order.created_date || ''}</td>
+              <td>${order.created_at || ''}</td>
+              <td>${isDelivery ? 'Bezorgen' : 'Afhalen'}</td>
+              <td>${order.customer_name || ''}</td>
+              <td>${order.phone || ''}</td>
+              <td>${order.email || '-'}</td>
+              <td><ul>${items}</ul></td>
+              <td>${order.opmerking || order.remark || '-'}</td>
+              <td>${formatCurrency(fooi)}</td>
+              <td>${formatCurrency(tot)}</td>
+              <td>${isDelivery ? `${order.street} ${order.house_number} ${order.postcode} ${order.city}${order.maps_link ? ` <a href="${order.maps_link}" target="_blank">📍Maps</a>` : ''}` : '-'}</td>
+              <td>${isDelivery ? (order.delivery_time || order.deliveryTime || '-') : (order.pickup_time || order.pickupTime || '-')}</td>
+              <td>${order.payment_method || ''}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+
+          document.getElementById('totals').style.display = data.length ? '' : 'none';
+          document.getElementById('totalOmzet').textContent = formatCurrency(total);
+          document.getElementById('totalPin').textContent = formatCurrency(pin);
+          document.getElementById('totalOnline').textContent = formatCurrency(online);
+          document.getElementById('totalContant').textContent = formatCurrency(contant);
+          document.getElementById('totalCredit').textContent = formatCurrency(credit);
+        })
+        .catch(() => {});
+    }
+
+    document.addEventListener('DOMContentLoaded', fetchOrders);
+  </script>
+</body>
+</html>

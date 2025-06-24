@@ -1,0 +1,594 @@
+<section id="bubble">
+  <div class="menu-group">
+   <h2 style="margin-top: -8px; font-size: 1.5rem; color: #333; text-align: center; font-weight: bold;">
+  Bubble Tea
+</h2>
+
+
+    <div class="menu-row menu-item" data-name="Bubble Tea" data-price="5" data-packaging="0.2">
+      <div class="menu-img">
+       <img src="{{ url_for('static', filename='images/bubble-tea-main.jpg') }}" alt="Bubble Tea">
+
+      </div>
+      <div class="menu-content">
+        <h3>Bubble Tea</h3>
+        <p>€ 5.00</p>
+    
+        <div class="bubble-option">
+       
+          <select id="bubbleType">
+            <option value="">Base</option>
+            <option value="Green Tea">Green Tea</option>
+            <option value="Milk Tea">Milk Tea</option>
+            <option value="Milkshake">Milkshake</option>
+          </select>
+        </div>
+
+        <div class="bubble-option">
+         
+          <select id="bubbleFlavor">
+            <option value="">Smaak</option>
+            <option value="Mango">Mango</option>
+            <option value="Appel">Appel</option>
+            <option value="Matcha">Matcha</option>
+            <option value="Brown Sugar">Brown Sugar</option>
+          </select>
+        </div>
+
+        <div class="bubble-option">
+    
+          <select id="bubbleTopping">
+            <option value="">Topping</option>
+            <option value="Appel Popping">Appel Popping</option>
+            <option value="Perzik Popping">Perzik Popping</option>
+            <option value="Tapioca">Tapioca</option>
+          </select>
+        </div>
+
+        <div class="qty-box">
+          <label for="bubbleTeaQty">Aantal</label>
+          <button type="button" class="qty-minus remove-button" data-target="bubbleTeaQty">-</button>
+          <select id="bubbleTeaQty"></select>
+          <button type="button" class="qty-plus add-button" data-target="bubbleTeaQty">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+
+
+
+<section id="bento">
+  <div class="menu-group">
+   <h2 style="margin-top: -8px; font-size: 1.5rem; color: #333; text-align: center; font-weight: bold;">
+  Bento box
+</h2>
+
+
+    <!-- Chicken Bento -->
+    <div class="menu-row menu-item" data-name="Chicken Bento" data-price="12" data-packaging="0.2">
+      <div class="menu-img">
+        <img src="{{ url_for('static', filename='images/chicken-bento.jpg') }}" alt="Chicken Bento">
+      </div>
+
+      <div class="menu-content">
+        <h3>Chicken Bento</h3>
+        <p>€ 12.00</p>
+
+        <div class="qty-box">
+          <label for="chickenBentoCount">Aantal</label>
+          <button type="button" class="qty-minus remove-button" data-target="chickenBentoCount">-</button>
+          <select id="chickenBentoCount" name="chickenBentoCount"></select>
+          <button type="button" class="qty-plus add-button" data-target="chickenBentoCount">+</button>
+        </div>
+      </div>
+    </div>
+ 
+
+    <!-- Meatlover Bento -->
+<!-- Meatlover Bento -->
+<div class="menu-row menu-item" data-name="Meatlover Bento" data-price="14" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/Meatlove bento.png') }}" alt="Meatlover Bento">
+  </div>
+
+  <div class="menu-content">
+    <h3>Meatlover Bento</h3>
+    <p>€ 14.00</p>
+
+    <div class="qty-box">
+      <label for="meatloverBentoCount">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="meatloverBentoCount">-</button>
+      <select id="meatloverBentoCount" name="meatloverBentoCount"></select>
+      <button type="button" class="qty-plus add-button" data-target="meatloverBentoCount">+</button>
+    </div>
+  </div>
+</div>
+
+
+    <!-- Zalm Lover Bento -->
+    <div class="menu-row menu-item" data-name="Zalm Lover Bento" data-price="13" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/zalm-lover-bento.jpg') }}" alt="Zalm Lover Bento">
+  </div>
+
+  <div class="menu-content">
+    <h3>Zalm Lover Bento</h3>
+    <p>€ 13.00</p>
+
+    <div class="qty-box">
+      <label for="zalmLoverBentoCount">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="zalmLoverBentoCount">-</button>
+      <select id="zalmLoverBentoCount" name="zalmLoverBentoCount"></select>
+      <button type="button" class="qty-plus add-button" data-target="zalmLoverBentoCount">+</button>
+    </div>
+  </div>
+</div>
+
+
+    <!-- Ebi Lover Bento -->
+    <div class="menu-row menu-item" data-name="Ebi Lover Bento" data-price="13" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/ebi-lover-bento.png') }}" alt="Ebi Lover Bento">
+  </div>
+
+  <div class="menu-content">
+    <h3>Ebi Lover Bento</h3>
+    <p>€ 13.00</p>
+
+    <div class="qty-box">
+      <label for="ebiLoverBentoCount">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="ebiLoverBentoCount">-</button>
+      <select id="ebiLoverBentoCount" name="ebiLoverBentoCount"></select>
+      <button type="button" class="qty-plus add-button" data-target="ebiLoverBentoCount">+</button>
+    </div>
+  </div>
+</div>
+
+
+    <!-- Surf & Turf Bento -->
+   <div class="menu-row menu-item" data-name="Surf & Turf Bento" data-price="15" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/surf-turf-bento.jpg') }}" alt="Surf & Turf Bento">
+  </div>
+
+  <div class="menu-content">
+    <h3>Surf & Turf Bento</h3>
+    <p>€ 15.00</p>
+
+    <div class="qty-box">
+      <label for="surfTurfBentoCount">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="surfTurfBentoCount">-</button>
+      <select id="surfTurfBentoCount" name="surfTurfBentoCount"></select>
+      <button type="button" class="qty-plus add-button" data-target="surfTurfBentoCount">+</button>
+    </div>
+  </div>
+</div>
+
+
+    <!-- Dimsum Bento -->
+   <div class="menu-row menu-item" data-name="Dimsum Bento" data-price="11" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/dimsum-bento.png') }}" alt="Dimsum Bento">
+  </div>
+
+  <div class="menu-content">
+    <h3>Dimsum Bento</h3>
+    <p>€ 11.00</p>
+
+    <div class="qty-box">
+      <label for="dimsumBentoCount">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="dimsumBentoCount">-</button>
+      <select id="dimsumBentoCount" name="dimsumBentoCount"></select>
+      <button type="button" class="qty-plus add-button" data-target="dimsumBentoCount">+</button>
+    </div>
+  </div>
+</div>
+
+
+    <!-- Lamskotelet Bento -->
+    <div class="menu-row menu-item" data-name="Lamskotelet Bento" data-price="14" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/lamskotelet-bento.jpg') }}" alt="Lamskotelet Bento">
+  </div>
+
+  <div class="menu-content">
+    <h3>Lamskotelet Bento</h3>
+    <p>€ 14.00</p>
+
+    <div class="qty-box">
+      <label for="lamsBentoCount">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="lamsBentoCount">-</button>
+      <select id="lamsBentoCount" name="lamsBentoCount"></select>
+      <button type="button" class="qty-plus add-button" data-target="lamsBentoCount">+</button>
+    </div>
+  </div>
+</div>
+
+
+    <!-- Veggie Bento -->
+   <div id="vegan" class="menu-row menu-item" data-name="Veggie Bento" data-price="10" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/veggie-bento.png') }}" alt="Veggie Bento">
+  </div>
+
+  <div class="menu-content">
+    <h3>Veggie Bento</h3>
+    <p>€ 10.00</p>
+
+    <div class="qty-box">
+      <label for="veggieBentoCount">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="veggieBentoCount">-</button>
+      <select id="veggieBentoCount" name="veggieBentoCount"></select>
+      <button type="button" class="qty-plus add-button" data-target="veggieBentoCount">+</button>
+    </div>
+  </div>
+</div>
+
+
+  <div class="menu-row menu-item" data-name="Sushi Bento" data-price="14" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/sushi-bento.jpg') }}" alt="Sushi Bento">
+  </div>
+
+  <div class="menu-content">
+    <h3>Sushi Bento</h3>
+    <p>€ 14.00</p>
+
+    <div class="qty-box">
+      <label for="sushiBentoCount">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="sushiBentoCount">-</button>
+      <select id="sushiBentoCount" name="sushiBentoCount"></select>
+      <button type="button" class="qty-plus add-button" data-target="sushiBentoCount">+</button>
+    </div>
+  </div>
+</div>
+
+    <!-- Xbento - Stel je eigen bento samen -->
+<!-- Xbento - Stel je eigen bento samen -->
+<div class="menu-row menu-item" data-name="Xbento" data-price="14" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/xbento.png') }}" alt="Xbento">
+  </div>
+
+  <div class="menu-content">
+    <h3>Xbento (stel zelf samen)</h3>
+    <p>Vanaf € 14.00</p>
+
+    <div class="bubble-option">
+      <select id="xBentoMain">
+        <option value="">Hoofdgerecht</option>
+        <option value="Teriyaki beef">Teriyaki beef</option>
+        <option value="Karaage chicken">Karaage chicken</option>
+        <option value="Ebi fry">Ebi fry</option>
+        <option value="Zalm">Zalm</option>
+        <option value="Teriyaki chicken">Teriyaki chicken</option>
+      </select>
+    </div>
+
+    <div class="bubble-option">
+      <select id="xBentoSide">
+        <option value="">Bijgerecht</option>
+        <option value="Gyoza">Gyoza</option>
+        <option value="Edamame">Edamame</option>
+        <option value="Spring Roll">Spring Roll</option>
+      </select>
+    </div>
+
+    <div class="bubble-option">
+      <select id="xBentoRice">
+        <option value="">Rijstsoort</option>
+        <option value="White rice">White rice</option>
+        <option value="Fried rice (+€5)">Fried rice (+€5)</option>
+        <option value="Sushi rice">Sushi rice</option>
+      </select>
+    </div>
+
+    <div class="qty-box">
+      <label for="xBentoQty">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="xBentoQty">-</button>
+      <select id="xBentoQty" class="qty-select" name="xBentoQty"></select>
+      <button type="button" class="qty-plus add-button" data-target="xBentoQty">+</button>
+
+    </div>
+  </div>
+</div>
+
+
+  </div>
+</section>
+
+<!-- Ramen Section -->
+<section id="Ramen">
+  <h2>Ramen</h2>
+  <div class="menu-section">
+    <!-- 示例商品，可替换或添加更多 -->
+    <div class="menu-row menu-item" data-name="Tonkotsu Ramen" data-price="13" data-packaging="0.2">
+      <div class="menu-img">
+        <img src="{{ url_for('static', filename='images/tonkotsu-ramen.png') }}" alt="Tonkotsu Ramen">
+      </div>
+      <div class="menu-content">
+        <h3>Tonkotsu Ramen</h3>
+        <p>€ 13.00</p>
+        <p class="menu-description">Romige varkensbouillon met chashu, ramennoedels, ei en nori.</p>
+        <div class="qty-box">
+          <label for="tonkotsuRamenCount">Aantal</label>
+          <button type="button" class="qty-minus remove-button" data-target="tonkotsuRamenCount">-</button>
+          <select id="tonkotsuRamenCount" name="tonkotsuRamenCount"></select>
+          <button type="button" class="qty-plus add-button" data-target="tonkotsuRamenCount">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- Pokebowl Section -->
+<section id="Pokebowl">
+  <h2>Pokebowl</h2>
+  <div class="menu-section">
+    <!-- 示例商品，可替换或添加更多 -->
+    <div class="menu-row menu-item" data-name="Zalm Pokebowl" data-price="12" data-packaging="0.2">
+      <div class="menu-img">
+        <img src="{{ url_for('static', filename='images/zalm-pokebowl.png') }}" alt="Zalm Pokebowl">
+      </div>
+      <div class="menu-content">
+        <h3>Zalm Pokebowl</h3>
+        <p>€ 12.00</p>
+        <p class="menu-description">Verse zalm met sushirijst, avocado, komkommer, wakame en sesam.</p>
+        <div class="qty-box">
+          <label for="zalmPokebowlCount">Aantal</label>
+          <button type="button" class="qty-minus remove-button" data-target="zalmPokebowlCount">-</button>
+          <select id="zalmPokebowlCount" name="zalmPokebowlCount"></select>
+          <button type="button" class="qty-plus add-button" data-target="zalmPokebowlCount">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section id="sushi">
+  <div class="menu-group">
+    <h2 style="margin-top: -8px; font-size: 1.5rem; color: #333; text-align: center; font-weight: bold;">
+  Sushi
+</h2>
+
+
+<div class="menu-row menu-item" data-name="Green Dragon Roll" data-price="13.5" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/green-dragon-roll.png') }}" alt="Green Dragon Roll">
+  </div>
+
+  <div class="menu-content">
+    <h3>Green Dragon Roll</h3>
+    <p>Ebi fry roll met avocado & viskuit topping<br>€ 13.50</p>
+
+    <div class="qty-box">
+      <label for="greenDragonCount">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="greenDragonCount">-</button>
+      <select id="greenDragonCount" name="greenDragonCount"></select>
+      <button type="button" class="qty-plus add-button" data-target="greenDragonCount">+</button>
+    </div>
+  </div>
+</div>
+
+<div class="menu-row menu-item" data-name="Angry Dragon Roll" data-price="13.5" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/angry-dragon.png') }}" alt="Angry Dragon Roll">
+  </div>
+
+  <div class="menu-content">
+    <h3>Angry Dragon Roll</h3>
+    <p>Ebi fry roll met aburi zalm & unagi saus topping<br>€ 13.50</p>
+
+    <div class="qty-box">
+      <label for="angryDragonCount">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="angryDragonCount">-</button>
+      <select id="angryDragonCount" name="angryDragonCount"></select>
+      <button type="button" class="qty-plus add-button" data-target="angryDragonCount">+</button>
+    </div>
+  </div>
+</div>
+
+
+</section>
+
+
+<section id="Crispy-rice-sandwich">
+  <div class="menu-group">
+    <h2 style="margin-top: -8px; font-size: 1.5rem; color: #333; text-align: center; font-weight: bold;">
+      Crispy rice sandwich
+    </h2>
+
+    <!-- Zalm -->
+    <div class="menu-row menu-item" data-name="Zalm crispy rice sandwich" data-price="7" data-packaging="0.2">
+      <div class="menu-img">
+        <img src="{{ url_for('static', filename='images/zalm.png') }}" alt="Zalm crispy rice sandwich">
+      </div>
+
+      <div class="menu-content">
+        <h3>Zalm crispy rice sandwich</h3>
+        <p>€ 7.00</p>
+
+        <div class="qty-box">
+          <label for="zalm-crispy-rice-sandwich">Aantal</label>
+          <button type="button" class="qty-minus remove-button" data-target="zalm-crispy-rice-sandwich">-</button>
+          <select id="zalm-crispy-rice-sandwich" name="Zalm crispy rice sandwich"></select>
+          <button type="button" class="qty-plus add-button" data-target="zalm-crispy-rice-sandwich">+</button>
+        </div>
+      </div>
+    </div>
+
+
+
+    <!-- Ebi -->
+    <!-- Ebi Crispy Rice Sandwich -->
+<div class="menu-row menu-item" data-name="Ebi crispy rice sandwich" data-price="7" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/Ebi.png') }}" alt="Ebi Crispy Rice Sandwich">
+  </div>
+
+  <div class="menu-content">
+    <h3>Ebi crispy rice sandwich</h3>
+    <p>€ 7.00</p>
+
+    <div class="qty-box">
+      <label for="ebiCrispyRiceSandwich">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="ebiCrispyRiceSandwich">-</button>
+      <select id="ebiCrispyRiceSandwich" name="ebiCrispyRiceSandwich"></select>
+      <button type="button" class="qty-plus add-button" data-target="ebiCrispyRiceSandwich">+</button>
+    </div>
+  </div>
+</div>
+
+
+  <!-- Beef Crispy Rice Sandwich -->
+<div class="menu-row menu-item" data-name="Beef crispy rice sandwich" data-price="7.5" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/beef-crispy.png') }}" alt="Beef Crispy Rice Sandwich">
+  </div>
+
+  <div class="menu-content">
+    <h3>Beef crispy rice sandwich</h3>
+    <p>€ 7.50</p>
+    <div class="qty-box">
+      <label for="beefCrispyRiceSandwich">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="beefCrispyRiceSandwich">-</button>
+      <select id="beefCrispyRiceSandwich" name="beefCrispyRiceSandwich"></select>
+      <button type="button" class="qty-plus add-button" data-target="beefCrispyRiceSandwich">+</button>
+    </div>
+  </div>
+</div>
+<!-- California Crispy Rice Sandwich -->
+<div class="menu-row menu-item" data-name="California crispy rice sandwich" data-price="7.5" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/california-crispy.png') }}" alt="California Crispy Rice Sandwich">
+  </div>
+
+  <div class="menu-content">
+    <h3>California crispy rice sandwich</h3>
+    <p>€ 7.50</p>
+    <div class="qty-box">
+      <label for="californiaCrispyRiceSandwich">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="californiaCrispyRiceSandwich">-</button>
+      <select id="californiaCrispyRiceSandwich" name="californiaCrispyRiceSandwich"></select>
+      <button type="button" class="qty-plus add-button" data-target="californiaCrispyRiceSandwich">+</button>
+    </div>
+  </div>
+</div>
+
+<!-- Chicken Crispy Rice Sandwich -->
+<div class="menu-row menu-item" data-name="Chicken crispy rice sandwich" data-price="7" data-packaging="0.2">
+  <div class="menu-img">
+    <img src="{{ url_for('static', filename='images/chicken-crispy.png') }}" alt="Chicken Crispy Rice Sandwich">
+  </div>
+
+  <div class="menu-content">
+    <h3>Chicken crispy rice sandwich</h3>
+    <p>€ 7.00</p>
+    <div class="qty-box">
+      <label for="chickenCrispyRiceSandwich">Aantal</label>
+      <button type="button" class="qty-minus remove-button" data-target="chickenCrispyRiceSandwich">-</button>
+      <select id="chickenCrispyRiceSandwich" name="chickenCrispyRiceSandwich"></select>
+      <button type="button" class="qty-plus add-button" data-target="chickenCrispyRiceSandwich">+</button>
+    </div>
+  </div>
+</div>
+  </div>
+</section>
+<section id="snack">
+  <div class="menu-group">
+    <h2 style="margin-top: -8px; font-size: 1.5rem; color: #333; text-align: center; font-weight: bold;">
+  Snack
+</h2>
+
+
+    <div class="menu-row menu-item" data-name="Karaage" data-price="6.5" data-packaging="0.2">
+      <img src="{{ url_for('static', filename='images/karaage.png') }}" alt="Karaage" class="menu-img" loading="lazy" />
+      <div class="menu-content">
+        <h3>Karaage (Japanse gefrituurde kip)</h3>
+        <p>€ 6.50</p>
+        <div class="qty-box">
+          <label for="snackCount">Aantal</label>
+          <button type="button" class="qty-minus remove-button" data-target="snackCount">-</button>
+          <select id="snackCount" name="snackCount"></select>
+          <button type="button" class="qty-plus add-button" data-target="snackCount">+</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="dessert">
+  <div class="menu-group">
+
+    <!-- Mango -->
+    <div class="menu-row menu-item" data-name="Mochi Mango" data-price="4" data-packaging="0.2">
+      <div class="menu-img">
+        <img src="{{ url_for('static', filename='images/mochi-mango.png') }}" alt="Mochi Mango" loading="lazy" />
+      </div>
+      <div class="menu-content">
+        <h3>Mochi – Mango</h3>
+        <p>€ 4.00</p>
+        <div class="qty-box">
+          <label for="mochiMangoCount">Aantal</label>
+          <button type="button" class="qty-minus remove-button" data-target="mochiMangoCount">-</button>
+          <select id="mochiMangoCount" name="mochiMangoCount"></select>
+          <button type="button" class="qty-plus add-button" data-target="mochiMangoCount">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aardbei -->
+    <div class="menu-row menu-item" data-name="Mochi Aardbei" data-price="4" data-packaging="0.2">
+      <div class="menu-img">
+        <img src="{{ url_for('static', filename='images/mochi-aardbei.png') }}" alt="Mochi Aardbei" loading="lazy" />
+      </div>
+      <div class="menu-content">
+        <h3>Mochi – Aardbei</h3>
+        <p>€ 4.00</p>
+        <div class="qty-box">
+          <label for="mochiAardbeiCount">Aantal</label>
+          <button type="button" class="qty-minus remove-button" data-target="mochiAardbeiCount">-</button>
+          <select id="mochiAardbeiCount" name="mochiAardbeiCount"></select>
+          <button type="button" class="qty-plus add-button" data-target="mochiAardbeiCount">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Matcha -->
+    <div class="menu-row menu-item" data-name="Mochi Matcha" data-price="4" data-packaging="0.2">
+      <div class="menu-img">
+        <img src="{{ url_for('static', filename='images/mochi-matcha.png') }}" alt="Mochi Matcha" loading="lazy" />
+      </div>
+      <div class="menu-content">
+        <h3>Mochi – Matcha</h3>
+        <p>€ 4.00</p>
+        <div class="qty-box">
+          <label for="mochiMatchaCount">Aantal</label>
+          <button type="button" class="qty-minus remove-button" data-target="mochiMatchaCount">-</button>
+          <select id="mochiMatchaCount" name="mochiMatchaCount"></select>
+          <button type="button" class="qty-plus add-button" data-target="mochiMatchaCount">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pistachio -->
+    <div class="menu-row menu-item" data-name="Mochi Pistachio" data-price="4" data-packaging="0.2">
+      <div class="menu-img">
+        <img src="{{ url_for('static', filename='images/mochi-pistachio.png') }}" alt="Mochi Pistachio" loading="lazy" />
+      </div>
+      <div class="menu-content">
+        <h3>Mochi – Pistachio</h3>
+        <p>€ 4.00</p>
+        <div class="qty-box">
+          <label for="mochiPistachioCount">Aantal</label>
+          <button type="button" class="qty-minus remove-button" data-target="mochiPistachioCount">-</button>
+          <select id="mochiPistachioCount" name="mochiPistachioCount"></select>
+          <button type="button" class="qty-plus add-button" data-target="mochiPistachioCount">+</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
