@@ -27,9 +27,13 @@
     --accent-gradient-mid: #30db5b; /* 渐变中间柔和绿 */
     --accent-gradient-end: #34c759; /* 渐变结束 iOS 绿 */
     --off-white: #ffffff; /* 局部白色 */
-    --sakura: #ff4f70; /* 点缀樱花粉 */
-    --gold: #c8a95c; /* 轻奢金色 */
+  --sakura: #ff4f70; /* 点缀樱花粉 */
+  --gold: #c8a95c; /* 轻奢金色 */
 }
+
+  .stars {
+    color: var(--gold);
+  }
 
     /* Hide horizontal scroll bar in all modern browsers */
   .navbar-container::-webkit-scrollbar {
@@ -1003,6 +1007,7 @@ input:focus, select:focus, textarea:focus {
 
 </head>
 <body>
+<div id="status-banner"></div>
 <div class="feedback" id="feedback"></div>
 <div class="navbar-container" id="navbar-container">
 <nav class="navbar" id="navbar">
@@ -1017,6 +1022,7 @@ input:focus, select:focus, textarea:focus {
 <a href="#Crispy-rice-sandwich">Crispy Rice</a>
 <a href="#snack">Snack</a>
 <a href="#dessert">Dessert</a>
+<a href="javascript:void(0)" id="openReviews" class="review-link">Review</a>
 </div>
 <div class="indicator" id="indicator"></div>
 </nav>
@@ -2454,7 +2460,7 @@ function toggleMobileCart() {
 </script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-      const navLinks = document.querySelectorAll('.navbar a');
+      const navLinks = document.querySelectorAll('.nav-categories a:not(.review-link)');
       const sections = Array.from(navLinks).map(link => document.querySelector(link.getAttribute('href')));
       const indicator = document.getElementById('indicator');
       const navbarContainer = document.getElementById('navbar-container');
@@ -2802,11 +2808,19 @@ sliderTrack.addEventListener('touchmove', (e) => {
              document.getElementById('delivery_time').value;
     }
 
+    function resetZoom() {
+      const vp = document.querySelector('meta[name="viewport"]');
+      if (vp) {
+        vp.setAttribute('content', 'width=device-width, initial-scale=1.0');
+      }
+    }
+
     function scheduleHide() {
       clearTimeout(hideTimer);
       hideTimer = setTimeout(() => {
         if (isMobile() && requiredFilled()) {
           fields.forEach(el => el.blur());
+          resetZoom();
         }
       }, 3000);
     }
@@ -2818,6 +2832,69 @@ sliderTrack.addEventListener('touchmove', (e) => {
     document.getElementById('afhalen').addEventListener('change', scheduleHide);
     document.getElementById('bezorgen').addEventListener('change', scheduleHide);
   })();
+</script>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script>
+function updateStatus(val){
+  const banner = document.getElementById('status-banner');
+  if(val === 'false'){
+    banner.textContent = '暂不接单';
+    banner.style.display = 'block';
+  }else{
+    banner.textContent = '';
+    banner.style.display = 'none';
+  }
+}
+function fetchStatus(){
+  fetch('/api/settings/is_open')
+    .then(r => r.json())
+    .then(d => updateStatus(d.is_open));
+}
+fetchStatus();
+setInterval(fetchStatus, 30000);
+const socket = io();
+socket.on('setting_update', d => { if(d.key === 'is_open'){ updateStatus(d.value); }});
+</script>
+
+<div id="reviewsModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:1000;">
+  <div style="background:white; padding:20px; width:100%; height:100%; overflow:auto;" id="reviewsContent">
+    <h2>Reviews</h2>
+    <div id="reviewsList"></div>
+    <button id="closeReviews">Sluiten</button>
+  </div>
+</div>
+
+<script>
+  const modal = document.getElementById('reviewsModal');
+  const openBtn = document.getElementById('openReviews');
+  const closeBtn = document.getElementById('closeReviews');
+  const reviewsList = document.getElementById('reviewsList');
+
+  function renderReviews(data){
+    reviewsList.innerHTML = data.map(r => {
+      const stars = '★'.repeat(r.rating || 0) + '☆'.repeat(5 - (r.rating || 0));
+      return `<p><strong>${r.customer_name}</strong> <span class="stars">${stars}</span><br>${r.content}</p>`;
+    }).join('');
+  }
+
+  async function loadReviews(){
+    const r = await fetch('/api/reviews');
+    if(r.ok){
+      const d = await r.json();
+      renderReviews(d);
+    }
+  }
+
+  openBtn.addEventListener('click', () => {
+    modal.style.display = 'flex';
+    loadReviews();
+  });
+  closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+  if(typeof socket !== 'undefined'){
+    socket.on('new_review', () => {
+      if(modal.style.display !== 'none') loadReviews();
+    });
+  }
 </script>
 
 
@@ -2831,6 +2908,3 @@ sliderTrack.addEventListener('touchmove', (e) => {
 
 
 
-
-</body>
-</html>
