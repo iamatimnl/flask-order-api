@@ -317,7 +317,8 @@ def api_send_order():
         payment_link = TIKKIE_PAYMENT_LINK
 
     if customer_email:
-        send_confirmation_email(order_text, customer_email)
+        order_number = data.get("order_number") or data.get("orderNumber")
+        send_confirmation_email(order_text, customer_email, order_number)
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
@@ -413,7 +414,8 @@ def submit_order():
         payment_link = TIKKIE_PAYMENT_LINK
 
     if customer_email:
-        send_confirmation_email(order_text, customer_email)
+        order_number = data.get("order_number") or data.get("orderNumber")
+        send_confirmation_email(order_text, customer_email, order_number)
 
     # ✅ 实时推送完整订单数据给前端 POS（包含时间、地址、姓名等）
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
