@@ -787,6 +787,36 @@ input:focus, select:focus, textarea:focus {
     display: block !important;
   }
 }
+
+/* Review overlay styles */
+.review-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+.review-content {
+  background: var(--off-white);
+  padding: 20px;
+  border-radius: 12px;
+  max-width: 90%;
+  width: 400px;
+  text-align: center;
+}
+.review-content .stars {
+  font-size: 2rem;
+  margin: 10px 0;
+}
+.review-content .star {
+  cursor: pointer;
+  color: #ccc;
+}
+.review-content .star.selected {
+  color: var(--gold);
+}
 .slider-container {
   position: fixed;
   bottom: 24px;
@@ -1004,6 +1034,23 @@ input:focus, select:focus, textarea:focus {
 </head>
 <body>
 <div class="feedback" id="feedback"></div>
+<div id="reviewOverlay" class="review-overlay hidden">
+  <div class="review-content">
+    <h2>Laat een review achter</h2>
+    <div class="stars">
+      <span class="star" data-value="1">&#9733;</span>
+      <span class="star" data-value="2">&#9733;</span>
+      <span class="star" data-value="3">&#9733;</span>
+      <span class="star" data-value="4">&#9733;</span>
+      <span class="star" data-value="5">&#9733;</span>
+    </div>
+    <textarea id="reviewText" rows="4" placeholder="Jouw mening..."></textarea>
+    <div style="margin-top:10px;">
+      <button onclick="submitReview()">Verstuur</button>
+      <button onclick="closeReview()">Sluiten</button>
+    </div>
+  </div>
+</div>
 <div class="navbar-container" id="navbar-container">
 <nav class="navbar" id="navbar">
 <div class="nav-categories">
@@ -1017,6 +1064,7 @@ input:focus, select:focus, textarea:focus {
 <a href="#Crispy-rice-sandwich">Crispy Rice</a>
 <a href="#snack">Snack</a>
 <a href="#dessert">Dessert</a>
+<a href="javascript:void(0)" onclick="openReview()">Review</a>
 </div>
 <div class="indicator" id="indicator"></div>
 </nav>
@@ -2815,9 +2863,32 @@ sliderTrack.addEventListener('touchmove', (e) => {
       ['input', 'focus', 'click'].forEach(evt => el.addEventListener(evt, scheduleHide));
     });
 
-    document.getElementById('afhalen').addEventListener('change', scheduleHide);
-    document.getElementById('bezorgen').addEventListener('change', scheduleHide);
+  document.getElementById('afhalen').addEventListener('change', scheduleHide);
+  document.getElementById('bezorgen').addEventListener('change', scheduleHide);
   })();
+</script>
+<script>
+  function openReview() {
+    document.getElementById('reviewOverlay').classList.remove('hidden');
+  }
+  function closeReview() {
+    document.getElementById('reviewOverlay').classList.add('hidden');
+  }
+  function submitReview() {
+    const ratingEl = document.querySelector('#reviewOverlay .star.selected:last-child');
+    const rating = ratingEl ? ratingEl.dataset.value : 0;
+    const text = document.getElementById('reviewText').value.trim();
+    alert(`Dank voor je review!\nRating: ${rating}\n${text}`);
+    closeReview();
+  }
+  document.querySelectorAll('#reviewOverlay .star').forEach(star => {
+    star.addEventListener('click', () => {
+      const val = star.dataset.value;
+      document.querySelectorAll('#reviewOverlay .star').forEach(s => {
+        s.classList.toggle('selected', s.dataset.value <= val);
+      });
+    });
+  });
 </script>
 
 
