@@ -361,7 +361,7 @@ def api_send_order():
     pos_ok, pos_error = send_pos_order(data)
     record_order(data, pos_ok)
 
-    if customer_email and (data.get("total") or 0) >= 20 and pos_ok:
+    if customer_email and float(data.get("total") or 0) >= 20 and pos_ok:
         code = create_discount_code_api(customer_email)
         if code:
             send_discount_email(code, customer_email)
@@ -472,7 +472,7 @@ def submit_order():
     pos_ok, pos_error = send_pos_order(data)
     record_order(data, pos_ok)
 
-    if customer_email and (data.get("total") or 0) >= 20 and pos_ok:
+    if customer_email and float(data.get("total") or 0) >= 20 and pos_ok:
         code = create_discount_code_api(customer_email)
         if code:
             send_discount_email(code, customer_email)
