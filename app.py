@@ -172,28 +172,10 @@ def send_pos_order(order_data):
         print(f"❌ POS-fout: {e}")
         return False, str(e)
 
-
 def generate_discount_code(length=8):
     """Generate a random alphanumeric discount code."""
     alphabet = string.ascii_uppercase + string.digits
     return ''.join(secrets.choice(alphabet) for _ in range(length))
-
-
-def create_discount_code_api(customer_email, discount_amount=None):
-    """Create a discount code locally and push it to the external API."""
-    code = generate_discount_code()
-    payload = {
-        'code': code,
-        'customer_email': customer_email,
-    }
-    if discount_amount is not None:
-        payload['discount_amount'] = discount_amount
-    try:
-        requests.post(DISCOUNT_API_URL, json=payload)
-    except Exception as e:
-        print(f"❌ Kortingscode push-fout: {e}")
-    return code
-
 
 def validate_discount_code_api(code, order_total):
     try:
@@ -380,17 +362,19 @@ def api_send_order():
     data["fooi"] = float(data.get("tip") or 0)
     data["created_at"] = created_at
 
+    discount_code = None
+    discount_amount = None
+    order_total_val = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+    if customer_email and order_total_val >= 20:
+        discount_amount = round(order_total_val * 0.03, 2)
+        discount_code = generate_discount_code()
+        data["discount_code"] = discount_code
+        data["discount_amount"] = discount_amount
+
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
     record_order(data, pos_ok)
-
-    discount_code = None
-    discount_amount = None
-    order_total_val = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
-    if customer_email and order_total_val >= 20 and pos_ok:
-        discount_amount = round(order_total_val * 0.03, 2)
-        discount_code = create_discount_code_api(customer_email, discount_amount)
 
     payment_link = None
     if payment_method and payment_method != "cash":
@@ -440,7 +424,8 @@ def api_send_order():
         "tip": data.get("tip"),
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
-        "discount_amount": (data.get("summary") or {}).get("discountAmount"),
+        "discount_code": discount_code,
+        "discount_amount": discount_amount,
     }
     socketio.emit("new_order", socket_order)
 
@@ -493,17 +478,19 @@ def submit_order():
     if maps_link:
         order_text += f"\n📍 Google Maps: {maps_link}"
 
+    discount_code = None
+    discount_amount = None
+    order_total_val = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+    if customer_email and order_total_val >= 20:
+        discount_amount = round(order_total_val * 0.03, 2)
+        discount_code = generate_discount_code()
+        data["discount_code"] = discount_code
+        data["discount_amount"] = discount_amount
+
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
     record_order(data, pos_ok)
-
-    discount_code = None
-    discount_amount = None
-    order_total_val = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
-    if customer_email and order_total_val >= 20 and pos_ok:
-        discount_amount = round(order_total_val * 0.03, 2)
-        discount_code = create_discount_code_api(customer_email, discount_amount)
 
     payment_link = None
     if payment_method and payment_method != "cash":
@@ -556,7 +543,8 @@ def submit_order():
         "tip": data.get("tip"),
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
-        "discount_amount": (data.get("summary") or {}).get("discountAmount"),
+        "discount_code": discount_code,
+        "discount_amount": discount_amount,
     }
     socketio.emit("new_order", socket_order)
 
