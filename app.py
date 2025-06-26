@@ -96,7 +96,7 @@ def send_email_notification(order_text):
         print(f"❌ Verzendfout: {e}")
         return False
 
-def send_confirmation_email(order_text, customer_email, order_number):
+def send_confirmation_email(order_text, customer_email, order_number, discount_code=None):
     """Send order confirmation to the customer with review link."""
     review_link = f"https://www.novaasia.nl/review?order={order_number}"
     
@@ -107,6 +107,12 @@ def send_confirmation_email(order_text, customer_email, order_number):
         + f"<br><br>We horen graag je mening! Laat hier je review achter: <a href='{review_link}' target='_blank'>{review_link}</a>"
         + "<br><br>Met vriendelijke groet,<br>Nova Asia"
     )
+
+    if discount_code:
+        html_body += (
+            f"<br><br>🎁 Je kortingscode: <strong>{discount_code}</strong><br>"
+            "Gebruik deze code bij je volgende bestelling!"
+        )
 
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
@@ -361,10 +367,9 @@ def api_send_order():
     pos_ok, pos_error = send_pos_order(data)
     record_order(data, pos_ok)
 
+    discount_code = None
     if customer_email and float(data.get("total") or 0) >= 20 and pos_ok:
-        code = create_discount_code_api(customer_email)
-        if code:
-            send_discount_email(code, customer_email)
+        discount_code = create_discount_code_api(customer_email)
 
     payment_link = None
     if payment_method and payment_method != "cash":
@@ -372,7 +377,7 @@ def api_send_order():
 
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(order_text, customer_email, order_number)
+        send_confirmation_email(order_text, customer_email, order_number, discount_code)
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
@@ -472,10 +477,9 @@ def submit_order():
     pos_ok, pos_error = send_pos_order(data)
     record_order(data, pos_ok)
 
+    discount_code = None
     if customer_email and float(data.get("total") or 0) >= 20 and pos_ok:
-        code = create_discount_code_api(customer_email)
-        if code:
-            send_discount_email(code, customer_email)
+        discount_code = create_discount_code_api(customer_email)
 
     payment_link = None
     if payment_method and payment_method != "cash":
@@ -483,7 +487,7 @@ def submit_order():
 
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(order_text, customer_email, order_number)
+        send_confirmation_email(order_text, customer_email, order_number, discount_code)
 
     # ✅ 实时推送完整订单数据给前端 POS（包含时间、地址、姓名等）
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
