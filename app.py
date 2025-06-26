@@ -18,6 +18,7 @@ TZ = ZoneInfo("Europe/Amsterdam")
 
 
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
+DISCOUNT_API_URL = "https://nova-asia.onrender.com/api/discounts"
 
 app = Flask(__name__)
 CORS(app)
@@ -122,6 +123,28 @@ def send_confirmation_email(order_text, customer_email, order_number):
         print(f"❌ Klantbevestiging-fout: {e}")
 
 
+def send_discount_email(code, customer_email):
+    subject = "Nova Asia - Je kortingscode"
+    body = (
+        f"Bedankt voor je bestelling bij Nova Asia!\n\n"
+        f"Gebruik deze code voor 3% korting op je volgende bestelling: {code}\n\n"
+        "Met vriendelijke groet,\nNova Asia"
+    )
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
+    msg["To"] = customer_email
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
+        print("✅ Kortingscode verzonden!")
+    except Exception as e:
+        print(f"❌ Kortingscode-fout: {e}")
+
+
 def send_pos_order(order_data):
     """Forward the order data to the POS system."""
     try:
@@ -134,6 +157,32 @@ def send_pos_order(order_data):
     except Exception as e:
         print(f"❌ POS-fout: {e}")
         return False, str(e)
+
+
+def create_discount_code_api(customer_email):
+    try:
+        resp = requests.post(DISCOUNT_API_URL, json={
+            'customer_email': customer_email
+        })
+        if resp.status_code == 200:
+            return resp.json().get('code')
+    except Exception as e:
+        print(f"❌ Kortingscode aanmaakfout: {e}")
+    return None
+
+
+def validate_discount_code_api(code, order_total):
+    try:
+        resp = requests.post(f"{DISCOUNT_API_URL}/validate", json={
+            'code': code,
+            'order_total': order_total
+        })
+        if resp.status_code == 200:
+            return resp.json()
+        return resp.json()
+    except Exception as e:
+        print(f"❌ Kortingscode check-fout: {e}")
+        return {'valid': False, 'error': 'server_error'}
 
 
 def record_order(order_data, pos_ok):
@@ -312,6 +361,11 @@ def api_send_order():
     pos_ok, pos_error = send_pos_order(data)
     record_order(data, pos_ok)
 
+    if customer_email and (data.get("total") or 0) >= 20 and pos_ok:
+        code = create_discount_code_api(customer_email)
+        if code:
+            send_discount_email(code, customer_email)
+
     payment_link = None
     if payment_method and payment_method != "cash":
         payment_link = TIKKIE_PAYMENT_LINK
@@ -379,6 +433,15 @@ def api_send_order():
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
+
+@app.route('/validate_discount', methods=['POST'])
+def validate_discount_route():
+    data = request.get_json() or {}
+    code = data.get('code')
+    order_total = data.get('order_total')
+    result = validate_discount_code_api(code, order_total)
+    return jsonify(result)
+
 @app.route("/submit_order", methods=["POST"])
 def submit_order():
     data = request.get_json()
@@ -408,6 +471,11 @@ def submit_order():
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
     record_order(data, pos_ok)
+
+    if customer_email and (data.get("total") or 0) >= 20 and pos_ok:
+        code = create_discount_code_api(customer_email)
+        if code:
+            send_discount_email(code, customer_email)
 
     payment_link = None
     if payment_method and payment_method != "cash":
