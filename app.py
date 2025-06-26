@@ -3,6 +3,8 @@ from flask_cors import CORS
 from flask_socketio import SocketIO
 import requests
 import smtplib
+import string
+import secrets
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
@@ -165,16 +167,23 @@ def send_pos_order(order_data):
         return False, str(e)
 
 
+def generate_discount_code(length=8):
+    """Generate a random alphanumeric discount code."""
+    alphabet = string.ascii_uppercase + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
 def create_discount_code_api(customer_email):
+    """Create a discount code locally and push it to the external API."""
+    code = generate_discount_code()
     try:
-        resp = requests.post(DISCOUNT_API_URL, json={
+        requests.post(DISCOUNT_API_URL, json={
+            'code': code,
             'customer_email': customer_email
         })
-        if resp.status_code == 200:
-            return resp.json().get('code')
     except Exception as e:
-        print(f"❌ Kortingscode aanmaakfout: {e}")
-    return None
+        print(f"❌ Kortingscode push-fout: {e}")
+    return code
 
 
 def validate_discount_code_api(code, order_total):
