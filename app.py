@@ -98,7 +98,7 @@ def send_email_notification(order_text):
         print(f"❌ Verzendfout: {e}")
         return False
 
-def send_confirmation_email(order_text, customer_email, order_number, discount_code=None):
+def send_confirmation_email(order_text, customer_email, order_number, discount_code=None, discount_amount=None):
     """Send order confirmation to the customer with review link."""
     review_link = f"https://www.novaasia.nl/review?order={order_number}"
     
@@ -115,6 +115,12 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
             f"<br><br>🎁 Je kortingscode: <strong>{discount_code}</strong><br>"
             "Gebruik deze code bij je volgende bestelling!"
         )
+        if discount_amount is not None:
+            formatted = f"€{discount_amount:.2f}"
+            html_body += (
+                "<br>Deze code geeft je 3% korting."\
+                f"<br>De verwachte korting op basis van je huidige bestelling is ongeveer {formatted}."
+            )
 
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
@@ -173,14 +179,17 @@ def generate_discount_code(length=8):
     return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 
-def create_discount_code_api(customer_email):
+def create_discount_code_api(customer_email, discount_amount=None):
     """Create a discount code locally and push it to the external API."""
     code = generate_discount_code()
+    payload = {
+        'code': code,
+        'customer_email': customer_email,
+    }
+    if discount_amount is not None:
+        payload['discount_amount'] = discount_amount
     try:
-        requests.post(DISCOUNT_API_URL, json={
-            'code': code,
-            'customer_email': customer_email
-        })
+        requests.post(DISCOUNT_API_URL, json=payload)
     except Exception as e:
         print(f"❌ Kortingscode push-fout: {e}")
     return code
@@ -377,8 +386,11 @@ def api_send_order():
     record_order(data, pos_ok)
 
     discount_code = None
-    if customer_email and float(data.get("totaal") or 0) >= 20 and pos_ok:
-        discount_code = create_discount_code_api(customer_email)
+    discount_amount = None
+    order_total_val = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+    if customer_email and order_total_val >= 20 and pos_ok:
+        discount_amount = round(order_total_val * 0.03, 2)
+        discount_code = create_discount_code_api(customer_email, discount_amount)
 
     payment_link = None
     if payment_method and payment_method != "cash":
@@ -386,7 +398,7 @@ def api_send_order():
 
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(order_text, customer_email, order_number, discount_code)
+        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
@@ -487,8 +499,11 @@ def submit_order():
     record_order(data, pos_ok)
 
     discount_code = None
-    if customer_email and float(data.get("totaal") or 0) >= 20 and pos_ok:
-        discount_code = create_discount_code_api(customer_email)
+    discount_amount = None
+    order_total_val = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+    if customer_email and order_total_val >= 20 and pos_ok:
+        discount_amount = round(order_total_val * 0.03, 2)
+        discount_code = create_discount_code_api(customer_email, discount_amount)
 
     payment_link = None
     if payment_method and payment_method != "cash":
@@ -496,7 +511,7 @@ def submit_order():
 
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(order_text, customer_email, order_number, discount_code)
+        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
 
     # ✅ 实时推送完整订单数据给前端 POS（包含时间、地址、姓名等）
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
