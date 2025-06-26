@@ -165,30 +165,49 @@ def send_pos_order(order_data):
         return False, str(e)
 
 
-def create_discount_code_api(customer_email):
+@app.route("/api/discounts", methods=["POST"])
+def create_discount():
     try:
-        resp = requests.post(DISCOUNT_API_URL, json={
-            'customer_email': customer_email
-        })
-        if resp.status_code == 200:
-            return resp.json().get('code')
+        data = request.get_json()
+        email = data.get("customer_email")
+
+        if not email:
+            return jsonify({"error": "Missing customer_email"}), 400
+
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+        disc = DiscountCode(code=code, customer_email=email, discount_amount=3.0)
+        db.session.add(disc)
+        db.session.commit()
+
+        return jsonify({"code": code}), 200
     except Exception as e:
-        print(f"❌ Kortingscode aanmaakfout: {e}")
-    return None
+        return jsonify({"error": str(e)}), 500
 
 
-def validate_discount_code_api(code, order_total):
+@app.route("/api/discounts/validate", methods=["POST"])
+def validate_discount():
     try:
-        resp = requests.post(f"{DISCOUNT_API_URL}/validate", json={
-            'code': code,
-            'order_total': order_total
-        })
-        if resp.status_code == 200:
-            return resp.json()
-        return resp.json()
+        data = request.get_json()
+        code = data.get("code")
+        order_total = float(data.get("order_total") or 0)
+
+        disc = DiscountCode.query.filter_by(code=code, is_used=False).first()
+        if not disc:
+            return jsonify({"valid": False, "error": "Invalid or used code"}), 400
+
+        discount_amount = disc.discount_amount
+        new_total = max(0, order_total - discount_amount)
+
+        disc.is_used = True
+        db.session.commit()
+
+        return jsonify({
+            "valid": True,
+            "discount_amount": discount_amount,
+            "new_total": new_total
+        }), 200
     except Exception as e:
-        print(f"❌ Kortingscode check-fout: {e}")
-        return {'valid': False, 'error': 'server_error'}
+        return jsonify({"error": str(e)}), 500
 
 
 def record_order(order_data, pos_ok):
