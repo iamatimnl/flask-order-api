@@ -215,7 +215,9 @@ def record_order(order_data, pos_ok):
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
-        "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total")  # ✅ 添加这行
+        "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total"),  # ✅ 添加这行
+        "discountAmount": order_data.get("discountAmount"),
+        "discountCode": order_data.get("discountCode"),
     })
 
 
@@ -294,14 +296,28 @@ def format_order_notification(data):
         ("Verpakkingskosten", data.get("packaging_fee") or summary.get("packaging")),
         ("Bezorgkosten", data.get("delivery_fee") or summary.get("delivery")),
         ("Fooi", data.get("tip")),
-        ("Korting", summary.get("discountAmount")),
-        ("BTW", data.get("btw") or summary.get("btw")),
-        ("Totaal", data.get("totaal") or summary.get("total")),
     ]
+
+    discount_amount_used = data.get("discountAmount")
+    if discount_amount_used is None:
+        discount_amount_used = summary.get("discountAmount")
+    discount_code_used = data.get("discountCode")
+
+    btw_value = data.get("btw") or summary.get("btw")
+    total_value = data.get("totaal") or summary.get("total")
 
     for label, value in fields:
         if value is not None:
             lines.append(f"{label}: {fmt(value)}")
+
+    if discount_amount_used is not None or discount_code_used:
+        amount_str = fmt(discount_amount_used or 0)
+        lines.append(f"Korting: -{amount_str} (Code: {discount_code_used or 'geen'})")
+
+    if btw_value is not None:
+        lines.append(f"BTW: {fmt(btw_value)}")
+    if total_value is not None:
+        lines.append(f"Totaal: {fmt(total_value)}")
 
     return "\n".join(lines)
 
@@ -426,6 +442,8 @@ def api_send_order():
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
         "discount_code": discount_code,
         "discount_amount": discount_amount,
+        "discountAmount": data.get("discountAmount"),
+        "discountCode": data.get("discountCode"),
     }
     socketio.emit("new_order", socket_order)
 
@@ -545,6 +563,8 @@ def submit_order():
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
         "discount_code": discount_code,
         "discount_amount": discount_amount,
+        "discountAmount": data.get("discountAmount"),
+        "discountCode": data.get("discountCode"),
     }
     socketio.emit("new_order", socket_order)
 
