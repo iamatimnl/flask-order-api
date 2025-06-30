@@ -4049,25 +4049,44 @@ sliderTrack.addEventListener('touchmove', (e) => {
 </script>
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script>
-function updateStatus(val){
+function inBusinessHours(settings){
+  if(!settings.open_time || !settings.close_time){
+    return true;
+  }
+  const now = new Date();
+  const [oh, om] = settings.open_time.split(':');
+  const [ch, cm] = settings.close_time.split(':');
+  const nowMin = now.getHours()*60 + now.getMinutes();
+  const openMin = parseInt(oh)*60 + parseInt(om);
+  const closeMin = parseInt(ch)*60 + parseInt(cm);
+  if(openMin <= closeMin){
+    return nowMin >= openMin && nowMin < closeMin;
+  }
+  return nowMin >= openMin || nowMin < closeMin;
+}
+
+function updateStatus(settings){
   const banner = document.getElementById('status-banner');
-  if(val === 'false'){
-    banner.textContent = '暂不接单';
-    banner.style.display = 'block';
-  }else{
+  const openFlag = settings.is_open !== 'false';
+  const timeOk = inBusinessHours(settings);
+  if(openFlag && timeOk){
     banner.textContent = '';
     banner.style.display = 'none';
+  }else{
+    banner.textContent = '暂不接单';
+    banner.style.display = 'block';
   }
 }
+
 function fetchStatus(){
-  fetch('/api/settings/is_open')
+  fetch('/api/settings')
     .then(r => r.json())
-    .then(d => updateStatus(d.is_open));
+    .then(updateStatus);
 }
 fetchStatus();
 setInterval(fetchStatus, 30000);
 const socket = io();
-socket.on('setting_update', d => { if(d.key === 'is_open'){ updateStatus(d.value); }});
+socket.on('setting_update', fetchStatus);
 </script>
 
 <div id="reviewsModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; z-index:1000;">

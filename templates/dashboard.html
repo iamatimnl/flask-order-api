@@ -7,6 +7,10 @@
     <option value="true" {% if is_open == 'true' %}selected{% endif %}>营业</option>
     <option value="false" {% if is_open == 'false' %}selected{% endif %}>暂停接单</option>
   </select>
+  <br>
+  <label>营业时间:</label>
+  <input type="time" name="open_time" value="{{ open_time }}"> -
+  <input type="time" name="close_time" value="{{ close_time }}">
   <button type="submit">保存</button>
 </form>
 <p><a href="{{ url_for('logout') }}">Logout</a></p>
