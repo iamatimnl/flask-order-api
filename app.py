@@ -103,6 +103,10 @@ def send_telegram_message(order_text):
     except Exception as e:
         print(f"❌ Telegram-fout: {e}")
         return False
+@app.route('/add_section', methods=['POST'])
+def add_section():
+    # 暂时什么都不做，直接返回 dashboard
+    return redirect(url_for('dashboard'))
 
 def send_email_notification(order_text):
     subject = "Nova Asia - Nieuwe bestelling"
