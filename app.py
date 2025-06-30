@@ -86,6 +86,9 @@ def build_google_maps_link(data):
     address = ", ".join(address_parts)
     query = quote_plus(address)
     return f"https://www.google.com/maps/search/?api=1&query={query}"
+@app.route('/logout')
+def logout():
+    return redirect(url_for('dashboard'))
 
 def send_telegram_message(order_text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
