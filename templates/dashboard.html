@@ -1,0 +1,32 @@
+<!doctype html>
+<title>Mijn Nova Asia</title>
+<h1>Mijn Nova Asia</h1>
+<form method="post" action="{{ url_for('update_setting') }}">
+  <label>营业状态:</label>
+  <select name="is_open">
+    <option value="true" {% if is_open == 'true' %}selected{% endif %}>营业</option>
+    <option value="false" {% if is_open == 'false' %}selected{% endif %}>暂停接单</option>
+  </select>
+  <button type="submit">保存</button>
+</form>
+<p><a href="{{ url_for('logout') }}">Logout</a></p>
+
+<h2>Add Section</h2>
+<form method="post" action="{{ url_for('add_section') }}">
+  <input type="text" name="section_name" placeholder="Section name">
+  <button type="submit">Add Section</button>
+</form>
+
+<h2>Add Menu Item</h2>
+<form method="post" action="{{ url_for('add_item') }}" enctype="multipart/form-data">
+  <input type="text" name="item_name" placeholder="Item name"><br>
+  <input type="number" step="0.01" name="price" placeholder="Price"><br>
+  <select name="section_id">
+    {% for s in sections %}
+    <option value="{{ s.id }}">{{ s.name }}</option>
+    {% endfor %}
+  </select><br>
+  <input type="file" name="image"><br>
+  <button type="submit">Add Item</button>
+</form>
+
