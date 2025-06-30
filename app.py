@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO
 import requests
@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
+import json
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
 
@@ -25,6 +26,26 @@ DISCOUNT_API_URL = "https://nova-asia.onrender.com/api/discounts"
 app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+SETTINGS_FILE = "settings.json"
+SETTINGS = {}
+
+def load_settings():
+    global SETTINGS
+    try:
+        with open(SETTINGS_FILE, "r") as f:
+            SETTINGS = json.load(f)
+    except Exception:
+        SETTINGS = {"is_open": "true", "open_time": "11:00", "close_time": "21:00"}
+
+def save_settings():
+    try:
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(SETTINGS, f)
+    except Exception as e:
+        print(f"Failed to save settings: {e}")
+
+load_settings()
 
 # === Telegram 配置 ===
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
@@ -470,6 +491,60 @@ def validate_discount_route():
     order_total = data.get('order_total')
     result = validate_discount_code_api(code, order_total)
     return jsonify(result)
+
+# ==== Settings API ====
+
+@app.route('/api/settings', methods=['GET'])
+def get_settings():
+    """Return all settings."""
+    return jsonify(SETTINGS)
+
+
+@app.route('/api/settings/<key>', methods=['GET', 'POST'])
+def setting_detail(key):
+    if request.method == 'GET':
+        return jsonify({key: SETTINGS.get(key)})
+
+    data = request.get_json() or {}
+    value = data.get('value')
+    if value is not None:
+        SETTINGS[key] = value
+        save_settings()
+        socketio.emit('setting_update', {'key': key, 'value': value})
+        return jsonify({'status': 'ok', key: value})
+    return jsonify({'status': 'fail', 'error': 'no value'}), 400
+
+
+@app.route('/dashboard', methods=['GET'])
+def dashboard():
+    return render_template(
+        'dashboard.html',
+        is_open=SETTINGS.get('is_open', 'true'),
+        open_time=SETTINGS.get('open_time', '11:00'),
+        close_time=SETTINGS.get('close_time', '21:00'),
+    )
+
+
+@app.route('/update_setting', methods=['POST'])
+def update_setting():
+    changed = {}
+    is_open = request.form.get('is_open')
+    open_time = request.form.get('open_time')
+    close_time = request.form.get('close_time')
+    if is_open is not None:
+        SETTINGS['is_open'] = is_open
+        changed['is_open'] = is_open
+    if open_time:
+        SETTINGS['open_time'] = open_time
+        changed['open_time'] = open_time
+    if close_time:
+        SETTINGS['close_time'] = close_time
+        changed['close_time'] = close_time
+    if changed:
+        save_settings()
+        for k, v in changed.items():
+            socketio.emit('setting_update', {'key': k, 'value': v})
+    return redirect(url_for('dashboard'))
 
 @app.route("/submit_order", methods=["POST"])
 def submit_order():
