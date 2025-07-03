@@ -187,6 +187,44 @@ def send_discount_email(code, customer_email):
         print(f"❌ Kortingscode-fout: {e}")
 
 
+def send_simple_email(subject, body, to_email):
+    """Send a plain text email to a specific recipient."""
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
+    msg["To"] = to_email
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [to_email], msg.as_string())
+        print("✅ Bevestigingsmail verzonden!")
+        return True
+    except Exception as e:
+        print(f"❌ Bevestigingsmail-fout: {e}")
+        return False
+
+
+def send_telegram_to_customer(phone, text):
+    """Attempt to send a Telegram message directly to the customer's phone."""
+    if not phone:
+        return False
+
+    chat_id = str(phone).replace(" ", "").replace("+", "")
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    data = {
+        "chat_id": chat_id,
+        "text": text,
+    }
+    try:
+        response = requests.post(url, json=data)
+        return response.status_code == 200
+    except Exception as e:
+        print(f"❌ Telegram-klantfout: {e}")
+        return False
+
+
 def send_pos_order(order_data):
     """Forward the order data to the POS system."""
     try:
@@ -489,6 +527,31 @@ def api_send_order():
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
+
+
+@app.route('/api/order_complete', methods=['POST'])
+def order_complete():
+    """Handle order completion notifications from the POS system."""
+    data = request.get_json() or {}
+    order_number = data.get("order_number", "")
+    name = data.get("name", "")
+    phone = data.get("phone")
+    email = data.get("email")
+    order_type = data.get("order_type", "afhaal")
+
+    if order_type == "afhaal":
+        message = "Uw bestelling staat klaar. Haal deze alstublieft snel op."
+    else:
+        message = "Uw bestelling is onderweg. Even geduld alstublieft."
+
+    if email:
+        subject = "Nova Asia - Bestelling voltooid"
+        send_simple_email(subject, message, email)
+
+    if phone:
+        send_telegram_to_customer(phone, message)
+
+    return jsonify({"status": "ok"})
 
 
 @app.route('/validate_discount', methods=['POST'])
