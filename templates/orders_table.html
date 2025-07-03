@@ -90,11 +90,12 @@ th:last-child {
        <th>Tijdslot</th>
        <th>Betaalwijze</th>
        <th>Ordernummer</th>
+       <th>Status</th>
       </tr>
     </thead>
     <tbody>
-    {% for order in orders %}
-      <tr>
+  {% for order in orders %}
+      <tr{% if order.is_completed %} class="completed"{% endif %}>
         <td>{{ order.created_at_local.strftime('%Y-%m-%d') }}</td>
         <td>{{ order.created_at_local.strftime('%H:%M') }}</td>
         {% set is_delivery = order.order_type in ['delivery', 'bezorgen'] %}
@@ -135,6 +136,11 @@ th:last-child {
         </td>
         <td>{{ order.payment_method }}</td>
         <td>{{ order.order_number or '' }}</td>
+        <td>
+          <button class="complete-btn" data-number="{{ order.order_number }}">
+            {{ 'Undone' if order.is_completed else '完成' }}
+          </button>
+        </td>
       </tr>
     {% endfor %}
     </tbody>
