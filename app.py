@@ -284,21 +284,7 @@ def record_order(order_data, pos_ok):
         "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total"),  # ✅ 添加这行
         "discountAmount": order_data.get("discountAmount"),
         "discountCode": order_data.get("discountCode"),
-        "is_completed": False,
     })
-
-
-def set_order_completed(order_number: str, completed: bool) -> bool:
-    """Mark an order as completed or not in the in-memory list."""
-    for entry in ORDERS:
-        if entry.get("order_number") == order_number:
-            entry["is_completed"] = completed
-            socketio.emit(
-                "order_status",
-                {"order_number": order_number, "is_completed": completed},
-            )
-            return True
-    return False
 
 
 def format_order_notification(data):
@@ -427,7 +413,6 @@ def _orders_overview():
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
                 "order_number": entry.get("order_number"),
-                "is_completed": entry.get("is_completed", False),
             })
     return overview
 
@@ -552,7 +537,6 @@ def order_complete():
     name = data.get("name", "")
     email = data.get("email", "")
     order_type = data.get("order_type", "afhaal")
-    completed = data.get("completed", True)
 
     if not order_number:
         return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
@@ -589,7 +573,6 @@ def order_complete():
         )
         send_simple_email(subject, email_body, email)
 
-    set_order_completed(order_number, completed)
     return jsonify({"status": "ok"})
 
 @app.route('/validate_discount', methods=['POST'])
