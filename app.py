@@ -535,24 +535,45 @@ def order_complete():
     data = request.get_json() or {}
     order_number = data.get("order_number", "")
     name = data.get("name", "")
-    phone = data.get("phone")
-    email = data.get("email")
+    email = data.get("email", "")
     order_type = data.get("order_type", "afhaal")
 
+    if not order_number:
+        return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
+
+    shop_address = "Sjoukje Dijkstralaan 83, 2134CN Hoofddorp"
+    contact_number = "0622599566"
+
     if order_type == "afhaal":
-        message = "Uw bestelling staat klaar. Haal deze alstublieft snel op."
+        message = (
+            f"Goed nieuws, {name}!\n\n"
+            f"Uw bestelling is zojuist vers bereid en staat klaar om opgehaald te worden bij:\n\n"
+            f"{shop_address}\n\n"
+            f"Wij hopen dat u volop gaat genieten van uw maaltijd.\n"
+            f"Mocht u vragen hebben, bel ons gerust: {contact_number}.\n\n"
+            f"Bedankt dat u voor Nova Asia heeft gekozen!"
+        )
     else:
-        message = "Uw bestelling is onderweg. Even geduld alstublieft."
+        message = (
+            f"Goed nieuws, {name}!\n\n"
+            f"Uw bestelling is onderweg naar het door u opgegeven bezorgadres.\n"
+            f"Onze bezorger doet zijn best om op tijd bij u te zijn.\n\n"
+            f"Mocht u vragen hebben, bel ons gerust: {contact_number}.\n\n"
+            f"Wij wensen u alvast smakelijk eten en bedanken u hartelijk voor uw bestelling bij Nova Asia!"
+        )
 
+    # ✅ Mail versturen
     if email:
-        subject = "Nova Asia - Bestelling voltooid"
-        send_simple_email(subject, message, email)
-
-    if phone:
-        send_telegram_to_customer(phone, message)
+        subject = f"Nova Asia - Uw bestelling #{order_number} is voltooid"
+        email_body = (
+            f"Beste {name},\n\n"
+            f"{message}\n\n"
+            f"Met vriendelijke groet,\n"
+            f"Team Nova Asia"
+        )
+        send_simple_email(subject, email_body, email)
 
     return jsonify({"status": "ok"})
-
 
 @app.route('/validate_discount', methods=['POST'])
 def validate_discount_route():
