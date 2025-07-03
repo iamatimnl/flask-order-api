@@ -546,7 +546,7 @@ def order_complete():
 
     if order_type == "afhaal":
         message = (
-            f"Goed nieuws, {name}!\n\n"
+            f"Goed nieuws,"
             f"Uw bestelling is zojuist vers bereid en staat klaar om opgehaald te worden bij:\n\n"
             f"{shop_address}\n\n"
             f"Wij hopen dat u volop gaat genieten van uw maaltijd.\n"
@@ -555,7 +555,7 @@ def order_complete():
         )
     else:
         message = (
-            f"Goed nieuws, {name}!\n\n"
+            f"Goed nieuws,"
             f"Uw bestelling is onderweg naar het door u opgegeven bezorgadres.\n"
             f"Onze bezorger doet zijn best om op tijd bij u te zijn.\n\n"
             f"Mocht u vragen hebben, bel ons gerust: {contact_number}.\n\n"
