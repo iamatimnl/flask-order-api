@@ -467,6 +467,9 @@
   0%,100% { background-color: #eaffea; }
   50% { background-color: #fff; }
 }
+.completed {
+  background-color: #d4edda;
+}
 
 /* 桌面显示长按钮，确保隐藏圆按钮 */
 @media (min-width: 768px) {
@@ -810,6 +813,21 @@ document.addEventListener('DOMContentLoaded',()=>{
       if(e.target===cartPanel) cartPanel.classList.remove('open');
     });
   }
+  document.querySelectorAll('.complete-btn').forEach(btn=>{
+    const tr = btn.closest('tr');
+    btn.addEventListener('click',()=>{
+      const cells = tr.children;
+      const order = {
+        order_number: btn.dataset.number || cells[15]?.textContent || '',
+        customer_name: cells[3].textContent,
+        phone: cells[4].textContent,
+        email: cells[5].textContent === '-' ? '' : cells[5].textContent,
+        order_type: cells[2].textContent.trim().toLowerCase() === 'bezorgen' ? 'bezorg' : 'afhaal',
+        is_completed: tr.classList.contains('completed')
+      };
+      toggleComplete(tr, order, btn);
+    });
+  });
   updateCart();
   toggleAddress();
   updateTodayBadge();
@@ -1164,6 +1182,7 @@ function formatCurrency(value){
 
     const tr = document.createElement('tr');
     if (order.id) tr.dataset.id = order.id;
+    if(order.is_completed) tr.classList.add('completed');
     const isDelivery = ['delivery', 'bezorgen'].includes(order.order_type);
     const items = Object.entries(order.items || {}).map(([n, i]) => `<li>${n} x ${i.qty}</li>`).join('');
     let fooi = parseFloat(order.fooi ?? order.tip);
@@ -1201,7 +1220,8 @@ function formatCurrency(value){
         <td>${isDelivery ? `${order.street} ${order.house_number} ${order.postcode} ${order.city}${order.maps_link ? ` <a href="${order.maps_link}" target="_blank">📍Maps</a>` : ''}` : '-'}</td>
         <td>${isDelivery ? (delivery || '-') : (pickup || '-')}</td>
         <td>${order.payment_method || ''}</td>
-        <td>${order.order_number || '-'}</td>`;
+        <td>${order.order_number || '-'}</td>
+        <td><button class="complete-btn">${order.is_completed ? 'Undone' : '完成'}</button></td>`;
       
     tr.dataset.sortKey = getSortKey(order);
     if(highlight){
@@ -1210,6 +1230,10 @@ function formatCurrency(value){
     }
     insertSorted(tbody, tr);
     updateTodayBadge();
+    const btn = tr.querySelector('.complete-btn');
+    if(btn){
+      btn.addEventListener('click',()=>toggleComplete(tr, order, btn));
+    }
     return tr;
   }
 
@@ -1245,6 +1269,21 @@ function formatCurrency(value){
     setTimeout(() => socket.connect(), 1000);
   });
 
+  socket.on('order_status', data => {
+    const {order_number, is_completed} = data;
+    const rows = document.querySelectorAll('.orders-panel tbody tr');
+    rows.forEach(row => {
+      const numCell = row.children[15];
+      if(numCell && numCell.textContent === String(order_number)){
+        row.classList.toggle('completed', is_completed);
+        const btn = row.querySelector('.complete-btn');
+        if(btn){
+          btn.textContent = is_completed ? 'Undone' : '完成';
+        }
+      }
+    });
+  });
+
   // 轮询作为备份
   function fetchOrders() {
   fetch('/pos/orders_today?json=1')
@@ -1270,6 +1309,28 @@ function formatCurrency(value){
       clearInterval(pollTimer);
       pollTimer = null;
     }
+  }
+
+  function toggleComplete(tr, order, btn){
+    const newVal = !order.is_completed;
+    fetch('/api/order_complete', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        order_number: order.order_number,
+        name: order.customer_name,
+        phone: order.phone,
+        email: order.email,
+        order_type: order.order_type,
+        completed: newVal
+      })
+    }).then(r=>r.json()).then(res=>{
+      if(res.status==='ok'){
+        order.is_completed = newVal;
+        btn.textContent = newVal ? 'Undone' : '完成';
+        tr.classList.toggle('completed', newVal);
+      }
+    });
   }
 
   window.addEventListener('beforeunload', () => socket.disconnect());
