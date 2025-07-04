@@ -7,28 +7,30 @@
 <title>Nova Asia Bestellen</title>
 <style>
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: "Comic Sans MS", "Hiragino Kaku Gothic Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     padding: 20px;
     max-width: 1200px;
     margin: auto;
     background: var(--primary-color);
+    background-image: repeating-linear-gradient(45deg, rgba(0,0,0,0.02) 0, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 4px);
     color: var(--secondary-color);
     padding-top: 60px;
     text-align: center;
   }
 
     :root {
-    --primary-color: #f2f2f7; /* 主背景，高级浅灰 */
-    --section-alt-bg: #e5e5ea; /* 卡片灰色 */
-    --secondary-color: #2c2c2e; /* 文字深灰 */
-    --accent-color: #30b158; /* 苹果深绿，带轻奢气质 */
+  --primary-color: #fffdfc; /* 更明亮的iOS风格背景 */
+  --section-alt-bg: #fff0f6; /* 日系漫画浅粉色卡片 */
+  --secondary-color: #1d1d1f; /* 深灰文字 */
+  --accent-color: #ff4f70; /* 樱花粉作为主色 */
 
-    --accent-gradient-start: #0a84ff; /* 渐变开始 iOS 蓝 */
-    --accent-gradient-mid: #30db5b; /* 渐变中间柔和绿 */
-    --accent-gradient-end: #34c759; /* 渐变结束 iOS 绿 */
-    --off-white: #ffffff; /* 局部白色 */
+  --accent-gradient-start: #ffafcc; /* 渐变开始粉色 */
+  --accent-gradient-mid: #ffd6e0; /* 渐变中间浅粉 */
+  --accent-gradient-end: #ffeec9; /* 渐变结束淡黄 */
+  --off-white: #ffffff; /* 局部白色 */
   --sakura: #ff4f70; /* 点缀樱花粉 */
   --gold: #c8a95c; /* 轻奢金色 */
+  --manga-border: 2px solid #333; /* 漫画风边框 */
 }
 
   .stars {
@@ -50,10 +52,10 @@
   width: 100vw;
   padding: 0;
   margin: 0;
-  background-color: var(--off-white);
+  background-color: var(--section-alt-bg);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border-bottom: 1px solid #ccc;
+  border-bottom: var(--manga-border);
   z-index: 999;
 }
 
@@ -87,6 +89,8 @@
     text-decoration: none;
     font-weight: bold;
     border-radius: 24px;
+    border: var(--manga-border);
+    background: var(--off-white);
     transition: all 0.3s ease;
     position: relative;
     z-index: 2;
@@ -94,6 +98,8 @@
 
   .navbar a.active {
     color: white;
+    background: var(--accent-color);
+    box-shadow: 2px 2px 0 rgba(0,0,0,0.05);
   }
 
   
@@ -130,9 +136,10 @@
     height: auto;
     padding: 40px 20px;
     box-sizing: border-box;
-    border-bottom: 1px solid #ccc;
+    border: var(--manga-border);
     border-radius: 16px;
     background: var(--off-white);
+    box-shadow: 4px 4px 0 rgba(0,0,0,0.05);
     margin-bottom: 20px;
   }
 
@@ -158,6 +165,9 @@
     margin: 10px auto;
     width: 80%;
     max-width: none;
+    border: var(--manga-border);
+    box-shadow: 3px 3px 0 rgba(0,0,0,0.05);
+    background: var(--section-alt-bg);
   }
 
   img {
