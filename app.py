@@ -378,13 +378,9 @@ def format_order_notification(data):
     items = data.get("items", {})
     if items:
         lines.append("\nBestelde items:")
-        lines.append("+---------------------------+--------+")
-        lines.append("| Item                      | Aantal |")
-        lines.append("+---------------------------+--------+")
         for name, item in items.items():
             qty = item.get("qty", 1)
-            lines.append(f"| {name:<25} | {qty:^6} |")
-        lines.append("+---------------------------+--------+")
+            lines.append(f"{qty} x {name}")
 
     summary = data.get("summary") or {}
 
