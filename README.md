@@ -35,7 +35,7 @@ Create a new Web Service on Render, link this repository, and it will deploy usi
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` - optional Telegram notification settings.
 - `SMTP_SERVER`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `FROM_EMAIL` - optional SMTP settings.
 - `ADMIN_EMAIL` - address to receive order notifications.
-- `TIKKIE_URL` - URL to redirect customers for online payments.
+- `MOLLIE_API_KEY`, `MOLLIE_REDIRECT_URL`, `MOLLIE_WEBHOOK_URL` - Mollie payment configuration.
 
 For local development copy `.env.example` to `.env` and fill in the values.
 Without these variables Telegram, email and payment notifications will fail.
