@@ -459,7 +459,7 @@ def _orders_overview():
     return overview
 
 
-@app.route("/api/orders/today", methods=["GET"])
+
 @app.route("/api/orders", methods=["GET"])
 def get_orders_today():
     return jsonify(_orders_overview())
