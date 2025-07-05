@@ -5,6 +5,7 @@ import requests
 import smtplib
 import string
 import secrets
+import os
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
@@ -60,7 +61,10 @@ RECEIVER_EMAIL = "qianchennl@gmail.com"
 # Endpoint for forwarding orders to the POS system. Replace with the actual URL.
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 
-TIKKIE_PAYMENT_LINK = "https://tikkie.me/pay/example"
+# === Mollie 配置 ===
+MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "test_E6gVk3tT2Frgdedj9Bcexar82dgUMe")
+MOLLIE_REDIRECT_URL = os.environ.get("MOLLIE_REDIRECT_URL", "https://novaasia.nl/payment-success")
+MOLLIE_WEBHOOK_URL = os.environ.get("MOLLIE_WEBHOOK_URL", "https://flask-order-api.onrender.com/mollie_webhook")
 
 # In-memory log of orders for today's overview
 ORDERS = []
@@ -238,6 +242,30 @@ def send_pos_order(order_data):
         print(f"❌ POS-fout: {e}")
         return False, str(e)
 
+def create_mollie_payment(order_number, amount):
+    """Create a Mollie payment and return the checkout link and payment id."""
+    headers = {
+        "Authorization": f"Bearer {MOLLIE_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "amount": {"currency": "EUR", "value": f"{amount:.2f}"},
+        "description": f"Order {order_number}",
+        "redirectUrl": MOLLIE_REDIRECT_URL,
+        "webhookUrl": MOLLIE_WEBHOOK_URL,
+        "metadata": {"order_number": order_number},
+    }
+    try:
+        resp = requests.post("https://api.mollie.com/v2/payments", headers=headers, json=payload)
+        if resp.status_code in (200, 201):
+            info = resp.json()
+            link = (info.get("_links") or {}).get("checkout", {}).get("href")
+            return link, info.get("id")
+        print(f"❌ Mollie-response: {resp.status_code} {resp.text}")
+    except Exception as e:
+        print(f"❌ Mollie-fout: {e}")
+    return None, None
+
 def generate_discount_code(length=8):
     """Generate a random alphanumeric discount code."""
     alphabet = string.ascii_uppercase + string.digits
@@ -277,6 +305,8 @@ def record_order(order_data, pos_ok):
         "orderType": order_data.get("orderType"),
         "opmerking": order_data.get("opmerking") or order_data.get("remark"),
         "order_number": order_data.get("order_number") or order_data.get("orderNumber"),
+        "status": order_data.get("status", "Pending"),
+        "payment_id": order_data.get("payment_id"),
         # Use snake_case for time fields when storing orders
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
@@ -413,6 +443,8 @@ def _orders_overview():
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
                 "order_number": entry.get("order_number"),
+                "status": entry.get("status"),
+                "payment_id": entry.get("payment_id"),
             })
     return overview
 
@@ -443,6 +475,7 @@ def api_send_order():
     data["total"] = data.get("totaal") or (data.get("summary") or {}).get("total")
     data["fooi"] = float(data.get("tip") or 0)
     data["created_at"] = created_at
+    data["status"] = "Pending"
 
     discount_code = None
     discount_amount = None
@@ -456,11 +489,15 @@ def api_send_order():
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
-    record_order(data, pos_ok)
 
     payment_link = None
     if payment_method and payment_method != "cash":
-        payment_link = TIKKIE_PAYMENT_LINK
+        amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+        payment_link, payment_id = create_mollie_payment(data.get("order_number") or data.get("orderNumber"), amount)
+        if payment_id:
+            data["payment_id"] = payment_id
+
+    record_order(data, pos_ok)
 
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
@@ -489,6 +526,8 @@ def api_send_order():
         "email": data.get("email", ""),
         "payment_method": payment_method,
         "order_number": data.get("order_number") or data.get("orderNumber"),
+        "status": data.get("status"),
+        "payment_id": data.get("payment_id"),
         "items": data.get("items", {}),
         "street": data.get("street", ""),
         "house_number": data.get("houseNumber", ""),
@@ -583,6 +622,31 @@ def validate_discount_route():
     result = validate_discount_code_api(code, order_total)
     return jsonify(result)
 
+# ==== Mollie webhook ====
+@app.route('/mollie_webhook', methods=['POST'])
+def mollie_webhook():
+    payment_id = request.form.get('id')
+    if not payment_id:
+        return 'missing id', 400
+
+    headers = {"Authorization": f"Bearer {MOLLIE_API_KEY}"}
+    resp = requests.get(f"https://api.mollie.com/v2/payments/{payment_id}", headers=headers)
+    if resp.status_code != 200:
+        return 'error', 400
+    info = resp.json()
+    if info.get('status') == 'paid':
+        order_number = (info.get('metadata') or {}).get('order_number')
+        for o in ORDERS:
+            if o.get('order_number') == order_number:
+                o['status'] = 'Paid'
+                break
+        socketio.emit('payment_status', {'order_number': order_number, 'status': 'Paid'})
+    return 'ok'
+
+@app.route('/payment_success')
+def payment_success():
+    return 'Payment received. Thank you!'
+
 # ==== Settings API ====
 
 @app.route('/api/settings', methods=['GET'])
@@ -656,6 +720,7 @@ def submit_order():
     data["fooi"] = float(data.get("tip") or 0)
 
     data["created_at"] = created_at
+    data["status"] = "Pending"
 
     order_text = format_order_notification(data)
     maps_link = build_google_maps_link(data)
@@ -674,11 +739,15 @@ def submit_order():
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
-    record_order(data, pos_ok)
 
     payment_link = None
     if payment_method and payment_method != "cash":
-        payment_link = TIKKIE_PAYMENT_LINK
+        amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+        payment_link, payment_id = create_mollie_payment(data.get("order_number") or data.get("orderNumber"), amount)
+        if payment_id:
+            data["payment_id"] = payment_id
+
+    record_order(data, pos_ok)
 
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
@@ -708,6 +777,8 @@ def submit_order():
         "email": data.get("email", ""),
         "payment_method": payment_method,
         "order_number": data.get("order_number") or data.get("orderNumber"),
+        "status": data.get("status"),
+        "payment_id": data.get("payment_id"),
         "items": data.get("items", {}),
         "street": data.get("street", ""),
         "house_number": data.get("houseNumber", ""),

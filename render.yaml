@@ -25,6 +25,10 @@ services:
         value: 587
       - key: FROM_EMAIL
         value: qianchennl@gmail.com
-      - key: TIKKIE_URL
-        value: https://tikkie.me/pay/example
+      - key: MOLLIE_API_KEY
+        value: test_E6gVk3tT2Frgdedj9Bcexar82dgUMe
+      - key: MOLLIE_REDIRECT_URL
+        value: https://novaasia.nl/payment-success
+      - key: MOLLIE_WEBHOOK_URL
+        value: https://flask-order-api.onrender.com/mollie_webhook
     autoDeploy: true   # ✅ 需要顶格对齐 services 的子项
