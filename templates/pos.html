@@ -1284,6 +1284,20 @@ function formatCurrency(value){
     });
   });
 
+  socket.on('new_paid_order', data => {
+    const {order_id} = data;
+    const rows = document.querySelectorAll('.orders-panel tbody tr');
+    rows.forEach(row => {
+      const numCell = row.children[13];
+      if(numCell && numCell.textContent === String(order_id)){
+        const payCell = row.children[12];
+        if(payCell){
+          payCell.textContent = 'Paid';
+        }
+      }
+    });
+  });
+
   // 轮询作为备份
   function fetchOrders() {
   fetch('/pos/orders_today?json=1')

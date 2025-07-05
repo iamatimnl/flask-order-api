@@ -30,5 +30,5 @@ services:
       - key: MOLLIE_REDIRECT_URL
         value: https://novaasia.nl/payment-success
       - key: MOLLIE_WEBHOOK_URL
-        value: https://flask-order-api.onrender.com/mollie_webhook
+        value: https://flask-order-api.onrender.com/webhook
     autoDeploy: true   # ✅ 需要顶格对齐 services 的子项

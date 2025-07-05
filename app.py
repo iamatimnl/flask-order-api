@@ -64,7 +64,10 @@ POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 # === Mollie 配置 ===
 MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "test_E6gVk3tT2Frgdedj9Bcexar82dgUMe")
 MOLLIE_REDIRECT_URL = os.environ.get("MOLLIE_REDIRECT_URL", "https://novaasia.nl/payment-success")
-MOLLIE_WEBHOOK_URL = os.environ.get("MOLLIE_WEBHOOK_URL", "https://flask-order-api.onrender.com/mollie_webhook")
+MOLLIE_WEBHOOK_URL = os.environ.get(
+    "MOLLIE_WEBHOOK_URL",
+    "https://flask-order-api.onrender.com/webhook",
+)
 
 # In-memory log of orders for today's overview
 ORDERS = []
@@ -253,7 +256,7 @@ def create_mollie_payment(order_number, amount):
         "description": f"Order {order_number}",
         "redirectUrl": MOLLIE_REDIRECT_URL,
         "webhookUrl": MOLLIE_WEBHOOK_URL,
-        "metadata": {"order_number": order_number},
+        "metadata": {"order_id": order_number},
     }
     try:
         resp = requests.post("https://api.mollie.com/v2/payments", headers=headers, json=payload)
@@ -623,25 +626,38 @@ def validate_discount_route():
     return jsonify(result)
 
 # ==== Mollie webhook ====
-@app.route('/mollie_webhook', methods=['POST'])
+@app.route('/webhook', methods=['POST'])
 def mollie_webhook():
+    """Handle payment status updates from Mollie."""
     payment_id = request.form.get('id')
     if not payment_id:
-        return 'missing id', 400
+        return '', 400
 
     headers = {"Authorization": f"Bearer {MOLLIE_API_KEY}"}
     resp = requests.get(f"https://api.mollie.com/v2/payments/{payment_id}", headers=headers)
     if resp.status_code != 200:
-        return 'error', 400
+        return '', 400
     info = resp.json()
     if info.get('status') == 'paid':
-        order_number = (info.get('metadata') or {}).get('order_number')
+        order_id = (info.get('metadata') or {}).get('order_id')
         for o in ORDERS:
-            if o.get('order_number') == order_number:
+            if o.get('order_number') == order_id:
                 o['status'] = 'Paid'
                 break
-        socketio.emit('payment_status', {'order_number': order_number, 'status': 'Paid'})
-    return 'ok'
+        socketio.emit('new_paid_order', {'order_id': order_id})
+        try:
+            send_telegram_message(f"Betaling ontvangen voor order {order_id}")
+        except Exception:
+            pass
+        try:
+            send_simple_email(
+                "Betaling ontvangen",
+                f"Betaling ontvangen voor order {order_id}",
+                RECEIVER_EMAIL,
+            )
+        except Exception:
+            pass
+    return '', 200
 
 @app.route('/payment_success')
 def payment_success():
