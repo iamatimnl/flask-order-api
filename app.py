@@ -114,6 +114,14 @@ def send_telegram_message(order_text):
 def add_section():
     # 暂时什么都不做，直接返回 dashboard
     return redirect(url_for('dashboard'))
+def send_order_notifications(order_data, order_text, discount_code=None, discount_amount=None):
+    send_telegram_message(order_text)
+    send_email_notification(order_text)
+    send_pos_order(order_data)
+    customer_email = order_data.get("customerEmail") or order_data.get("email")
+    if customer_email:
+        order_number = order_data.get("order_number") or order_data.get("orderNumber")
+        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
 
 def send_email_notification(order_text):
     subject = "Nova Asia - Nieuwe bestelling"
@@ -326,18 +334,26 @@ def format_order_notification(data):
     order_number = data.get("order_number") or data.get("orderNumber")
     if order_number:
         lines.append(f"Ordernr: {order_number}")
+
+    status = data.get("status", "Pending")
+    lines.append(f"Status: {status}")
+
     name = data.get("name")
     if name:
         lines.append(f"Naam: {name}")
+
     phone = data.get("phone")
     if phone:
         lines.append(f"Tel: {phone}")
+
     email = data.get("email") or data.get("customerEmail")
     if email:
         lines.append(f"Email: {email}")
+
     order_type = data.get("orderType")
     if order_type:
         lines.append(f"Type: {order_type}")
+
     if order_type == "bezorgen":
         addr_parts = [
             data.get("street"),
@@ -374,13 +390,16 @@ def format_order_notification(data):
     items = data.get("items", {})
     if items:
         lines.append("\nBestelde items:")
-        lines.append("+---------------------------+--------+")
-        lines.append("| Item                      | Aantal |")
-        lines.append("+---------------------------+--------+")
+        lines.append("+------------------------------+--------+")
+        lines.append("| Item                         | Aantal |")
+        lines.append("+------------------------------+--------+")
+
         for name, item in items.items():
+            display_name = name[:30] + "…" if len(name) > 30 else name
             qty = item.get("qty", 1)
-            lines.append(f"| {name:<25} | {qty:^6} |")
-        lines.append("+---------------------------+--------+")
+            lines.append(f"| {display_name:<30} | {str(qty).center(6)} |")
+
+        lines.append("+------------------------------+--------+")
 
     summary = data.get("summary") or {}
 
@@ -419,7 +438,6 @@ def format_order_notification(data):
         lines.append(f"Totaal: {fmt(total_value)}")
 
     return "\n".join(lines)
-
 
 
 
@@ -489,23 +507,25 @@ def api_send_order():
         data["discount_code"] = discount_code
         data["discount_amount"] = discount_amount
 
-    telegram_ok = send_telegram_message(order_text)
-    email_ok = send_email_notification(order_text)
+    # 立即发送 POS（无论支付方式）
     pos_ok, pos_error = send_pos_order(data)
 
+    # 如果是现金订单，立即发送所有通知
+    if payment_method == "cash":
+        send_order_notifications(data, order_text, discount_code, discount_amount)
+
+    # 在线支付：生成支付链接，延迟通知
     payment_link = None
-    if payment_method and payment_method != "cash":
+    if payment_method != "cash":
         amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
         payment_link, payment_id = create_mollie_payment(data.get("order_number") or data.get("orderNumber"), amount)
         if payment_id:
             data["payment_id"] = payment_id
 
+    # 记录订单
     record_order(data, pos_ok)
 
-    if customer_email:
-        order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
-
+    # 实时推送给 POS
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
@@ -555,20 +575,11 @@ def api_send_order():
     }
     socketio.emit("new_order", socket_order)
 
-    if telegram_ok and email_ok and pos_ok:
-        resp = {"status": "ok"}
-        if payment_link:
-            resp["paymentLink"] = payment_link
-        return jsonify(resp), 200
+    resp = {"status": "ok"}
+    if payment_link:
+        resp["paymentLink"] = payment_link
+    return jsonify(resp), 200
 
-    if not telegram_ok:
-        return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
-    if not email_ok:
-        return jsonify({"status": "fail", "error": "E-mailfout"}), 500
-    if not pos_ok:
-        return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
-
-    return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
 
 @app.route('/api/order_complete', methods=['POST'])
@@ -637,27 +648,30 @@ def mollie_webhook():
     resp = requests.get(f"https://api.mollie.com/v2/payments/{payment_id}", headers=headers)
     if resp.status_code != 200:
         return '', 400
+
     info = resp.json()
     if info.get('status') == 'paid':
         order_id = (info.get('metadata') or {}).get('order_id')
+
         for o in ORDERS:
             if o.get('order_number') == order_id:
                 o['status'] = 'Paid'
+
+                # 生成订单内容
+                order_text = format_order_notification(o)
+                discount_code = o.get("discountCode")
+                discount_amount = o.get("discountAmount")
+
+                # 发送全部通知
+                send_order_notifications(o, order_text, discount_code, discount_amount)
+
+                # 实时推送给前端订单已支付
+                socketio.emit('new_paid_order', {'order_id': order_id})
+
                 break
-        socketio.emit('new_paid_order', {'order_id': order_id})
-        try:
-            send_telegram_message(f"Betaling ontvangen voor order {order_id}")
-        except Exception:
-            pass
-        try:
-            send_simple_email(
-                "Betaling ontvangen",
-                f"Betaling ontvangen voor order {order_id}",
-                RECEIVER_EMAIL,
-            )
-        except Exception:
-            pass
+
     return '', 200
+
 
 @app.route('/payment_success')
 def payment_success():
@@ -726,15 +740,12 @@ def submit_order():
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
 
-    # ✅ 添加 created_at 时间戳，并加入 data 中
     now = datetime.now(TZ)
     created_at = now.strftime('%Y-%m-%d %H:%M:%S')
     created_date = now.strftime('%Y-%m-%d')
-    created_time = now.strftime('%H:%M')  # ✅ 新增，只包含时间部分
-    # 👇 添加双字段支持
+    created_time = now.strftime('%H:%M')
     data["total"] = data.get("totaal") or (data.get("summary") or {}).get("total")
     data["fooi"] = float(data.get("tip") or 0)
-
     data["created_at"] = created_at
     data["status"] = "Pending"
 
@@ -752,24 +763,25 @@ def submit_order():
         data["discount_code"] = discount_code
         data["discount_amount"] = discount_amount
 
-    telegram_ok = send_telegram_message(order_text)
-    email_ok = send_email_notification(order_text)
+    # 立即发送 POS（无论是否 cash）
     pos_ok, pos_error = send_pos_order(data)
 
+    # 如果是现金订单，立即发送所有通知
+    if payment_method == "cash":
+        send_order_notifications(data, order_text, discount_code, discount_amount)
+
+    # 在线支付：创建支付链接，通知延迟
     payment_link = None
-    if payment_method and payment_method != "cash":
+    if payment_method != "cash":
         amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
         payment_link, payment_id = create_mollie_payment(data.get("order_number") or data.get("orderNumber"), amount)
         if payment_id:
             data["payment_id"] = payment_id
 
+    # 记录订单
     record_order(data, pos_ok)
 
-    if customer_email:
-        order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
-
-    # ✅ 实时推送完整订单数据给前端 POS（包含时间、地址、姓名等）
+    # 实时推送给 POS
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
@@ -800,14 +812,12 @@ def submit_order():
         "house_number": data.get("houseNumber", ""),
         "postcode": data.get("postcode", ""),
         "city": data.get("city", ""),
-        "maps_link": maps_link,                 # ✅ 前端想要的字段名
-        "google_maps_link": maps_link,         # （可选）保留原字段用于后续兼容或调试
+        "maps_link": maps_link,
+        "google_maps_link": maps_link,
         "isNew": True,
-        # Emit snake_case keys for frontend templates
         "delivery_time": delivery_time,
         "pickup_time": pickup_time,
         "tijdslot": tijdslot,
-        # Order pricing fields (new checkout data)
         "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
         "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
         "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
@@ -821,20 +831,11 @@ def submit_order():
     }
     socketio.emit("new_order", socket_order)
 
-    if telegram_ok and email_ok and pos_ok:
-        resp = {"status": "ok"}
-        if payment_link:
-            resp["paymentLink"] = payment_link
-        return jsonify(resp), 200
+    resp = {"status": "ok"}
+    if payment_link:
+        resp["paymentLink"] = payment_link
+    return jsonify(resp), 200
 
-    if not telegram_ok:
-        return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
-    if not email_ok:
-        return jsonify({"status": "fail", "error": "E-mailfout"}), 500
-    if not pos_ok:
-        return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
-
-    return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0")
