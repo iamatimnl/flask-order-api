@@ -310,6 +310,7 @@ def record_order(order_data, pos_ok):
         "order_number": order_data.get("order_number") or order_data.get("orderNumber"),
         "status": order_data.get("status", "Pending"),
         "payment_id": order_data.get("payment_id"),
+        "notified": order_data.get("notified", False),
         # Use snake_case for time fields when storing orders
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
@@ -489,8 +490,18 @@ def api_send_order():
         data["discount_code"] = discount_code
         data["discount_amount"] = discount_amount
 
-    telegram_ok = send_telegram_message(order_text)
-    email_ok = send_email_notification(order_text)
+    telegram_ok = True
+    email_ok = True
+    if payment_method == "cash":
+        telegram_ok = send_telegram_message(order_text)
+        email_ok = send_email_notification(order_text)
+        if customer_email:
+            order_number = data.get("order_number") or data.get("orderNumber")
+            send_confirmation_email(order_text, customer_email, order_number,
+                                  discount_code, discount_amount)
+        data["notified"] = True
+    else:
+        data["notified"] = False
     pos_ok, pos_error = send_pos_order(data)
 
     payment_link = None
@@ -501,10 +512,6 @@ def api_send_order():
             data["payment_id"] = payment_id
 
     record_order(data, pos_ok)
-
-    if customer_email:
-        order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
@@ -640,23 +647,30 @@ def mollie_webhook():
     info = resp.json()
     if info.get('status') == 'paid':
         order_id = (info.get('metadata') or {}).get('order_id')
+        order_data = None
         for o in ORDERS:
             if o.get('order_number') == order_id:
                 o['status'] = 'Paid'
+                order_data = o
                 break
+        if order_data and not order_data.get('notified'):
+            order_text = format_order_notification(order_data)
+            maps_link = build_google_maps_link(order_data)
+            if maps_link:
+                order_text += f"\n📍 Google Maps: {maps_link}"
+            send_telegram_message(order_text)
+            send_email_notification(order_text)
+            customer_email = order_data.get('email') or order_data.get('customerEmail')
+            if customer_email:
+                send_confirmation_email(
+                    order_text,
+                    customer_email,
+                    order_id,
+                    order_data.get('discount_code'),
+                    order_data.get('discount_amount'),
+                )
+            order_data['notified'] = True
         socketio.emit('new_paid_order', {'order_id': order_id})
-        try:
-            send_telegram_message(f"Betaling ontvangen voor order {order_id}")
-        except Exception:
-            pass
-        try:
-            send_simple_email(
-                "Betaling ontvangen",
-                f"Betaling ontvangen voor order {order_id}",
-                RECEIVER_EMAIL,
-            )
-        except Exception:
-            pass
     return '', 200
 
 @app.route('/payment_success')
@@ -752,8 +766,18 @@ def submit_order():
         data["discount_code"] = discount_code
         data["discount_amount"] = discount_amount
 
-    telegram_ok = send_telegram_message(order_text)
-    email_ok = send_email_notification(order_text)
+    telegram_ok = True
+    email_ok = True
+    if payment_method == "cash":
+        telegram_ok = send_telegram_message(order_text)
+        email_ok = send_email_notification(order_text)
+        if customer_email:
+            order_number = data.get("order_number") or data.get("orderNumber")
+            send_confirmation_email(order_text, customer_email, order_number,
+                                  discount_code, discount_amount)
+        data["notified"] = True
+    else:
+        data["notified"] = False
     pos_ok, pos_error = send_pos_order(data)
 
     payment_link = None
@@ -764,10 +788,6 @@ def submit_order():
             data["payment_id"] = payment_id
 
     record_order(data, pos_ok)
-
-    if customer_email:
-        order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
 
     # ✅ 实时推送完整订单数据给前端 POS（包含时间、地址、姓名等）
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
