@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Betaling voltooid</title>
+    <script>
+        sessionStorage.removeItem('novaCart');
+        sessionStorage.removeItem('orderForm');
+        setTimeout(function(){ window.location.href = '/'; }, 1000);
+    </script>
+</head>
+<body>
+    <p>Betaling ontvangen! U wordt teruggestuurd...</p>
+</body>
+</html>
