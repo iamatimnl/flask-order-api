@@ -642,7 +642,7 @@ def validate_discount_route():
 # ==== Mollie webhook ====
 @app.route('/webhook', methods=['POST'])
 def mollie_webhook():
-    """Handle payment status updates from Mollie."""
+    """处理 Mollie 支付状态更新（包含下单确认、通知、折扣码邮件）"""
     payment_id = request.form.get('id')
     if not payment_id:
         return '', 400
@@ -670,18 +670,35 @@ def mollie_webhook():
 
             pos_ok, _ = send_pos_order(order_data)
             if pos_ok:
-                # ✅ 新的查询方式：单个订单查询
+                # ✅ 查询 POS，确认订单已入库
                 check = requests.get(f"{POS_API_URL}/{order_id}")
                 if check.status_code == 200:
+                    # ✅ 格式化订单通知
                     text = format_order_notification(order_data)
                     maps_link = build_google_maps_link(order_data)
                     if maps_link:
                         text += f"\n📍 Google Maps: {maps_link}"
+
+                    # ✅ 新增：折扣码提醒
+                    kortingscode = order_data.get('discount_code') or order_data.get('discountCode')
+                    kortingsbedrag = float(order_data.get('discount_amount') or 0)
+
+                    if kortingscode:
+                        text += (
+                            f"\n\n🎁 Je kortingscode: {kortingscode}"
+                            f"\nGebruik deze code bij je volgende bestelling!"
+                            f"\nDeze code geeft je 3% korting."
+                            f"\nDe verwachte korting op basis van je huidige bestelling is ongeveer €{kortingsbedrag:.2f}"
+                        )
+
+                    # ✅ 发送通知
                     send_telegram_message(text)
                     send_email_notification(text)
+
                     cust_email = order_data.get('customerEmail') or order_data.get('email')
                     if cust_email:
                         send_confirmation_email(text, cust_email, order_id)
+
                     socketio.emit('new_order', order_data)
                 else:
                     print(f"❌ Order {order_id} niet gevonden in POS API!")
