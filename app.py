@@ -317,6 +317,7 @@ def record_order(order_data, pos_ok):
         "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total"),  # ✅ 添加这行
         "discountAmount": order_data.get("discountAmount"),
         "discountCode": order_data.get("discountCode"),
+        "full": order_data,
     })
 
 
@@ -326,6 +327,9 @@ def format_order_notification(data):
     order_number = data.get("order_number") or data.get("orderNumber")
     if order_number:
         lines.append(f"Ordernr: {order_number}")
+    status_line = data.get("status")
+    if status_line:
+        lines.append(f"Status: {status_line}")
     name = data.get("name")
     if name:
         lines.append(f"Naam: {name}")
@@ -489,20 +493,25 @@ def api_send_order():
         data["discount_code"] = discount_code
         data["discount_amount"] = discount_amount
 
-    telegram_ok = send_telegram_message(order_text)
-    email_ok = send_email_notification(order_text)
-    pos_ok, pos_error = send_pos_order(data)
+    telegram_ok = True
+    email_ok = True
+    pos_ok = False
+    pos_error = None
 
     payment_link = None
-    if payment_method and payment_method != "cash":
+    if payment_method == "online":
         amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
         payment_link, payment_id = create_mollie_payment(data.get("order_number") or data.get("orderNumber"), amount)
         if payment_id:
             data["payment_id"] = payment_id
+    else:
+        telegram_ok = send_telegram_message(order_text)
+        email_ok = send_email_notification(order_text)
+        pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
 
-    if customer_email:
+    if payment_method != "online" and customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
         send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
 
@@ -517,48 +526,53 @@ def api_send_order():
             else:
                 pickup_time = tijdslot
 
-    socket_order = {
-        "message": message,
-        "opmerking": remark,
-        "customer_name": data.get("name", ""),
-        "order_type": data.get("orderType", ""),
-        "created_at": data["created_at"],
-        "created_date": created_date,
-        "time": created_time,
-        "phone": data.get("phone", ""),
-        "email": data.get("email", ""),
-        "payment_method": payment_method,
-        "order_number": data.get("order_number") or data.get("orderNumber"),
-        "status": data.get("status"),
-        "payment_id": data.get("payment_id"),
-        "items": data.get("items", {}),
-        "street": data.get("street", ""),
-        "house_number": data.get("houseNumber", ""),
-        "postcode": data.get("postcode", ""),
-        "city": data.get("city", ""),
-        "maps_link": maps_link,
-        "google_maps_link": maps_link,
-        "isNew": True,
-        "delivery_time": delivery_time,
-        "pickup_time": pickup_time,
-        "tijdslot": tijdslot,
-        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
-        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
-        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
-        "tip": data.get("tip"),
-        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
-        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
-        "discount_code": discount_code,
-        "discount_amount": discount_amount,
-        "discountAmount": data.get("discountAmount"),
-        "discountCode": data.get("discountCode"),
-    }
-    socketio.emit("new_order", socket_order)
+    if payment_method != "online":
+        socket_order = {
+            "message": message,
+            "opmerking": remark,
+            "customer_name": data.get("name", ""),
+            "order_type": data.get("orderType", ""),
+            "created_at": data["created_at"],
+            "created_date": created_date,
+            "time": created_time,
+            "phone": data.get("phone", ""),
+            "email": data.get("email", ""),
+            "payment_method": payment_method,
+            "order_number": data.get("order_number") or data.get("orderNumber"),
+            "status": data.get("status"),
+            "payment_id": data.get("payment_id"),
+            "items": data.get("items", {}),
+            "street": data.get("street", ""),
+            "house_number": data.get("houseNumber", ""),
+            "postcode": data.get("postcode", ""),
+            "city": data.get("city", ""),
+            "maps_link": maps_link,
+            "google_maps_link": maps_link,
+            "isNew": True,
+            "delivery_time": delivery_time,
+            "pickup_time": pickup_time,
+            "tijdslot": tijdslot,
+            "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
+            "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
+            "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
+            "tip": data.get("tip"),
+            "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+            "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+            "discount_code": discount_code,
+            "discount_amount": discount_amount,
+            "discountAmount": data.get("discountAmount"),
+            "discountCode": data.get("discountCode"),
+        }
+        socketio.emit("new_order", socket_order)
 
-    if telegram_ok and email_ok and pos_ok:
+    if payment_method == "online":
         resp = {"status": "ok"}
         if payment_link:
             resp["paymentLink"] = payment_link
+        return jsonify(resp), 200
+
+    if telegram_ok and email_ok and pos_ok:
+        resp = {"status": "ok"}
         return jsonify(resp), 200
 
     if not telegram_ok:
@@ -640,28 +654,41 @@ def mollie_webhook():
     info = resp.json()
     if info.get('status') == 'paid':
         order_id = (info.get('metadata') or {}).get('order_id')
+        order_entry = None
         for o in ORDERS:
             if o.get('order_number') == order_id:
                 o['status'] = 'Paid'
+                o['paymentMethod'] = 'Online betaald'
+                order_entry = o
                 break
-        socketio.emit('new_paid_order', {'order_id': order_id})
-        try:
-            send_telegram_message(f"Betaling ontvangen voor order {order_id}")
-        except Exception:
-            pass
-        try:
-            send_simple_email(
-                "Betaling ontvangen",
-                f"Betaling ontvangen voor order {order_id}",
-                RECEIVER_EMAIL,
-            )
-        except Exception:
-            pass
+        if order_entry:
+            order_data = order_entry.get('full', order_entry).copy()
+            order_data['status'] = 'Paid'
+            order_data['paymentMethod'] = 'Online betaald'
+            pos_ok, _ = send_pos_order(order_data)
+            if pos_ok:
+                try:
+                    check = requests.get(POS_API_URL)
+                    if check.status_code == 200:
+                        found = any((p.get('order_number') == order_id or p.get('orderNumber') == order_id) for p in check.json())
+                        if found:
+                            text = format_order_notification(order_data)
+                            maps_link = build_google_maps_link(order_data)
+                            if maps_link:
+                                text += f"\n📍 Google Maps: {maps_link}"
+                            send_telegram_message(text)
+                            send_email_notification(text)
+                            cust_email = order_data.get('customerEmail') or order_data.get('email')
+                            if cust_email:
+                                send_confirmation_email(text, cust_email, order_id)
+                            socketio.emit('new_order', order_data)
+                except Exception as e:
+                    print(f"POS query error: {e}")
     return '', 200
 
 @app.route('/payment_success')
 def payment_success():
-    return 'Payment received. Thank you!'
+    return render_template('payment_success.html')
 
 # ==== Settings API ====
 
@@ -752,16 +779,21 @@ def submit_order():
         data["discount_code"] = discount_code
         data["discount_amount"] = discount_amount
 
-    telegram_ok = send_telegram_message(order_text)
-    email_ok = send_email_notification(order_text)
-    pos_ok, pos_error = send_pos_order(data)
+    telegram_ok = True
+    email_ok = True
+    pos_ok = False
+    pos_error = None
 
     payment_link = None
-    if payment_method and payment_method != "cash":
+    if payment_method == "online":
         amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
         payment_link, payment_id = create_mollie_payment(data.get("order_number") or data.get("orderNumber"), amount)
         if payment_id:
             data["payment_id"] = payment_id
+    else:
+        telegram_ok = send_telegram_message(order_text)
+        email_ok = send_email_notification(order_text)
+        pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
 
@@ -781,45 +813,44 @@ def submit_order():
             else:
                 pickup_time = tijdslot
 
-    socket_order = {
-        "message": message,
-        "opmerking": remark,
-        "customer_name": data.get("name", ""),
-        "order_type": data.get("orderType", ""),
-        "created_at": data["created_at"],
-        "created_date": created_date,
-        "time": created_time,
-        "phone": data.get("phone", ""),
-        "email": data.get("email", ""),
-        "payment_method": payment_method,
-        "order_number": data.get("order_number") or data.get("orderNumber"),
-        "status": data.get("status"),
-        "payment_id": data.get("payment_id"),
-        "items": data.get("items", {}),
-        "street": data.get("street", ""),
-        "house_number": data.get("houseNumber", ""),
-        "postcode": data.get("postcode", ""),
-        "city": data.get("city", ""),
-        "maps_link": maps_link,                 # ✅ 前端想要的字段名
-        "google_maps_link": maps_link,         # （可选）保留原字段用于后续兼容或调试
-        "isNew": True,
-        # Emit snake_case keys for frontend templates
-        "delivery_time": delivery_time,
-        "pickup_time": pickup_time,
-        "tijdslot": tijdslot,
-        # Order pricing fields (new checkout data)
-        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
-        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
-        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
-        "tip": data.get("tip"),
-        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
-        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
-        "discount_code": discount_code,
-        "discount_amount": discount_amount,
-        "discountAmount": data.get("discountAmount"),
-        "discountCode": data.get("discountCode"),
-    }
-    socketio.emit("new_order", socket_order)
+    if payment_method != "online":
+        socket_order = {
+            "message": message,
+            "opmerking": remark,
+            "customer_name": data.get("name", ""),
+            "order_type": data.get("orderType", ""),
+            "created_at": data["created_at"],
+            "created_date": created_date,
+            "time": created_time,
+            "phone": data.get("phone", ""),
+            "email": data.get("email", ""),
+            "payment_method": payment_method,
+            "order_number": data.get("order_number") or data.get("orderNumber"),
+            "status": data.get("status"),
+            "payment_id": data.get("payment_id"),
+            "items": data.get("items", {}),
+            "street": data.get("street", ""),
+            "house_number": data.get("houseNumber", ""),
+            "postcode": data.get("postcode", ""),
+            "city": data.get("city", ""),
+            "maps_link": maps_link,
+            "google_maps_link": maps_link,
+            "isNew": True,
+            "delivery_time": delivery_time,
+            "pickup_time": pickup_time,
+            "tijdslot": tijdslot,
+            "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
+            "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
+            "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
+            "tip": data.get("tip"),
+            "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+            "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+            "discount_code": discount_code,
+            "discount_amount": discount_amount,
+            "discountAmount": data.get("discountAmount"),
+            "discountCode": data.get("discountCode"),
+        }
+        socketio.emit("new_order", socket_order)
 
     if telegram_ok and email_ok and pos_ok:
         resp = {"status": "ok"}
