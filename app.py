@@ -380,13 +380,13 @@ def format_order_notification(data):
     items = data.get("items", {})
     if items:
         lines.append("\nBestelde items:")
-        lines.append("+---------------------------+--------+")
-        lines.append("| Item                      | Aantal |")
-        lines.append("+---------------------------+--------+")
+        lines.append("+--------+------------------------------+")
+        lines.append("| Aantal | Item                         |")
+        lines.append("+--------+------------------------------+")
         for name, item in items.items():
             qty = item.get("qty", 1)
-            lines.append(f"| {name:<25} | {qty:^6} |")
-        lines.append("+---------------------------+--------+")
+            lines.append(f"|  {str(qty).center(4)}  | {name:<28} |")
+        lines.append("+--------+------------------------------+")
 
     summary = data.get("summary") or {}
 
@@ -425,6 +425,7 @@ def format_order_notification(data):
         lines.append(f"Totaal: {fmt(total_value)}")
 
     return "\n".join(lines)
+
 
 
 
@@ -473,11 +474,6 @@ def api_send_order():
     payment_method = data.get("paymentMethod", "").lower()
     is_online = payment_method.startswith("online")
 
-    order_text = data.get("message") or format_order_notification(data)
-    maps_link = build_google_maps_link(data)
-    if maps_link:
-        order_text += f"\n📍 Google Maps: {maps_link}"
-
     now = datetime.now(TZ)
     created_at = now.strftime('%Y-%m-%d %H:%M:%S')
     created_date = now.strftime('%Y-%m-%d')
@@ -501,17 +497,79 @@ def api_send_order():
         payment_link, payment_id = create_mollie_payment(data.get("order_number") or data.get("orderNumber"), amount)
         if payment_id:
             data["payment_id"] = payment_id
+
+        # 生成地图链接和完整订单内容
+        order_text = format_order_notification(data)
+        maps_link = build_google_maps_link(data)
+        if maps_link:
+            order_text += f"\n📍 Google Maps: {maps_link}"
+
+        # 生成 socket_order 完整数据
+        delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
+        pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
+        tijdslot = data.get("tijdslot") or delivery_time or pickup_time
+
+        if tijdslot:
+            if not delivery_time and not pickup_time:
+                if data.get("orderType") == "bezorgen":
+                    delivery_time = tijdslot
+                else:
+                    pickup_time = tijdslot
+
+        socket_order = {
+            "message": message,
+            "opmerking": remark,
+            "customer_name": data.get("name", ""),
+            "order_type": data.get("orderType", ""),
+            "created_at": data["created_at"],
+            "created_date": created_date,
+            "time": created_time,
+            "phone": data.get("phone", ""),
+            "email": data.get("email", ""),
+            "payment_method": payment_method,
+            "order_number": data.get("order_number") or data.get("orderNumber"),
+            "status": data.get("status"),
+            "payment_id": data.get("payment_id"),
+            "items": data.get("items", {}),
+            "street": data.get("street", ""),
+            "house_number": data.get("houseNumber", ""),
+            "postcode": data.get("postcode", ""),
+            "city": data.get("city", ""),
+            "maps_link": maps_link,
+            "google_maps_link": maps_link,
+            "isNew": True,
+            "delivery_time": delivery_time,
+            "pickup_time": pickup_time,
+            "tijdslot": tijdslot,
+            "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
+            "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
+            "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
+            "tip": data.get("tip"),
+            "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+            "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+            "discount_code": discount_code,
+            "discount_amount": discount_amount,
+            "discountAmount": data.get("discountAmount"),
+            "discountCode": data.get("discountCode"),
+        }
+
         record_order(data, False)
+        socketio.emit("new_order", socket_order)
+
         resp = {"status": "ok"}
         if payment_link:
             resp["paymentLink"] = payment_link
         return jsonify(resp), 200
 
+    # 非在线支付流程
+    order_text = format_order_notification(data)
+    maps_link = build_google_maps_link(data)
+    if maps_link:
+        order_text += f"\n📍 Google Maps: {maps_link}"
+
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
-
-    payment_link = None
 
     record_order(data, pos_ok)
 
@@ -566,13 +624,11 @@ def api_send_order():
         "discountAmount": data.get("discountAmount"),
         "discountCode": data.get("discountCode"),
     }
+
     socketio.emit("new_order", socket_order)
 
     if telegram_ok and email_ok and pos_ok:
-        resp = {"status": "ok"}
-        if payment_link:
-            resp["paymentLink"] = payment_link
-        return jsonify(resp), 200
+        return jsonify({"status": "ok"}), 200
 
     if not telegram_ok:
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
@@ -582,6 +638,7 @@ def api_send_order():
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
+
 
 
 @app.route('/api/order_complete', methods=['POST'])
