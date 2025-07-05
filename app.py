@@ -651,6 +651,7 @@ def mollie_webhook():
     resp = requests.get(f"https://api.mollie.com/v2/payments/{payment_id}", headers=headers)
     if resp.status_code != 200:
         return '', 400
+
     info = resp.json()
     if info.get('status') == 'paid':
         order_id = (info.get('metadata') or {}).get('order_id')
@@ -661,30 +662,36 @@ def mollie_webhook():
                 o['paymentMethod'] = 'Online betaald'
                 order_entry = o
                 break
+
         if order_entry:
             order_data = order_entry.get('full', order_entry).copy()
             order_data['status'] = 'Paid'
             order_data['paymentMethod'] = 'Online betaald'
+
             pos_ok, _ = send_pos_order(order_data)
             if pos_ok:
-                try:
-                    check = requests.get(POS_API_URL)
-                    if check.status_code == 200:
-                        found = any((p.get('order_number') == order_id or p.get('orderNumber') == order_id) for p in check.json())
-                        if found:
-                            text = format_order_notification(order_data)
-                            maps_link = build_google_maps_link(order_data)
-                            if maps_link:
-                                text += f"\n📍 Google Maps: {maps_link}"
-                            send_telegram_message(text)
-                            send_email_notification(text)
-                            cust_email = order_data.get('customerEmail') or order_data.get('email')
-                            if cust_email:
-                                send_confirmation_email(text, cust_email, order_id)
-                            socketio.emit('new_order', order_data)
-                except Exception as e:
-                    print(f"POS query error: {e}")
+                # ✅ 新的查询方式：单个订单查询
+                check = requests.get(f"{POS_API_URL}/{order_id}")
+                if check.status_code == 200:
+                    text = format_order_notification(order_data)
+                    maps_link = build_google_maps_link(order_data)
+                    if maps_link:
+                        text += f"\n📍 Google Maps: {maps_link}"
+                    send_telegram_message(text)
+                    send_email_notification(text)
+                    cust_email = order_data.get('customerEmail') or order_data.get('email')
+                    if cust_email:
+                        send_confirmation_email(text, cust_email, order_id)
+                    socketio.emit('new_order', order_data)
+                else:
+                    print(f"❌ Order {order_id} niet gevonden in POS API!")
+            else:
+                print(f"❌ POS-fout bij webhook voor bestelling {order_id}")
+        else:
+            print(f"❌ Order {order_id} niet gevonden in lokale cache!")
+
     return '', 200
+
 
 @app.route('/payment_success')
 def payment_success():
