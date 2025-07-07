@@ -1257,6 +1257,26 @@ input:focus, select:focus, textarea:focus {
     display: block !important;
   }
 }
+
+  /* Sold out styling */
+  .menu-item.sold-out {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+  .menu-item.sold-out .qty-box {
+    display: none;
+  }
+  .menu-item.sold-out::after {
+    content: '售罄';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(255, 255, 255, 0.8);
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-weight: bold;
+  }
 </style>
 
 
@@ -4086,6 +4106,23 @@ function updateStatus(settings){
     banner.textContent = '暂不接单';
     banner.style.display = 'block';
   }
+
+  const bubbleItem = document.querySelector('[data-name="Bubble Tea"]');
+  const bubbleQty = document.getElementById('bubbleTeaQty');
+  const bubbleMinus = document.querySelector('.qty-minus[data-target="bubbleTeaQty"]');
+  const bubblePlus = document.querySelector('.qty-plus[data-target="bubbleTeaQty"]');
+  const available = settings.bubble_tea_available !== 'false';
+  if(bubbleItem){
+    if(available){
+      bubbleItem.classList.remove('sold-out');
+    }else{
+      bubbleItem.classList.add('sold-out');
+      if(bubbleQty) bubbleQty.value = 0;
+    }
+  }
+  [bubbleQty, bubbleMinus, bubblePlus].forEach(el => {
+    if(el) el.disabled = !available;
+  });
 }
 
 function fetchStatus(){
