@@ -404,9 +404,10 @@ def format_order_notification(data):
         for name, item in items.items():
             qty = item.get("qty", 1)
             if any(k.lower() in name.lower() for k in EXTRA_KEYWORDS):
-                name_display = f"<b>{name}</b>"
+                name_display = name.upper()
             else:
                 name_display = name
+
             lines.append(f"{qty} x {name_display}")
 
     summary = data.get("summary") or {}
