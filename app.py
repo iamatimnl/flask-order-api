@@ -37,8 +37,15 @@ def load_settings():
     try:
         with open(SETTINGS_FILE, "r") as f:
             SETTINGS = json.load(f)
+        if "bubble_tea_available" not in SETTINGS:
+            SETTINGS["bubble_tea_available"] = "true"
     except Exception:
-        SETTINGS = {"is_open": "true", "open_time": "11:00", "close_time": "21:00"}
+        SETTINGS = {
+            "is_open": "true",
+            "open_time": "11:00",
+            "close_time": "21:00",
+            "bubble_tea_available": "true",
+        }
 
 def save_settings():
     try:
@@ -770,6 +777,8 @@ def dashboard():
         is_open=SETTINGS.get('is_open', 'true'),
         open_time=SETTINGS.get('open_time', '11:00'),
         close_time=SETTINGS.get('close_time', '21:00'),
+        bubble_tea_available=SETTINGS.get('bubble_tea_available', 'true'),
+        sections=[],
     )
 
 
@@ -779,6 +788,7 @@ def update_setting():
     is_open = request.form.get('is_open')
     open_time = request.form.get('open_time')
     close_time = request.form.get('close_time')
+    bubble_tea_available = request.form.get('bubble_tea_available')
     if is_open is not None:
         SETTINGS['is_open'] = is_open
         changed['is_open'] = is_open
@@ -788,6 +798,9 @@ def update_setting():
     if close_time:
         SETTINGS['close_time'] = close_time
         changed['close_time'] = close_time
+    if bubble_tea_available is not None:
+        SETTINGS['bubble_tea_available'] = bubble_tea_available
+        changed['bubble_tea_available'] = bubble_tea_available
     if changed:
         save_settings()
         for k, v in changed.items():

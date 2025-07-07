@@ -11,6 +11,12 @@
   <label>营业时间:</label>
   <input type="time" name="open_time" value="{{ open_time }}"> -
   <input type="time" name="close_time" value="{{ close_time }}">
+  <br>
+  <label>奶茶状态:</label>
+  <select name="bubble_tea_available">
+    <option value="true" {% if bubble_tea_available == 'true' %}selected{% endif %}>供应中</option>
+    <option value="false" {% if bubble_tea_available == 'false' %}selected{% endif %}>售罄</option>
+  </select>
   <button type="submit">保存</button>
 </form>
 <p><a href="{{ url_for('logout') }}">Logout</a></p>
