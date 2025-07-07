@@ -321,8 +321,112 @@ def record_order(order_data, pos_ok):
     })
 
 
-def format_order_notification(data):
+def format_order_notification(data, channel="pos"):
     lines = []
+
+    order_number = data.get("order_number") or data.get("orderNumber")
+    if order_number:
+        lines.append(f"Ordernr: {order_number}")
+    status_line = data.get("status")
+    if status_line:
+        lines.append(f"Status: {status_line}")
+    name = data.get("name")
+    if name:
+        lines.append(f"Naam: {name}")
+    phone = data.get("phone")
+    if phone:
+        lines.append(f"Tel: {phone}")
+    email = data.get("email") or data.get("customerEmail")
+    if email:
+        lines.append(f"Email: {email}")
+    order_type = data.get("orderType")
+    if order_type:
+        lines.append(f"Type: {order_type}")
+    if order_type == "bezorgen":
+        addr_parts = [
+            data.get("street"),
+            data.get("house_number") or data.get("houseNumber"),
+            data.get("postcode"),
+            data.get("city"),
+        ]
+        addr = " ".join(str(p) for p in addr_parts if p)
+        if addr:
+            lines.append(f"Adres: {addr}")
+
+    payment_method = data.get("payment_method") or data.get("paymentMethod")
+    if payment_method:
+        lines.append(f"Betaling: {payment_method}")
+
+    delivery_time = data.get("delivery_time") or data.get("deliveryTime")
+    pickup_time = data.get("pickup_time") or data.get("pickupTime")
+    tijdslot = data.get("tijdslot")
+    if tijdslot and not delivery_time and not pickup_time:
+        if order_type == "bezorgen":
+            lines.append(f"Bezorgtijd: {tijdslot}")
+        else:
+            lines.append(f"Afhaaltijd: {tijdslot}")
+    else:
+        if delivery_time:
+            lines.append(f"Bezorgtijd: {delivery_time}")
+        if pickup_time:
+            lines.append(f"Afhaaltijd: {pickup_time}")
+
+    remark = data.get("opmerking") or data.get("remark")
+    if remark:
+        lines.append(f"Opmerking: {remark}")
+
+    items = data.get("items", {})
+    if items:
+        lines.append("\nBestelde items:")
+        extra_keywords = ["sojasaus", "stokjes", "gember", "wasabi"]
+
+        for name, item in items.items():
+            qty = item.get("qty", 1)
+            is_extra = any(keyword.lower() in name.lower() for keyword in extra_keywords)
+
+            if is_extra:
+                if channel == "telegram":
+                    lines.append(f"- <b>{qty} x {name}</b>")
+                else:
+                    lines.append(f'- <span style="color:red;">{qty} x {name}</span>')
+            else:
+                lines.append(f"- {qty} x {name}")
+
+    summary = data.get("summary") or {}
+
+    def fmt(value):
+        try:
+            return f"€{float(value):.2f}"
+        except (TypeError, ValueError):
+            return str(value)
+
+    fields = [
+        ("Subtotaal", data.get("subtotal") or summary.get("subtotal")),
+        ("Verpakkingskosten", data.get("packaging_fee") or summary.get("packaging")),
+        ("Bezorgkosten", data.get("delivery_fee") or summary.get("delivery")),
+        ("Fooi", data.get("tip")),
+    ]
+
+    discount_amount_used = data.get("discountAmount") or summary.get("discountAmount")
+    discount_code_used = data.get("discountCode")
+
+    btw_value = data.get("btw") or summary.get("btw")
+    total_value = data.get("totaal") or summary.get("total")
+
+    for label, value in fields:
+        if value is not None:
+            lines.append(f"{label}: {fmt(value)}")
+
+    if discount_amount_used is not None or discount_code_used:
+        amount_str = fmt(discount_amount_used or 0)
+        lines.append(f"Korting: -{amount_str} (Code: {discount_code_used or 'geen'})")
+
+    if btw_value is not None:
+        lines.append(f"BTW: {fmt(btw_value)}")
+    if total_value is not None:
+        lines.append(f"Totaal: {fmt(total_value)}")
+
+    return "\n".join(lines)
 
     order_number = data.get("order_number") or data.get("orderNumber")
     if order_number:
@@ -670,7 +774,7 @@ def mollie_webhook():
                 check = requests.get(f"{POS_API_URL}/{order_id}")
                 if check.status_code == 200:
                     # ✅ 格式化订单通知
-                    text = format_order_notification(order_data)
+                    text = format_order_notification(order_data, channel="telegram")
                     maps_link = build_google_maps_link(order_data)
                     if maps_link:
                         text += f"\n📍 Google Maps: {maps_link}"
@@ -782,7 +886,7 @@ def submit_order():
     data["created_at"] = created_at
     data["status"] = "Pending"
 
-    order_text = format_order_notification(data)
+    order_text = format_order_notification(data, channel="telegram")
     maps_link = build_google_maps_link(data)
     if maps_link:
         order_text += f"\n📍 Google Maps: {maps_link}"
