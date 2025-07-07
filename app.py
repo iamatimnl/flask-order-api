@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -117,7 +118,7 @@ def add_section():
 
 def send_email_notification(order_text):
     subject = "Nova Asia - Nieuwe bestelling"
-    msg = MIMEText(order_text, "html", "utf-8")
+    msg = MIMEText(order_text, "plain", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
     msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = RECEIVER_EMAIL
@@ -670,7 +671,7 @@ def mollie_webhook():
                 check = requests.get(f"{POS_API_URL}/{order_id}")
                 if check.status_code == 200:
                     # ✅ 格式化订单通知
-                    text = format_order_notification(order_data, channel="telegram")
+                    text = format_order_notification(order_data)
                     maps_link = build_google_maps_link(order_data)
                     if maps_link:
                         text += f"\n📍 Google Maps: {maps_link}"
@@ -782,7 +783,7 @@ def submit_order():
     data["created_at"] = created_at
     data["status"] = "Pending"
 
-    order_text = format_order_notification(data, channel="telegram")
+    order_text = format_order_notification(data)
     maps_link = build_google_maps_link(data)
     if maps_link:
         order_text += f"\n📍 Google Maps: {maps_link}"
