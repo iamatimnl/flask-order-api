@@ -73,6 +73,27 @@ MOLLIE_WEBHOOK_URL = os.environ.get(
 # In-memory log of orders for today's overview
 ORDERS = []
 
+# Keywords for identifying extra items that should be shown in bold
+EXTRA_KEYWORDS = ["sojasaus", "stokjes", "gember", "wasabi"]
+
+
+def sort_items(items):
+    """Return items dict sorted with main items first and extras last."""
+    sorted_items = {}
+    main_items = []
+    extra_items = []
+
+    for name, item in items.items():
+        if any(keyword.lower() in name.lower() for keyword in EXTRA_KEYWORDS):
+            extra_items.append((name, item))
+        else:
+            main_items.append((name, item))
+
+    for name, item in main_items + extra_items:
+        sorted_items[name] = item
+
+    return sorted_items
+
 def build_google_maps_link(data):
     """Return a Google Maps search link for the order address."""
     street = data.get("street", "").strip()
@@ -378,10 +399,15 @@ def format_order_notification(data):
 
     items = data.get("items", {})
     if items:
+        items = sort_items(items)
         lines.append("\nBestelde items:")
         for name, item in items.items():
             qty = item.get("qty", 1)
-            lines.append(f"{qty} x {name}")
+            if any(k.lower() in name.lower() for k in EXTRA_KEYWORDS):
+                name_display = f"<b>{name}</b>"
+            else:
+                name_display = name
+            lines.append(f"{qty} x {name_display}")
 
     summary = data.get("summary") or {}
 
@@ -560,6 +586,7 @@ def api_send_order():
             "discountAmount": data.get("discountAmount"),
             "discountCode": data.get("discountCode"),
         }
+        socket_order["items"] = sort_items(socket_order.get("items", {}))
         socketio.emit("new_order", socket_order)
 
     if payment_method == "online":
@@ -696,6 +723,7 @@ def mollie_webhook():
                     if cust_email:
                         send_confirmation_email(text, cust_email, order_id)
 
+                    order_data['items'] = sort_items(order_data.get('items', {}))
                     socketio.emit('new_order', order_data)
                 else:
                     print(f"❌ Order {order_id} niet gevonden in POS API!")
@@ -870,6 +898,7 @@ def submit_order():
         "discountAmount": data.get("discountAmount"),
         "discountCode": data.get("discountCode"),
     }
+    socket_order["items"] = sort_items(socket_order.get("items", {}))
     socketio.emit("new_order", socket_order)
 
     if telegram_ok and email_ok and pos_ok:
