@@ -410,12 +410,17 @@ def format_order_notification(data):
         lines.append("\nBestelde items:")
         for name, item in items.items():
             qty = item.get("qty", 1)
+            price = float(item.get("price") or 0)
+            total_price = qty * price
             if any(k.lower() in name.lower() for k in EXTRA_KEYWORDS):
                 name_display = name.upper()
             else:
                 name_display = name
 
-            lines.append(f"{qty} x {name_display}")
+            if price > 0:
+                lines.append(f"{qty} x {name_display} = €{total_price:.2f}")
+            else:
+                lines.append(f"{qty} x {name_display}")
 
     summary = data.get("summary") or {}
 
