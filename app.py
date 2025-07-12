@@ -26,7 +26,7 @@ POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 DISCOUNT_API_URL = "https://nova-asia.onrender.com/api/discounts"
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins="*")
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 SETTINGS_FILE = "settings.json"
@@ -864,7 +864,13 @@ def submit_order():
     pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
-
+    socketio.emit("new_order", {
+    "order_number": data.get("order_number") or data.get("orderNumber"),
+    "customer_name": data.get("name", ""),
+    "order_type": data.get("orderType", ""),
+    "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+    "created_at": data.get("created_at")
+    }, broadcast=True)
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
         send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
