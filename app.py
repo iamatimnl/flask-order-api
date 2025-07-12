@@ -7,6 +7,7 @@ import smtplib
 import string
 import secrets
 import os
+import threading
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
@@ -23,6 +24,7 @@ TZ = ZoneInfo("Europe/Amsterdam")
 
 
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
+LOCAL_LISTENER_URL = "http://127.0.0.1:5000/api/orders"
 DISCOUNT_API_URL = "https://nova-asia.onrender.com/api/discounts"
 
 app = Flask(__name__)
@@ -298,6 +300,21 @@ def create_mollie_payment(order_number, amount):
         print(f"❌ Mollie-fout: {e}")
     return None, None
 
+def notify_local_listener(order_number):
+    """POST the order number to the local listener without blocking."""
+    if not order_number:
+        return
+
+    payload = {"order_number": order_number}
+
+    def _send():
+        try:
+            requests.post(LOCAL_LISTENER_URL, json=payload, timeout=1)
+        except Exception as e:
+            print(f"❌ Local listener-fout: {e}")
+
+    threading.Thread(target=_send, daemon=True).start()
+
 def generate_discount_code(length=8):
     """Generate a random alphanumeric discount code."""
     alphabet = string.ascii_uppercase + string.digits
@@ -546,6 +563,7 @@ def api_send_order():
         pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
+    notify_local_listener(data.get("order_number") or data.get("orderNumber"))
 
     if payment_method != "online" and customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
@@ -852,6 +870,7 @@ def submit_order():
             data["payment_id"] = payment_id
 
         record_order(data, False)  # 记录订单，状态 Pending，尚未支付
+        notify_local_listener(data.get("order_number") or data.get("orderNumber"))
 
         resp = {"status": "ok"}
         if payment_link:
@@ -864,6 +883,7 @@ def submit_order():
     pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
+    notify_local_listener(data.get("order_number") or data.get("orderNumber"))
 
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
