@@ -917,7 +917,8 @@ def submit_order():
         "discountCode": data.get("discountCode"),
     }
     socket_order["items"] = sort_items(socket_order.get("items", {}))
-    socketio.emit("new_order", socket_order)
+    socketio.emit("new_order", socket_order, broadcast=True, namespace="/")
+
 
     if telegram_ok and email_ok and pos_ok:
         return jsonify({"status": "ok"}), 200
