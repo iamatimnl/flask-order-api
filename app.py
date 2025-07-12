@@ -918,7 +918,13 @@ def submit_order():
     }
     socket_order["items"] = sort_items(socket_order.get("items", {}))
     socketio.emit("new_order", socket_order)
+    try:
+        requests.post("http://127.0.0.1:5000/relay_order", json=socket_order)
+        print("✅ 成功将订单转发给 App B")
+    except Exception as e:
+        print(f"❌ 转发给 App B 失败: {e}")
 
+    
     if telegram_ok and email_ok and pos_ok:
         return jsonify({"status": "ok"}), 200
 
