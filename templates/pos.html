@@ -477,6 +477,13 @@
   .today-toggle { display: none; }
 }
 
+/* === Nieuwe bestelling modal === */
+.modal{display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:10000;}
+.modal.show{display:flex;}
+.modal-content{background:#fff;color:#333;padding:20px;border-radius:8px;max-width:400px;width:90%;box-sizing:border-box;text-align:left;}
+.modal-content pre{white-space:pre-wrap;margin-bottom:10px;}
+.modal-content button{margin-top:10px;padding:6px 12px;border:none;background:#3f5c4b;color:#fff;border-radius:4px;cursor:pointer;}
+
   
 </style>
 </head>
@@ -1099,7 +1106,6 @@ function submitOrder() {
 
 
 </script>
-
 <script>
 function formatCurrency(value){
   if (typeof value === 'string') {
@@ -1237,22 +1243,85 @@ function formatCurrency(value){
     return tr;
   }
 
-  // Socket 监听新订单
-  socket.on('new_order', order => {
-  console.log('🆕 Nieuwe bestelling ontvangen!', order);
-  beep();
-  hasNewOrder = true;
-  const row = addRow(order, true);
-  updateTodayBadge();
-  newOrderCount++;
-  updateTabTitle();
-  if(confirm('Nieuwe bestelling ontvangen!')){
+  const orderQueue = [];
+  let modalBusy = false;
+
+  function formatOrderDetails(o){
+    const lines = [];
+    if(o.customer_name) lines.push(`Naam: ${o.customer_name}`);
+    if(o.phone) lines.push(`Tel: ${o.phone}`);
+    if(o.email) lines.push(`Email: ${o.email}`);
+    if(o.order_number) lines.push(`Ordernr: ${o.order_number}`);
+    lines.push('---');
+    Object.entries(o.items || {}).forEach(([n,i])=>{
+      lines.push(`${i.qty} x ${n}`);
+    });
+    lines.push('---');
+    lines.push(`Totaal: €${parseFloat(o.totaal).toFixed(2)}`);
+    const t = o.delivery_time || o.deliveryTime || o.pickup_time || o.pickupTime || o.tijdslot || '';
+    if(t) lines.push(`Tijd: ${t}`);
+    return lines.join('\n');
+  }
+
+  function showOrderModal(o){
+    modalBusy = true;
+    const modal = document.getElementById('orderModal');
+    modal.dataset.orderNumber = o.order_number || '';
+    modal.dataset.email = o.email || '';
+    const orig = o.delivery_time || o.deliveryTime || o.pickup_time || o.pickupTime || o.tijdslot || '';
+    modal.dataset.origTime = orig;
+    document.getElementById('orderTime').value = orig.slice(0,5);
+    modal.querySelector('.order-info').textContent = formatOrderDetails(o);
+    modal.classList.add('show');
+  }
+
+  function closeOrderModal(){
+    const modal = document.getElementById('orderModal');
+    modal.classList.remove('show');
+    modalBusy = false;
+    if(orderQueue.length){
+      showOrderModal(orderQueue.shift());
+    }
+  }
+
+  document.getElementById('orderConfirm').addEventListener('click',()=>{
+    const modal = document.getElementById('orderModal');
+    const newTime = document.getElementById('orderTime').value;
+    const orig = modal.dataset.origTime || '';
+    const finalTime = newTime && newTime !== orig ? newTime : orig;
+    const orderNumber = modal.dataset.orderNumber;
+    const email = modal.dataset.email;
+    fetch('/stop_sound').catch(()=>{});
+    window.print();
+    if(email){
+      fetch('/api/order_confirm',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({order_number: orderNumber, email: email, time: finalTime})
+      }).catch(()=>{});
+    }
     showTodayOrders();
-    if(row) row.scrollIntoView({behavior:'smooth', block:'center'});
+    const rows = document.querySelectorAll('.orders-panel tbody tr');
+    rows.forEach(r=>{ const cell=r.children[14]; if(cell && cell.textContent===String(orderNumber)){ r.scrollIntoView({behavior:'smooth', block:'center'}); } });
     hasNewOrder = false;
     updateTodayBadge();
-  }
-});
+    closeOrderModal();
+  });
+
+  // Socket 监听新订单
+  socket.on('new_order', order => {
+    console.log('🆕 Nieuwe bestelling ontvangen!', order);
+    beep();
+    hasNewOrder = true;
+    addRow(order, true);
+    updateTodayBadge();
+    newOrderCount++;
+    updateTabTitle();
+    orderQueue.push(order);
+    if(!modalBusy){
+      showOrderModal(orderQueue.shift());
+    }
+  });
 
   // 断线后启用轮询
   socket.on('disconnect', () => {
@@ -1350,10 +1419,16 @@ function formatCurrency(value){
   window.addEventListener('beforeunload', () => socket.disconnect());
   window.addEventListener('focus', () => { newOrderCount = 0; hasNewOrder = false; updateTabTitle(); updateTodayBadge(); });
 </script>
+<div id="orderModal" class="modal">
+  <div class="modal-content">
+    <h3>Nieuwe bestelling</h3>
+    <pre class="order-info"></pre>
+    <label>Tijd:
+      <input type="time" id="orderTime">
+    </label>
+    <button id="orderConfirm">Bevestigen</button>
+  </div>
+</div>
 
-
-
- 
-  
 </body>
 </html>
