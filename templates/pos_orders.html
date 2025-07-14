@@ -33,6 +33,13 @@ th:last-child {
   50% { background-color: #fff; }
 }
 
+/* Modal voor nieuwe bestelling */
+.modal{display:none;position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;z-index:1000;}
+.modal.show{display:flex;}
+.modal-content{background:#fff;color:#333;padding:20px;border-radius:8px;max-width:400px;width:90%;box-sizing:border-box;text-align:left;}
+.modal-content pre{white-space:pre-wrap;margin-bottom:10px;}
+.modal-content button{margin-top:10px;padding:6px 12px;border:none;background:#3f5c4b;color:#fff;border-radius:4px;cursor:pointer;}
+
   </style>
 </head>
 <body>
@@ -230,15 +237,75 @@ function insertSorted(tbody,tr){
   return tr;
 }
 
+    const orderQueue = [];
+    let modalBusy = false;
+
+    function formatOrderDetails(o){
+      const lines=[];
+      if(o.customer_name) lines.push(`Naam: ${o.customer_name}`);
+      if(o.phone) lines.push(`Tel: ${o.phone}`);
+      if(o.email) lines.push(`Email: ${o.email}`);
+      if(o.order_number) lines.push(`Ordernr: ${o.order_number}`);
+      lines.push('---');
+      Object.entries(o.items||{}).forEach(([n,i])=>lines.push(`${i.qty} x ${n}`));
+      lines.push('---');
+      lines.push(`Totaal: €${parseFloat(o.totaal).toFixed(2)}`);
+      const t=o.delivery_time||o.deliveryTime||o.pickup_time||o.pickupTime||o.tijdslot||'';
+      if(t) lines.push(`Tijd: ${t}`);
+      return lines.join('\n');
+    }
+
+    function showOrderModal(o){
+      modalBusy=true;
+      const modal=document.getElementById('orderModal');
+      modal.dataset.orderNumber=o.order_number||'';
+      modal.dataset.email=o.email||'';
+      const orig=o.delivery_time||o.deliveryTime||o.pickup_time||o.pickupTime||o.tijdslot||'';
+      modal.dataset.origTime=orig;
+      document.getElementById('orderTime').value=orig.slice(0,5);
+      modal.querySelector('.order-info').textContent=formatOrderDetails(o);
+      modal.classList.add('show');
+    }
+
+    function closeOrderModal(){
+      const modal=document.getElementById('orderModal');
+      modal.classList.remove('show');
+      modalBusy=false;
+      if(orderQueue.length) showOrderModal(orderQueue.shift());
+    }
+
+    function handleConfirm(){
+      const modal=document.getElementById('orderModal');
+      const newTime=document.getElementById('orderTime').value;
+      const orig=modal.dataset.origTime||'';
+      const finalTime=newTime&&newTime!==orig?newTime:orig;
+      const orderNumber=modal.dataset.orderNumber;
+      const email=modal.dataset.email;
+      fetch('/stop_sound').catch(()=>{});
+      window.print();
+      if(email){
+        fetch('/api/order_confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({order_number:orderNumber,email:email,time:finalTime})}).catch(()=>{});
+      }
+      if(orderNumber){
+        const rows=document.querySelectorAll('table tbody tr');
+        rows.forEach(r=>{const cell=r.children[7]; if(cell&&cell.textContent===String(orderNumber)){r.scrollIntoView({behavior:'smooth',block:'center'});}});
+      }
+      closeOrderModal();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn=document.getElementById('orderConfirm');
+      if(btn) btn.addEventListener('click', handleConfirm);
+    });
+
     socket.on('new_order', order => {
       console.log(order);
       if(!('totaal' in order) && !('total' in order)){
         console.warn('⚠️ totaal 字段缺失，请联系后端');
       }
-      const row = addRow(order, true);
-      if(confirm('Nieuwe bestelling ontvangen!')){
-        if(row) row.scrollIntoView({behavior:'smooth', block:'center'});
-      }
+      addRow(order, true);
+      orderQueue.push(order);
+      if(!modalBusy) showOrderModal(orderQueue.shift());
     });
 
     function fetchOrders(){
@@ -263,5 +330,16 @@ function insertSorted(tbody,tr){
       }
     }
   </script>
+<div id="orderModal" class="modal">
+  <div class="modal-content">
+    <h3>Nieuwe bestelling</h3>
+    <pre class="order-info"></pre>
+    <label>Tijd:
+      <input type="time" id="orderTime">
+    </label>
+    <button id="orderConfirm">Bevestigen</button>
+  </div>
+</div>
+
 </body>
 </html>

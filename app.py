@@ -622,6 +622,28 @@ def api_send_order():
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
 
+@app.route('/stop_sound')
+def stop_sound():
+    return jsonify({'status': 'ok'})
+
+
+@app.route('/api/order_confirm', methods=['POST'])
+def order_confirm():
+    data = request.get_json() or {}
+    order_number = data.get('order_number')
+    email = data.get('email')
+    time = data.get('time')
+    if not order_number or not email or not time:
+        return jsonify({'status': 'fail', 'error': 'missing data'}), 400
+    subject = f"Nova Asia - Bevestiging bestelling {order_number}"
+    body = (
+        f"Beste klant,\n\nUw bestelling {order_number} is bevestigd. "
+        f"Tijd: {time}.\n\nMet vriendelijke groet,\nNova Asia"
+    )
+    send_simple_email(subject, body, email)
+    return jsonify({'status': 'ok'})
+
+
 @app.route('/api/order_complete', methods=['POST'])
 def order_complete():
     """Handle order completion notifications from the POS system."""
