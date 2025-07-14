@@ -621,39 +621,45 @@ def api_send_order():
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
-
-@app.route('/stop_sound')
-def stop_sound():
-    return jsonify({'status': 'ok'})
-
-
-@app.route('/api/order_confirm', methods=['POST'])
-def order_confirm():
-    data = request.get_json() or {}
-    order_number = data.get('order_number')
-    email = data.get('email')
-    time = data.get('time')
-    if not order_number or not email or not time:
-        return jsonify({'status': 'fail', 'error': 'missing data'}), 400
-    subject = f"Nova Asia - Bevestiging bestelling {order_number}"
-    body = (
-        f"Beste klant,\n\nUw bestelling {order_number} is bevestigd. "
-        f"Tijd: {time}.\n\nMet vriendelijke groet,\nNova Asia"
-    )
-    send_simple_email(subject, body, email)
-    return jsonify({'status': 'ok'})
-
-
-@app.route('/api/order_complete', methods=['POST'])
-def order_complete():
-    """Handle order completion notifications from the POS system."""
+@app.route('/api/order_time_changed', methods=['POST'])
+def order_time_changed():
     data = request.get_json() or {}
 
     order_number = data.get("order_number", "")
     name = data.get("name", "")
     email = data.get("email", "")
-    order_type = data.get("order_type", "afhaal")
     tijdslot = data.get("tijdslot", "").strip()
+    order_type = (data.get("order_type") or "afhaal").lower()
+
+    if not order_number or not tijdslot or not email:
+        return jsonify({"status": "fail", "error": "Ontbrekende gegevens"}), 400
+
+    # ✉️ 邮件内容
+    if order_type in ["afhaal", "afhalen", "pickup"]:
+        context_line = "Uw afhaaltijd is gewijzigd"
+    else:
+        context_line = "Uw bezorgtijd is gewijzigd"
+
+    subject = f"Nova Asia - {context_line} voor bestelling #{order_number}"
+    body = (
+        f"Beste {name},\n\n"
+        f"{context_line} naar: {tijdslot}.\n"
+        f"Als u vragen heeft, neem gerust contact met ons op.\n\n"
+        f"Met vriendelijke groet,\n"
+        f"Team Nova Asia"
+    )
+
+    send_simple_email(subject, body, email)
+    return jsonify({"status": "ok"})
+
+@app.route('/api/order_complete', methods=['POST'])
+def order_complete():
+    """Handle order completion notifications from the POS system."""
+    data = request.get_json() or {}
+    order_number = data.get("order_number", "")
+    name = data.get("name", "")
+    email = data.get("email", "")
+    order_type = data.get("order_type", "afhaal")
 
     if not order_number:
         return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
@@ -661,31 +667,25 @@ def order_complete():
     shop_address = "Sjoukje Dijkstralaan 83, 2134CN Hoofddorp"
     contact_number = "0622599566"
 
-    # ✉️ Opbouw van bericht
     if order_type == "afhaal":
         message = (
-            "Goed nieuws,\n"
-            "Uw bestelling is zojuist vers bereid en staat klaar om opgehaald te worden bij:\n\n"
-            f"{shop_address}\n"
+            f"Goed nieuws,"
+            f"Uw bestelling is zojuist vers bereid en staat klaar om opgehaald te worden bij:\n\n"
+            f"{shop_address}\n\n"
+            f"Wij hopen dat u volop gaat genieten van uw maaltijd.\n"
+            f"Mocht u vragen hebben, bel ons gerust: {contact_number}.\n\n"
+            f"Bedankt dat u voor Nova Asia heeft gekozen!"
         )
     else:
         message = (
-            "Goed nieuws,\n"
-            "Uw bestelling is onderweg naar het door u opgegeven bezorgadres.\n"
-            "Onze bezorger doet zijn best om op tijd bij u te zijn.\n"
+            f"Goed nieuws,"
+            f"Uw bestelling is onderweg naar het door u opgegeven bezorgadres.\n"
+            f"Onze bezorger doet zijn best om op tijd bij u te zijn.\n\n"
+            f"Mocht u vragen hebben, bel ons gerust: {contact_number}.\n\n"
+            f"Wij wensen u alvast smakelijk eten en bedanken u hartelijk voor uw bestelling bij Nova Asia!"
         )
 
-    # 📅 Voeg gewijzigde tijd toe indien aanwezig
-    if tijdslot:
-        message += f"\n📅 Gewijzigde tijd: {tijdslot}\n"
-
-    # ☎️ Algemene afsluiting
-    message += (
-        f"\nMocht u vragen hebben, bel ons gerust: {contact_number}.\n"
-        "Wij wensen u alvast smakelijk eten en bedanken u hartelijk voor uw bestelling bij Nova Asia!"
-    )
-
-    # ✅ Stuur e-mail
+    # ✅ Mail versturen
     if email:
         subject = f"Nova Asia - Uw bestelling #{order_number} is voltooid"
         email_body = (
@@ -697,7 +697,6 @@ def order_complete():
         send_simple_email(subject, email_body, email)
 
     return jsonify({"status": "ok"})
-
 
 @app.route('/validate_discount', methods=['POST'])
 def validate_discount_route():
