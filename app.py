@@ -122,6 +122,61 @@ def build_google_maps_link(data):
     address = ", ".join(address_parts)
     query = quote_plus(address)
     return f"https://www.google.com/maps/search/?api=1&query={query}"
+
+
+def build_socket_order(data, created_date="", created_time="", maps_link=None,
+                       discount_code=None, discount_amount=None):
+    """Return order data formatted for POS socket events."""
+    delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
+    pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
+    tijdslot = data.get("tijdslot") or delivery_time or pickup_time
+
+    if tijdslot:
+        if not delivery_time and not pickup_time:
+            if data.get("orderType") == "bezorgen":
+                delivery_time = tijdslot
+            else:
+                pickup_time = tijdslot
+
+    order = {
+        "message": data.get("message", ""),
+        "opmerking": data.get("opmerking") or data.get("remark", ""),
+        "customer_name": data.get("name", ""),
+        "order_type": data.get("orderType", ""),
+        "created_at": data.get("created_at"),
+        "created_date": created_date,
+        "time": created_time,
+        "phone": data.get("phone", ""),
+        "email": data.get("email", ""),
+        "payment_method": (data.get("paymentMethod") or data.get("payment_method", "")).lower(),
+        "order_number": data.get("order_number") or data.get("orderNumber"),
+        "status": data.get("status"),
+        "payment_id": data.get("payment_id"),
+        "items": data.get("items", {}),
+        "street": data.get("street", ""),
+        "house_number": data.get("house_number") or data.get("houseNumber", ""),
+        "postcode": data.get("postcode", ""),
+        "city": data.get("city", ""),
+        "maps_link": maps_link,
+        "google_maps_link": maps_link,
+        "isNew": True,
+        "delivery_time": delivery_time,
+        "pickup_time": pickup_time,
+        "tijdslot": tijdslot,
+        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
+        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
+        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
+        "tip": data.get("tip"),
+        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+        "discount_code": discount_code,
+        "discount_amount": discount_amount,
+        "discountAmount": data.get("discountAmount"),
+        "discountCode": data.get("discountCode"),
+    }
+
+    order["items"] = sort_items(order.get("items", {}))
+    return order
 @app.route('/logout')
 def logout():
     return redirect(url_for('dashboard'))
@@ -563,43 +618,14 @@ def api_send_order():
                 pickup_time = tijdslot
 
     if payment_method != "online":
-        socket_order = {
-            "message": message,
-            "opmerking": remark,
-            "customer_name": data.get("name", ""),
-            "order_type": data.get("orderType", ""),
-            "created_at": data["created_at"],
-            "created_date": created_date,
-            "time": created_time,
-            "phone": data.get("phone", ""),
-            "email": data.get("email", ""),
-            "payment_method": payment_method,
-            "order_number": data.get("order_number") or data.get("orderNumber"),
-            "status": data.get("status"),
-            "payment_id": data.get("payment_id"),
-            "items": data.get("items", {}),
-            "street": data.get("street", ""),
-            "house_number": data.get("houseNumber", ""),
-            "postcode": data.get("postcode", ""),
-            "city": data.get("city", ""),
-            "maps_link": maps_link,
-            "google_maps_link": maps_link,
-            "isNew": True,
-            "delivery_time": delivery_time,
-            "pickup_time": pickup_time,
-            "tijdslot": tijdslot,
-            "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
-            "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
-            "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
-            "tip": data.get("tip"),
-            "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
-            "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
-            "discount_code": discount_code,
-            "discount_amount": discount_amount,
-            "discountAmount": data.get("discountAmount"),
-            "discountCode": data.get("discountCode"),
-        }
-        socket_order["items"] = sort_items(socket_order.get("items", {}))
+        socket_order = build_socket_order(
+            data,
+            created_date=created_date,
+            created_time=created_time,
+            maps_link=maps_link,
+            discount_code=discount_code,
+            discount_amount=discount_amount,
+        )
         socketio.emit("new_order", socket_order)
 
     if payment_method == "online":
@@ -767,7 +793,29 @@ def mollie_webhook():
                         send_confirmation_email(text, cust_email, order_id)
 
                     order_data['items'] = sort_items(order_data.get('items', {}))
-                    socketio.emit('new_order', order_data)
+                    created_date = ""
+                    created_time = ""
+                    ts = order_data.get('created_at', '')
+                    if ts:
+                        if 'T' in ts:
+                            try:
+                                dt = datetime.fromisoformat(ts)
+                                created_date = dt.strftime('%Y-%m-%d')
+                                created_time = dt.strftime('%H:%M')
+                            except Exception:
+                                pass
+                        elif ' ' in ts:
+                            parts = ts.split(' ')
+                            if len(parts) >= 2:
+                                created_date = parts[0]
+                                created_time = parts[1][:5]
+                    socket_order = build_socket_order(
+                        order_data,
+                        created_date=created_date,
+                        created_time=created_time,
+                        maps_link=maps_link,
+                    )
+                    socketio.emit('new_order', socket_order)
                 else:
                     print(f"❌ Order {order_id} niet gevonden in POS API!")
             else:
@@ -910,43 +958,14 @@ def submit_order():
             else:
                 pickup_time = tijdslot
 
-    socket_order = {
-        "message": message,
-        "opmerking": remark,
-        "customer_name": data.get("name", ""),
-        "order_type": data.get("orderType", ""),
-        "created_at": data["created_at"],
-        "created_date": created_date,
-        "time": created_time,
-        "phone": data.get("phone", ""),
-        "email": data.get("email", ""),
-        "payment_method": payment_method,
-        "order_number": data.get("order_number") or data.get("orderNumber"),
-        "status": data.get("status"),
-        "payment_id": data.get("payment_id"),
-        "items": data.get("items", {}),
-        "street": data.get("street", ""),
-        "house_number": data.get("houseNumber", ""),
-        "postcode": data.get("postcode", ""),
-        "city": data.get("city", ""),
-        "maps_link": maps_link,
-        "google_maps_link": maps_link,
-        "isNew": True,
-        "delivery_time": delivery_time,
-        "pickup_time": pickup_time,
-        "tijdslot": tijdslot,
-        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
-        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
-        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
-        "tip": data.get("tip"),
-        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
-        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
-        "discount_code": discount_code,
-        "discount_amount": discount_amount,
-        "discountAmount": data.get("discountAmount"),
-        "discountCode": data.get("discountCode"),
-    }
-    socket_order["items"] = sort_items(socket_order.get("items", {}))
+    socket_order = build_socket_order(
+        data,
+        created_date=created_date,
+        created_time=created_time,
+        maps_link=maps_link,
+        discount_code=discount_code,
+        discount_amount=discount_amount,
+    )
     socketio.emit("new_order", socket_order)
 
     if telegram_ok and email_ok and pos_ok:
