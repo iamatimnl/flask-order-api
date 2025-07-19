@@ -1081,6 +1081,10 @@ function submitOrder() {
     const select=document.getElementById(selectId);
     if(!select) return;
     select.innerHTML='';
+    const asap=document.createElement('option');
+    asap.value='Z.S.M.';
+    asap.textContent='Z.S.M.';
+    select.appendChild(asap);
     const now=new Date();
     now.setMinutes(now.getMinutes()+offsetMinutes);
 
@@ -1201,6 +1205,7 @@ function formatCurrency(value){
     const remark = order.opmerking || order.remark || '';
     const pickup = order.pickup_time || order.pickupTime;
     const delivery = order.delivery_time || order.deliveryTime;
+    const displayTime = order.tijdslot_display || (isDelivery ? delivery : pickup);
 
     let time = order.created_at || '';
     if (time && time.length > 5) {
@@ -1224,7 +1229,7 @@ function formatCurrency(value){
         <td>€${parseFloat(fooi).toFixed(2)}</td>
         <td>€${parseFloat(order.totaal).toFixed(2)}</td>
         <td>${isDelivery ? `${order.street} ${order.house_number} ${order.postcode} ${order.city}${order.maps_link ? ` <a href="${order.maps_link}" target="_blank">📍Maps</a>` : ''}` : '-'}</td>
-        <td>${isDelivery ? (delivery || '-') : (pickup || '-')}</td>
+        <td>${displayTime || '-'}</td>
         <td>${order.payment_method || ''}</td>
         <td>${order.order_number || '-'}</td>
         <td><button class="complete-btn">${order.is_completed ? 'Undone' : '完成'}</button></td>`;
@@ -1258,7 +1263,7 @@ function formatCurrency(value){
     });
     lines.push('---');
     lines.push(`Totaal: €${parseFloat(o.totaal).toFixed(2)}`);
-    const t = o.delivery_time || o.deliveryTime || o.pickup_time || o.pickupTime || o.tijdslot || '';
+    const t = o.tijdslot_display || o.delivery_time || o.deliveryTime || o.pickup_time || o.pickupTime || o.tijdslot || '';
     if(t) lines.push(`Tijd: ${t}`);
     return lines.join('\n');
   }
@@ -1268,7 +1273,7 @@ function formatCurrency(value){
     const modal = document.getElementById('orderModal');
     modal.dataset.orderNumber = o.order_number || '';
     modal.dataset.email = o.email || '';
-    const orig = o.delivery_time || o.deliveryTime || o.pickup_time || o.pickupTime || o.tijdslot || '';
+    const orig = o.tijdslot || o.delivery_time || o.deliveryTime || o.pickup_time || o.pickupTime || '';
     modal.dataset.origTime = orig;
     document.getElementById('orderTime').value = orig.slice(0,5);
     modal.querySelector('.order-info').textContent = formatOrderDetails(o);

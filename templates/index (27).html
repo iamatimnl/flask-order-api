@@ -3478,6 +3478,10 @@ function checkout() {
     if (!select) return;
     const prev = select.value; // keep current selection
     select.innerHTML = '';
+    const asapOpt = document.createElement('option');
+    asapOpt.value = 'Z.S.M.';
+    asapOpt.textContent = 'Z.S.M.';
+    select.appendChild(asapOpt);
     const now = new Date();
     now.setMinutes(now.getMinutes() + offsetMinutes);
 
