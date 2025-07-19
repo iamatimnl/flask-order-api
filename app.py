@@ -443,8 +443,15 @@ def format_order_notification(data):
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
     pickup_time = data.get("pickup_time") or data.get("pickupTime")
+    tijdslot_display = data.get("tijdslot_display")
     tijdslot = data.get("tijdslot")
-    if tijdslot and not delivery_time and not pickup_time:
+
+    if tijdslot_display:
+        if order_type == "bezorgen":
+            lines.append(f"Bezorgtijd: {tijdslot_display}")
+        else:
+            lines.append(f"Afhaaltijd: {tijdslot_display}")
+    elif tijdslot and not delivery_time and not pickup_time:
         if order_type == "bezorgen":
             lines.append(f"Bezorgtijd: {tijdslot}")
         else:
@@ -654,10 +661,12 @@ def order_time_changed():
     order_number = data.get("order_number", "")
     name = data.get("name", "")
     email = data.get("email", "")
+    tijdslot_display = (data.get("tijdslot_display") or "").strip()
     tijdslot = data.get("tijdslot", "").strip()
+    display_slot = tijdslot_display or tijdslot
     order_type = (data.get("order_type") or "afhaal").lower()
 
-    if not order_number or not tijdslot or not email:
+    if not order_number or not display_slot or not email:
         return jsonify({"status": "fail", "error": "Ontbrekende gegevens"}), 400
 
     # ✉️ 邮件内容
@@ -669,7 +678,7 @@ def order_time_changed():
     subject = f"Nova Asia - {context_line} voor bestelling #{order_number}"
     body = (
         f"Beste {name},\n\n"
-        f"{context_line} naar: {tijdslot}.\n"
+        f"{context_line} naar: {display_slot}.\n"
         f"Als u vragen heeft, neem gerust contact met ons op.\n\n"
         f"Met vriendelijke groet,\n"
         f"Team Nova Asia"
