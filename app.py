@@ -3,7 +3,6 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO
 import requests
-import re
 import smtplib
 import string
 import secrets
@@ -101,28 +100,6 @@ def sort_items(items):
         sorted_items[name] = item
 
     return sorted_items
-
-# === Time normalization helpers ===
-def _normalize_time_value(val: str) -> str:
-    """Return time string without any embedded 'ZSM' text."""
-    if not val:
-        return ""
-    # remove the literal string 'ZSM' case-insensitively
-    cleaned = re.sub(r"(?i)ZSM", "", str(val)).strip()
-    return cleaned
-
-
-def normalize_time_fields(data: dict) -> None:
-    """Strip ZSM from common time fields in-place."""
-    for key in [
-        "tijdslot",
-        "delivery_time",
-        "deliveryTime",
-        "pickup_time",
-        "pickupTime",
-    ]:
-        if key in data and isinstance(data[key], str):
-            data[key] = _normalize_time_value(data[key])
 
 def build_google_maps_link(data):
     """Return a Google Maps search link for the order address."""
@@ -578,7 +555,6 @@ def get_orders_today():
 @app.route("/api/send", methods=["POST"])
 def api_send_order():
     data = request.get_json()
-    normalize_time_fields(data)
     message = data.get("message", "")
     remark = data.get("opmerking") or data.get("remark", "")
     data["opmerking"] = remark
@@ -674,7 +650,6 @@ def api_send_order():
 @app.route('/api/order_time_changed', methods=['POST'])
 def order_time_changed():
     data = request.get_json() or {}
-    normalize_time_fields(data)
 
     order_number = data.get("order_number", "")
     name = data.get("name", "")
@@ -917,7 +892,6 @@ def update_setting():
 @app.route("/submit_order", methods=["POST"])
 def submit_order():
     data = request.get_json()
-    normalize_time_fields(data)
     message = data.get("message", "")
     remark = data.get("opmerking") or data.get("remark", "")
     data["opmerking"] = remark
