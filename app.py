@@ -10,7 +10,7 @@ import os
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
@@ -163,6 +163,7 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "delivery_time": delivery_time,
         "pickup_time": pickup_time,
         "tijdslot": tijdslot,
+        "tijdslot_display": data.get("tijdslot_display"),
         "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
         "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
         "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
@@ -401,6 +402,7 @@ def record_order(order_data, pos_ok):
         "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total"),  # ✅ 添加这行
         "discountAmount": order_data.get("discountAmount"),
         "discountCode": order_data.get("discountCode"),
+        "tijdslot_display": order_data.get("tijdslot_display"),
         "full": order_data,
     })
 
@@ -444,7 +446,13 @@ def format_order_notification(data):
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
     pickup_time = data.get("pickup_time") or data.get("pickupTime")
     tijdslot = data.get("tijdslot")
-    if tijdslot and not delivery_time and not pickup_time:
+    display = data.get("tijdslot_display")
+    if display:
+        if order_type == "bezorgen":
+            lines.append(f"Bezorgtijd: {display}")
+        else:
+            lines.append(f"Afhaaltijd: {display}")
+    elif tijdslot and not delivery_time and not pickup_time:
         if order_type == "bezorgen":
             lines.append(f"Bezorgtijd: {tijdslot}")
         else:
@@ -543,6 +551,7 @@ def _orders_overview():
                 "order_number": entry.get("order_number"),
                 "status": entry.get("status"),
                 "payment_id": entry.get("payment_id"),
+                "tijdslot_display": entry.get("tijdslot_display"),
             })
     return overview
 
@@ -560,6 +569,24 @@ def api_send_order():
     data["opmerking"] = remark
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
+
+    pickup_time = data.get("pickup_time") or data.get("pickupTime")
+    delivery_time = data.get("delivery_time") or data.get("deliveryTime")
+    tijdslot_display = data.get("tijdslot_display")
+    if (
+        (pickup_time and pickup_time.upper() == "Z.S.M.")
+        or (delivery_time and delivery_time.upper() == "Z.S.M.")
+        or (tijdslot_display and tijdslot_display.upper() == "Z.S.M.")
+    ):
+        asap = (datetime.now(TZ) + timedelta(minutes=30)).strftime("%H:%M")
+        data["tijdslot"] = asap
+        data["tijdslot_display"] = "Z.S.M."
+        if pickup_time and pickup_time.upper() == "Z.S.M.":
+            data["pickup_time"] = asap
+        if delivery_time and delivery_time.upper() == "Z.S.M.":
+            data["delivery_time"] = asap
+
+
 
     order_text = data.get("message") or format_order_notification(data)
     maps_link = build_google_maps_link(data)
@@ -899,6 +926,17 @@ def submit_order():
     payment_method = data.get("paymentMethod", "").lower()
 
     now = datetime.now(TZ)
+    pickup_time = data.get("pickup_time") or data.get("pickupTime")
+    delivery_time = data.get("delivery_time") or data.get("deliveryTime")
+    tijdslot_display = data.get("tijdslot_display")
+    if ((pickup_time and pickup_time.upper() == "Z.S.M.") or (delivery_time and delivery_time.upper() == "Z.S.M.") or (tijdslot_display and tijdslot_display.upper() == "Z.S.M.")):
+        asap = (datetime.now(TZ) + timedelta(minutes=30)).strftime("%H:%M")
+        data["tijdslot"] = asap
+        data["tijdslot_display"] = "Z.S.M."
+        if pickup_time and pickup_time.upper() == "Z.S.M.":
+            data["pickup_time"] = asap
+        if delivery_time and delivery_time.upper() == "Z.S.M.":
+            data["delivery_time"] = asap
     created_at = now.strftime('%Y-%m-%d %H:%M:%S')
     created_date = now.strftime('%Y-%m-%d')
     created_time = now.strftime('%H:%M')
