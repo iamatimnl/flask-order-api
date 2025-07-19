@@ -217,55 +217,29 @@ def send_email_notification(order_text):
         print(f"❌ Verzendfout: {e}")
         return False
 
-def send_confirmation_email(
-    order_text,
-    customer_email,
-    order_number,
-    discount_code=None,
-    discount_amount=None,
-    lang=None,
-):
+def send_confirmation_email(order_text, customer_email, order_number, discount_code=None, discount_amount=None):
     """Send order confirmation to the customer with review link."""
     review_link = f"https://www.novaasia.nl/review?order={order_number}"
+    
+    subject = "Nova Asia - Bevestiging van je bestelling"
+    html_body = (
+        "Bedankt voor je bestelling bij Nova Asia!<br><br>"
+        + order_text.replace("\n", "<br>")
+        + f"<br><br>We horen graag je mening! Laat hier je review achter: <a href='{review_link}' target='_blank'>{review_link}</a>"
+        + "<br><br>Met vriendelijke groet,<br>Nova Asia"
+    )
 
-    if lang == "en":
-        subject = "Nova Asia - Order Confirmation"
-        html_body = (
-            "Thank you for your order at Nova Asia!<br><br>"
-            + order_text.replace("\n", "<br>")
-            + f"<br><br>We'd love your feedback! Leave your review here: <a href='{review_link}' target='_blank'>{review_link}</a>"
-            + "<br><br>Kind regards,<br>Nova Asia"
+    if discount_code:
+        html_body += (
+            f"<br><br>🎁 Je kortingscode: <strong>{discount_code}</strong><br>"
+            "Gebruik deze code bij je volgende bestelling!"
         )
-        if discount_code:
+        if discount_amount is not None:
+            formatted = f"€{discount_amount:.2f}"
             html_body += (
-                f"<br><br>🎁 Your discount code: <strong>{discount_code}</strong><br>"
-                "Use this code on your next order!"
+                "<br>Deze code geeft je 3% korting."\
+                f"<br>De verwachte korting op basis van je huidige bestelling is ongeveer {formatted}."
             )
-            if discount_amount is not None:
-                formatted = f"€{discount_amount:.2f}"
-                html_body += (
-                    "<br>This code gives you 3% off."
-                    f"<br>The estimated discount based on your current order is around {formatted}."
-                )
-    else:
-        subject = "Nova Asia - Bevestiging van je bestelling"
-        html_body = (
-            "Bedankt voor je bestelling bij Nova Asia!<br><br>"
-            + order_text.replace("\n", "<br>")
-            + f"<br><br>We horen graag je mening! Laat hier je review achter: <a href='{review_link}' target='_blank'>{review_link}</a>"
-            + "<br><br>Met vriendelijke groet,<br>Nova Asia"
-        )
-        if discount_code:
-            html_body += (
-                f"<br><br>🎁 Je kortingscode: <strong>{discount_code}</strong><br>"
-                "Gebruik deze code bij je volgende bestelling!"
-            )
-            if discount_amount is not None:
-                formatted = f"€{discount_amount:.2f}"
-                html_body += (
-                    "<br>Deze code geeft je 3% korting."\
-                    f"<br>De verwachte korting op basis van je huidige bestelling is ongeveer {formatted}."
-                )
 
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
@@ -637,14 +611,7 @@ def api_send_order():
 
     if payment_method != "online" and customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(
-            order_text,
-            customer_email,
-            order_number,
-            discount_code,
-            discount_amount,
-            data.get("lang"),
-        )
+        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
@@ -832,14 +799,7 @@ def mollie_webhook():
 
                     cust_email = order_data.get('customerEmail') or order_data.get('email')
                     if cust_email:
-                        send_confirmation_email(
-                            text,
-                            cust_email,
-                            order_id,
-                            kortingscode,
-                            kortingsbedrag,
-                            order_data.get('lang'),
-                        )
+                        send_confirmation_email(text, cust_email, order_id)
 
                     order_data['items'] = sort_items(order_data.get('items', {}))
                     created_date = ""
@@ -994,14 +954,7 @@ def submit_order():
 
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(
-            order_text,
-            customer_email,
-            order_number,
-            discount_code,
-            discount_amount,
-            data.get("lang"),
-        )
+        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
