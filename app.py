@@ -10,7 +10,7 @@ import os
 from email.mime.text import MIMEText
 from email.header import Header
 from email.utils import formataddr
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
@@ -84,6 +84,20 @@ ORDERS = []
 EXTRA_KEYWORDS = ["sojasaus", "stokjes", "gember", "wasabi"]
 
 
+def process_tijdslot(data):
+    """Handle special 'ZSM' value for tijdslot and set display field."""
+    tijdslot = data.get("tijdslot")
+    if isinstance(tijdslot, str):
+        ts = tijdslot.strip().upper()
+        if ts == "ZSM":
+            data["tijdslot_display"] = "Z.S.M."
+            new_time = datetime.now(TZ) + timedelta(minutes=30)
+            data["tijdslot"] = new_time.strftime("%H:%M")
+        else:
+            data.setdefault("tijdslot_display", tijdslot)
+    return data
+
+
 def sort_items(items):
     """Return items dict sorted with main items first and extras last."""
     sorted_items = {}
@@ -130,6 +144,7 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
+    tijdslot_display = data.get("tijdslot_display") or tijdslot
 
     if tijdslot:
         if not delivery_time and not pickup_time:
@@ -163,6 +178,7 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "delivery_time": delivery_time,
         "pickup_time": pickup_time,
         "tijdslot": tijdslot,
+        "tijdslot_display": tijdslot_display,
         "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
         "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
         "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
@@ -318,6 +334,7 @@ def send_telegram_to_customer(phone, text):
 
 def send_pos_order(order_data):
     """Forward the order data to the POS system."""
+    process_tijdslot(order_data)
     try:
         response = requests.post(POS_API_URL, json=order_data)
         if response.status_code == 200:
@@ -397,6 +414,7 @@ def record_order(order_data, pos_ok):
         # Use snake_case for time fields when storing orders
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
+        "tijdslot_display": order_data.get("tijdslot_display"),
         "pos_ok": pos_ok,
         "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total"),  # ✅ 添加这行
         "discountAmount": order_data.get("discountAmount"),
@@ -444,11 +462,12 @@ def format_order_notification(data):
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
     pickup_time = data.get("pickup_time") or data.get("pickupTime")
     tijdslot = data.get("tijdslot")
-    if tijdslot and not delivery_time and not pickup_time:
+    tijdslot_display = data.get("tijdslot_display") or tijdslot
+    if tijdslot_display and not delivery_time and not pickup_time:
         if order_type == "bezorgen":
-            lines.append(f"Bezorgtijd: {tijdslot}")
+            lines.append(f"Bezorgtijd: {tijdslot_display}")
         else:
-            lines.append(f"Afhaaltijd: {tijdslot}")
+            lines.append(f"Afhaaltijd: {tijdslot_display}")
     else:
         if delivery_time:
             lines.append(f"Bezorgtijd: {delivery_time}")
@@ -540,6 +559,7 @@ def _orders_overview():
                 "totaal": entry.get("totaal"),
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
+                "tijdslot_display": entry.get("tijdslot_display"),
                 "order_number": entry.get("order_number"),
                 "status": entry.get("status"),
                 "payment_id": entry.get("payment_id"),
@@ -555,6 +575,7 @@ def get_orders_today():
 @app.route("/api/send", methods=["POST"])
 def api_send_order():
     data = request.get_json()
+    process_tijdslot(data)
     message = data.get("message", "")
     remark = data.get("opmerking") or data.get("remark", "")
     data["opmerking"] = remark
@@ -761,6 +782,8 @@ def mollie_webhook():
             order_data['status'] = 'Paid'
             order_data['paymentMethod'] = 'Online betaald'
 
+            process_tijdslot(order_data)
+
             pos_ok, _ = send_pos_order(order_data)
             if pos_ok:
                 # ✅ 查询 POS，确认订单已入库
@@ -892,6 +915,7 @@ def update_setting():
 @app.route("/submit_order", methods=["POST"])
 def submit_order():
     data = request.get_json()
+    process_tijdslot(data)
     message = data.get("message", "")
     remark = data.get("opmerking") or data.get("remark", "")
     data["opmerking"] = remark
