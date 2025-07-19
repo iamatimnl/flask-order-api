@@ -250,7 +250,7 @@ function insertSorted(tbody,tr){
       Object.entries(o.items||{}).forEach(([n,i])=>lines.push(`${i.qty} x ${n}`));
       lines.push('---');
       lines.push(`Totaal: €${parseFloat(o.totaal).toFixed(2)}`);
-      const t=o.delivery_time||o.deliveryTime||o.pickup_time||o.pickupTime||o.tijdslot||'';
+      const t=o.tijdslot_display||o.delivery_time||o.deliveryTime||o.pickup_time||o.pickupTime||o.tijdslot||'';
       if(t) lines.push(`Tijd: ${t}`);
       return lines.join('\n');
     }
