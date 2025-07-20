@@ -220,46 +220,26 @@ def send_email_notification(order_text):
 def send_confirmation_email(order_text, customer_email, order_number, discount_code=None, discount_amount=None):
     """Send order confirmation to the customer with review link."""
     review_link = f"https://www.novaasia.nl/review?order={order_number}"
-
+    
     subject = "Nova Asia - Bevestiging van je bestelling"
-
-    nl_body = (
+    html_body = (
         "Bedankt voor je bestelling bij Nova Asia!<br><br>"
         + order_text.replace("\n", "<br>")
         + f"<br><br>We horen graag je mening! Laat hier je review achter: <a href='{review_link}' target='_blank'>{review_link}</a>"
         + "<br><br>Met vriendelijke groet,<br>Nova Asia"
     )
 
-    en_body = (
-        "Thank you for your order at Nova Asia!<br><br>"
-        + order_text.replace("\n", "<br>")
-        + f"<br><br>We'd love to hear your opinion! Leave your review here: <a href='{review_link}' target='_blank'>{review_link}</a>"
-        + "<br><br>Kind regards,<br>Nova Asia"
-    )
-
     if discount_code:
-        nl_body += (
+        html_body += (
             f"<br><br>🎁 Je kortingscode: <strong>{discount_code}</strong><br>"
             "Gebruik deze code bij je volgende bestelling!"
         )
-        en_body += (
-            f"<br><br>🎁 Your discount code: <strong>{discount_code}</strong><br>"
-            "Use this code on your next order!"
-        )
         if discount_amount is not None:
             formatted = f"€{discount_amount:.2f}"
-            nl_body += (
+            html_body += (
                 "<br>Deze code geeft je 3% korting."\
                 f"<br>De verwachte korting op basis van je huidige bestelling is ongeveer {formatted}."
             )
-            en_body += (
-                "<br>This code gives you a 3% discount."\
-                f"<br>The expected discount based on your current order is about {formatted}."
-            )
-
-    html_body = (
-        "🇳🇱 Nederlands bovenaan | 🇬🇧 English version below<br><br>" + nl_body + "<br><br>---<br><br>" + en_body
-    )
 
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
@@ -696,32 +676,12 @@ def order_time_changed():
         context_line = "Uw bezorgtijd is gewijzigd"
 
     subject = f"Nova Asia - {context_line} voor bestelling #{order_number}"
-    nl_body = (
+    body = (
         f"Beste {name},\n\n"
         f"{context_line} naar: {display_slot}.\n"
         f"Als u vragen heeft, neem gerust contact met ons op.\n\n"
         f"Met vriendelijke groet,\n"
         f"Team Nova Asia"
-    )
-
-    if "afhaal" in context_line.lower():
-        en_context = "Your pickup time has been changed"
-    else:
-        en_context = "Your delivery time has been changed"
-
-    en_body = (
-        f"Dear {name},\n\n"
-        f"{en_context} to: {display_slot}.\n"
-        f"If you have any questions, please feel free to contact us.\n\n"
-        f"Kind regards,\n"
-        f"Team Nova Asia"
-    )
-
-    body = (
-        "\uD83C\uDDF3\uD83C\uDDF1 Nederlands bovenaan | \uD83C\uDDEC\uD83C\uDDE7 English version below\n\n"
-        + nl_body
-        + "\n\n---\n\n"
-        + en_body
     )
 
     send_simple_email(subject, body, email)
@@ -743,7 +703,7 @@ def order_complete():
     contact_number = "0622599566"
 
     if order_type == "afhaal":
-        message_nl = (
+        message = (
             f"Goed nieuws,"
             f"Uw bestelling is zojuist vers bereid en staat klaar om opgehaald te worden bij:\n\n"
             f"{shop_address}\n\n"
@@ -751,52 +711,23 @@ def order_complete():
             f"Mocht u vragen hebben, bel ons gerust: {contact_number}.\n\n"
             f"Bedankt dat u voor Nova Asia heeft gekozen!"
         )
-        message_en = (
-            f"Good news,"
-            f"Your order has just been freshly prepared and is ready for pickup at:\n\n"
-            f"{shop_address}\n\n"
-            f"We hope you will fully enjoy your meal.\n"
-            f"If you have any questions, feel free to call us at {contact_number}.\n\n"
-            f"Thank you for choosing Nova Asia!"
-        )
     else:
-        message_nl = (
+        message = (
             f"Goed nieuws,"
             f"Uw bestelling is onderweg naar het door u opgegeven bezorgadres.\n"
             f"Onze bezorger doet zijn best om op tijd bij u te zijn.\n\n"
             f"Mocht u vragen hebben, bel ons gerust: {contact_number}.\n\n"
             f"Wij wensen u alvast smakelijk eten en bedanken u hartelijk voor uw bestelling bij Nova Asia!"
         )
-        message_en = (
-            f"Good news,"
-            f"Your order is on its way to the delivery address you provided.\n"
-            f"Our delivery driver will do their best to arrive on time.\n\n"
-            f"If you have any questions, feel free to call us at {contact_number}.\n\n"
-            f"We hope you enjoy your meal and thank you very much for your order at Nova Asia!"
-        )
 
     # ✅ Mail versturen
     if email:
         subject = f"Nova Asia - Uw bestelling #{order_number} is voltooid"
-        nl_body = (
+        email_body = (
             f"Beste {name},\n\n"
-            f"{message_nl}\n\n"
+            f"{message}\n\n"
             f"Met vriendelijke groet,\n"
             f"Team Nova Asia"
-        )
-
-        en_body = (
-            f"Dear {name},\n\n"
-            f"{message_en}\n\n"
-            f"Kind regards,\n"
-            f"Team Nova Asia"
-        )
-
-        email_body = (
-            "\uD83C\uDDF3\uD83C\uDDF1 Nederlands bovenaan | \uD83C\uDDEC\uD83C\uDDE7 English version below\n\n"
-            + nl_body
-            + "\n\n---\n\n"
-            + en_body
         )
         send_simple_email(subject, email_body, email)
 
