@@ -217,6 +217,38 @@ def send_email_notification(order_text):
         print(f"❌ Verzendfout: {e}")
         return False
 
+def translate_order_text_to_english(order_text_nl: str) -> str:
+    translations = {
+        "Ordernr": "Order no.",
+        "Status": "Status",
+        "Naam": "Name",
+        "Tel": "Phone",
+        "Email": "Email",
+        "Type": "Type",
+        "Betaling": "Payment",
+        "Afhaaltijd": "Pickup time",
+        "Bezorgtijd": "Delivery time",
+        "Bestelde items": "Ordered items",
+        "Subtotaal": "Subtotal",
+        "Verpakkingskosten": "Packaging cost",
+        "Bezorgkosten": "Delivery fee",
+        "Fooi": "Tip",
+        "Korting": "Discount",
+        "BTW": "VAT",
+        "Totaal": "Total",
+        "contant": "cash",
+        "afhalen": "pickup",
+        "bezorgen": "delivery",
+        "Z.S.M.": "ASAP",
+        "geen": "none"
+    }
+
+    translated = order_text_nl
+    for nl, en in translations.items():
+        translated = translated.replace(nl, en)
+    return translated
+
+
 def send_confirmation_email(order_text, customer_email, order_number, discount_code=None, discount_amount=None):
     """Send bilingual order confirmation email to the customer with review link."""
     review_link = f"https://www.novaasia.nl/review?order={order_number}"
@@ -236,28 +268,34 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
 
         korting_en_html = (
             f"<br><br>🎁 Your discount code: <strong>{discount_code}</strong><br>"
-            "Use this code for your next order!"
+            "Use this code on your next order!"
         )
         if formatted:
-            korting_en_html += f"<br>This code gives you a 3% discount.<br>Based on your current order, the estimated discount is approximately {formatted}."
+            korting_en_html += f"<br>This code gives you a 3% discount.<br>The expected discount based on your current order is about {formatted}."
 
+    # 💬 翻译订单文本
+    order_text_nl = order_text.replace("\n", "<br>")
+    order_text_en = translate_order_text_to_english(order_text).replace("\n", "<br>")
+
+    # 📧 拼接 HTML 邮件
     html_body = (
         "<strong>🇳🇱 Nederlands bovenaan | 🇬🇧 English version below</strong><br><br>"
         "<strong>--- Nederlands ---</strong><br><br>"
         "Bedankt voor je bestelling bij Nova Asia!<br><br>"
-        + order_text.replace("\n", "<br>")
-        + f"<br><br>We horen graag je mening! Laat hier je review achter: <a href='{review_link}' target='_blank'>{review_link}</a>"
+        + order_text_nl +
+        f"<br><br>We horen graag je mening! Laat hier je review achter: <a href='{review_link}' target='_blank'>{review_link}</a>"
         + "<br><br>Met vriendelijke groet,<br>Nova Asia"
         + korting_html +
         "<br><br><hr><br>"
         "<strong>--- English ---</strong><br><br>"
         "Thank you for your order at Nova Asia!<br><br>"
-        + order_text.replace("Bestelde items", "Ordered items").replace("\n", "<br>")  # 简单翻译，后期可分条翻译
-        + f"<br><br>We’d love to hear your opinion! Leave your review here: <a href='{review_link}' target='_blank'>{review_link}</a>"
+        + order_text_en +
+        f"<br><br>We’d love to hear your opinion! Leave your review here: <a href='{review_link}' target='_blank'>{review_link}</a>"
         + "<br><br>Kind regards,<br>Nova Asia"
         + korting_en_html
     )
 
+    # 发送邮件
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
     msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
@@ -271,6 +309,7 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
         print("✅ Bilingual confirmation email sent!")
     except Exception as e:
         print(f"❌ Email send error: {e}")
+
 
 
 
