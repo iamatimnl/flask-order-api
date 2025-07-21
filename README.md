@@ -33,7 +33,7 @@ Create a new Web Service on Render, link this repository, and it will deploy usi
 
 - `DATABASE_URL` - database connection URI.
 - `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` - optional Telegram notification settings.
-- `SMTP_SERVER`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `FROM_EMAIL` - optional SMTP settings.
+- `MAIL_SERVER`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_DEFAULT_SENDER` - optional SMTP settings.
 - `ADMIN_EMAIL` - address to receive order notifications.
 - `MOLLIE_API_KEY`, `MOLLIE_REDIRECT_URL`, `MOLLIE_WEBHOOK_URL` - Mollie payment configuration.
 

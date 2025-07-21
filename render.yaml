@@ -15,16 +15,16 @@ services:
         value: 7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio
       - key: TELEGRAM_CHAT_ID
         value: 8047420957
-      - key: SMTP_USERNAME
-        value: qianchennl@gmail.com
-      - key: SMTP_PASSWORD
-        value: wtuyxljsjwftyzfm
-      - key: SMTP_SERVER
-        value: smtp.gmail.com
-      - key: SMTP_PORT
+      - key: MAIL_USERNAME
+        value: postmaster@mg.novaasia.nl
+      - key: MAIL_PASSWORD
+        value: db54d6fa02661e1cdaa222787a5dbb73-45de04af-7920c20d
+      - key: MAIL_SERVER
+        value: smtp.eu.mailgun.org
+      - key: MAIL_PORT
         value: 587
-      - key: FROM_EMAIL
-        value: qianchennl@gmail.com
+      - key: MAIL_DEFAULT_SENDER
+        value: orders@novaasia.nl
       - key: MOLLIE_API_KEY
         value: test_E6gVk3tT2Frgdedj9Bcexar82dgUMe
       - key: MOLLIE_REDIRECT_URL
