@@ -202,24 +202,7 @@ def add_section():
     # 暂时什么都不做，直接返回 dashboard
     return redirect(url_for('dashboard'))
 
-def send_email_notification(order_text):
-    subject = "Nova Asia - Nieuwe bestelling"
-    msg = MIMEText(order_text, "plain", "utf-8")
-    msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = formataddr(("NovaAsia", MAIL_DEFAULT_SENDER))
-    msg["To"] = RECEIVER_EMAIL
 
-    try:
-        with smtplib.SMTP(MAIL_SERVER, MAIL_PORT) as server:
-            if MAIL_USE_TLS:
-                server.starttls()
-            server.login(MAIL_USERNAME, MAIL_PASSWORD)
-            server.sendmail(MAIL_DEFAULT_SENDER, [RECEIVER_EMAIL], msg.as_string())
-        print("✅ E-mail verzonden!")
-        return True
-    except Exception as e:
-        print(f"❌ Verzendfout: {e}")
-        return False
 
 def translate_order_text_to_english(order_text_nl: str) -> str:
     translations = {
