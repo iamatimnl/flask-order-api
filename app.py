@@ -1,4 +1,4 @@
-from email.mime.multipart import MIMEMultipart
+
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -60,14 +60,10 @@ load_settings()
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
 CHAT_ID = '8047420957'
 
-# === Brevo SMTP 配置 ===
-SMTP_SERVER = "smtp-relay.brevo.com"
-SMTP_PORT = 587
-SMTP_USERNAME = "92a3ac002@smtp-brevo.com"
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
-FROM_EMAIL = "orders@novaasia.nl"
-# Compatibility alias used by old code paths
-SENDER_EMAIL = FROM_EMAIL
+# === Gmail 配置 ===
+SENDER_EMAIL = "qianchennl@gmail.com"
+SENDER_PASSWORD = "wtuyxljsjwftyzfm"
+RECEIVER_EMAIL = "qianchennl@gmail.com"
 
 # === POS 配置 ===
 # Endpoint for forwarding orders to the POS system. Replace with the actual URL.
@@ -203,6 +199,23 @@ def add_section():
     # 暂时什么都不做，直接返回 dashboard
     return redirect(url_for('dashboard'))
 
+def send_email_notification(order_text):
+    subject = "Nova Asia - Nieuwe bestelling"
+    msg = MIMEText(order_text, "plain", "utf-8")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
+    msg["To"] = RECEIVER_EMAIL
+
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [RECEIVER_EMAIL], msg.as_string())
+        print("✅ E-mail verzonden!")
+        return True
+    except Exception as e:
+        print(f"❌ Verzendfout: {e}")
+        return False
 
 def translate_order_text_to_english(order_text_nl: str) -> str:
     translations = {
@@ -260,10 +273,11 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
         if formatted:
             korting_en_html += f"<br>This code gives you a 3% discount.<br>The expected discount based on your current order is about {formatted}."
 
-    # 翻译订单文本
+    # 💬 翻译订单文本
     order_text_nl = order_text.replace("\n", "<br>")
     order_text_en = translate_order_text_to_english(order_text).replace("\n", "<br>")
 
+    # 📧 拼接 HTML 邮件
     html_body = (
         "<strong>🇳🇱 Nederlands bovenaan | 🇬🇧 English version below</strong><br><br>"
         "<strong>--- Nederlands ---</strong><br><br>"
@@ -281,18 +295,17 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
         + korting_en_html
     )
 
-    # ✅ 修复点：先创建 MIME 邮件对象
-    msg = MIMEMultipart("alternative")
+    # 发送邮件
+    msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = formataddr(("NovaAsia", FROM_EMAIL))  # ✅ 正确变量
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = customer_email
-    msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.sendmail(SMTP_USERNAME, [customer_email], msg.as_string())
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
         print("✅ Bilingual confirmation email sent!")
     except Exception as e:
         print(f"❌ Email send error: {e}")
@@ -318,14 +331,14 @@ def send_discount_email(code, customer_email):
 
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = FROM_EMAIL
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = customer_email
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.sendmail(SMTP_USERNAME, [customer_email], msg.as_string())
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
         print("✅ Kortingscode verzonden!")
     except Exception as e:
         print(f"❌ Kortingscode-fout: {e}")
@@ -336,14 +349,14 @@ def send_simple_email(subject, body, to_email):
     """Send a plain text email to a specific recipient."""
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = FROM_EMAIL
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = to_email
 
     try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.sendmail(SMTP_USERNAME, [to_email], msg.as_string())
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [to_email], msg.as_string())
         print("✅ Bevestigingsmail verzonden!")
         return True
     except Exception as e:
@@ -646,6 +659,7 @@ def api_send_order():
         data["discount_amount"] = discount_amount
 
     telegram_ok = True
+    email_ok = True
     pos_ok = False
     pos_error = None
 
@@ -657,6 +671,7 @@ def api_send_order():
             data["payment_id"] = payment_id
     else:
         telegram_ok = send_telegram_message(order_text)
+        email_ok = send_email_notification(order_text)
         pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
@@ -693,12 +708,14 @@ def api_send_order():
             resp["paymentLink"] = payment_link
         return jsonify(resp), 200
 
-    if telegram_ok and pos_ok:
+    if telegram_ok and email_ok and pos_ok:
         resp = {"status": "ok"}
         return jsonify(resp), 200
 
     if not telegram_ok:
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
+    if not email_ok:
+        return jsonify({"status": "fail", "error": "E-mailfout"}), 500
     if not pos_ok:
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
 
@@ -814,14 +831,14 @@ def order_complete():
 
         msg = MIMEText(html_body, "html", "utf-8")
         msg["Subject"] = Header(subject, "utf-8")
-        msg["From"] = FROM_EMAIL
+        msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
         msg["To"] = email
 
         try:
-            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
                 server.starttls()
-                server.login(SMTP_USERNAME, SMTP_PASSWORD)
-                server.sendmail(SMTP_USERNAME, [email], msg.as_string())
+                server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                server.sendmail(SENDER_EMAIL, [email], msg.as_string())
             print("✅ Order complete confirmation sent!")
         except Exception as e:
             print(f"❌ Error sending email: {e}")
@@ -890,6 +907,7 @@ def mollie_webhook():
 
                     # ✅ 发送通知
                     send_telegram_message(text)
+                    send_email_notification(text)
 
                     cust_email = order_data.get('customerEmail') or order_data.get('email')
                     if cust_email:
@@ -1041,6 +1059,7 @@ def submit_order():
 
     # ✅ 非 online betaling，立即通知 POS、Telegram、Email、socketio
     telegram_ok = send_telegram_message(order_text)
+    email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
@@ -1070,11 +1089,13 @@ def submit_order():
     )
     socketio.emit("new_order", socket_order)
 
-    if telegram_ok and pos_ok:
+    if telegram_ok and email_ok and pos_ok:
         return jsonify({"status": "ok"}), 200
 
     if not telegram_ok:
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
+    if not email_ok:
+        return jsonify({"status": "fail", "error": "E-mailfout"}), 500
     if not pos_ok:
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
 
