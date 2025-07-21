@@ -199,23 +199,6 @@ def add_section():
     # 暂时什么都不做，直接返回 dashboard
     return redirect(url_for('dashboard'))
 
-def send_email_notification(order_text):
-    subject = "Nova Asia - Nieuwe bestelling"
-    msg = MIMEText(order_text, "plain", "utf-8")
-    msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
-    msg["To"] = RECEIVER_EMAIL
-
-    try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
-            server.starttls()
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, [RECEIVER_EMAIL], msg.as_string())
-        print("✅ E-mail verzonden!")
-        return True
-    except Exception as e:
-        print(f"❌ Verzendfout: {e}")
-        return False
 
 def translate_order_text_to_english(order_text_nl: str) -> str:
     translations = {
@@ -659,7 +642,6 @@ def api_send_order():
         data["discount_amount"] = discount_amount
 
     telegram_ok = True
-    email_ok = True
     pos_ok = False
     pos_error = None
 
@@ -671,7 +653,6 @@ def api_send_order():
             data["payment_id"] = payment_id
     else:
         telegram_ok = send_telegram_message(order_text)
-        email_ok = send_email_notification(order_text)
         pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
@@ -716,10 +697,6 @@ def api_send_order():
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
     if not pos_ok:
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
-
-    if not email_ok:
-        # Email failure doesn't stop the request; just log it.
-        print("Email notification failed but continuing")
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
@@ -909,7 +886,6 @@ def mollie_webhook():
 
                     # ✅ 发送通知
                     send_telegram_message(text)
-                    send_email_notification(text)
 
                     cust_email = order_data.get('customerEmail') or order_data.get('email')
                     if cust_email:
@@ -1061,7 +1037,6 @@ def submit_order():
 
     # ✅ 非 online betaling，立即通知 POS、Telegram、Email、socketio
     telegram_ok = send_telegram_message(order_text)
-    email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
@@ -1098,9 +1073,6 @@ def submit_order():
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
     if not pos_ok:
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
-
-    if not email_ok:
-        print("Email notification failed but continuing")
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
