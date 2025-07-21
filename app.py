@@ -338,7 +338,7 @@ def send_simple_email(subject, body, to_email):
     msg["To"] = to_email
 
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
             server.login(SMTP_USERNAME, SMTP_PASSWORD)
             server.sendmail(SMTP_USERNAME, [to_email], msg.as_string())
