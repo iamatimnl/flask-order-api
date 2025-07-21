@@ -258,11 +258,10 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
         if formatted:
             korting_en_html += f"<br>This code gives you a 3% discount.<br>The expected discount based on your current order is about {formatted}."
 
-    # 💬 翻译订单文本
+    # 翻译订单文本
     order_text_nl = order_text.replace("\n", "<br>")
     order_text_en = translate_order_text_to_english(order_text).replace("\n", "<br>")
 
-    # 📧 拼接 HTML 邮件
     html_body = (
         "<strong>🇳🇱 Nederlands bovenaan | 🇬🇧 English version below</strong><br><br>"
         "<strong>--- Nederlands ---</strong><br><br>"
@@ -280,11 +279,12 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
         + korting_en_html
     )
 
-    # 发送邮件
-    msg["From"] = FROM_EMAIL
+    # ✅ 修复点：先创建 MIME 邮件对象
+    msg = MIMEMultipart("alternative")
     msg["Subject"] = Header(subject, "utf-8")
     msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = customer_email
+    msg.attach(MIMEText(html_body, "html", "utf-8"))
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
