@@ -67,7 +67,8 @@ MAIL_USE_TLS = True
 MAIL_USERNAME = "postmaster@mg.novaasia.nl"
 MAIL_PASSWORD = "db54d6fa02661e1cdaa222787a5dbb73-45de04af-7920c20d"
 MAIL_DEFAULT_SENDER = "orders@novaasia.nl"
-RECEIVER_EMAIL = "qianchennl@gmail.com"
+RECEIVER_EMAIL = 'orders@novaasia.nl'  # 设置接收通知邮件的地址
+
 
 # === POS 配置 ===
 # Endpoint for forwarding orders to the POS system. Replace with the actual URL.
