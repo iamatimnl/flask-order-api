@@ -282,7 +282,7 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
     # ✅ 修复点：先创建 MIME 邮件对象
     msg = MIMEMultipart("alternative")
     msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
+    msg["From"] = formataddr(("NovaAsia", FROM_EMAIL))  # ✅ 正确变量
     msg["To"] = customer_email
     msg.attach(MIMEText(html_body, "html", "utf-8"))
 
