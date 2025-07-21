@@ -60,10 +60,12 @@ load_settings()
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
 CHAT_ID = '8047420957'
 
-# === Gmail 配置 ===
-SENDER_EMAIL = "qianchennl@gmail.com"
-SENDER_PASSWORD = "wtuyxljsjwftyzfm"
-RECEIVER_EMAIL = "qianchennl@gmail.com"
+# === Brevo SMTP 配置 ===
+SMTP_SERVER = "smtp-relay.brevo.com"
+SMTP_PORT = 587
+SMTP_USERNAME = "92a3ac002@smtp-brevo.com"
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
+FROM_EMAIL = "orders@novaasia.nl"
 
 # === POS 配置 ===
 # Endpoint for forwarding orders to the POS system. Replace with the actual URL.
@@ -279,16 +281,16 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
     )
 
     # 发送邮件
-    msg = MIMEText(html_body, "html", "utf-8")
+    msg["From"] = FROM_EMAIL
     msg["Subject"] = Header(subject, "utf-8")
     msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = customer_email
 
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.sendmail(SMTP_USERNAME, [customer_email], msg.as_string())
         print("✅ Bilingual confirmation email sent!")
     except Exception as e:
         print(f"❌ Email send error: {e}")
@@ -314,14 +316,14 @@ def send_discount_email(code, customer_email):
 
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
+    msg["From"] = FROM_EMAIL
     msg["To"] = customer_email
 
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
             server.starttls()
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.sendmail(SMTP_USERNAME, [customer_email], msg.as_string())
         print("✅ Kortingscode verzonden!")
     except Exception as e:
         print(f"❌ Kortingscode-fout: {e}")
@@ -332,14 +334,14 @@ def send_simple_email(subject, body, to_email):
     """Send a plain text email to a specific recipient."""
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
+    msg["From"] = FROM_EMAIL
     msg["To"] = to_email
 
     try:
         with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
-            server.login(SENDER_EMAIL, SENDER_PASSWORD)
-            server.sendmail(SENDER_EMAIL, [to_email], msg.as_string())
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.sendmail(SMTP_USERNAME, [to_email], msg.as_string())
         print("✅ Bevestigingsmail verzonden!")
         return True
     except Exception as e:
@@ -810,14 +812,14 @@ def order_complete():
 
         msg = MIMEText(html_body, "html", "utf-8")
         msg["Subject"] = Header(subject, "utf-8")
-        msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
+        msg["From"] = FROM_EMAIL
         msg["To"] = email
 
         try:
-            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
                 server.starttls()
-                server.login(SENDER_EMAIL, SENDER_PASSWORD)
-                server.sendmail(SENDER_EMAIL, [email], msg.as_string())
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.sendmail(SMTP_USERNAME, [email], msg.as_string())
             print("✅ Order complete confirmation sent!")
         except Exception as e:
             print(f"❌ Error sending email: {e}")
