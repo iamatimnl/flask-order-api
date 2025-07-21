@@ -203,22 +203,10 @@ def add_section():
     return redirect(url_for('dashboard'))
 
 def send_email_notification(order_text):
-    subject = "Nova Asia - Nieuwe bestelling"
-    msg = MIMEText(order_text, "plain", "utf-8")
-    msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = formataddr(("NovaAsia", FROM_EMAIL))
-    msg["To"] = RECEIVER_EMAIL
+    """Send order details via email (disabled)."""
 
-    try:
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-            server.starttls()
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.sendmail(FROM_EMAIL, [RECEIVER_EMAIL], msg.as_string())
-        print("✅ E-mail verzonden!")
-        return True
-    except Exception as e:
-        print(f"❌ Verzendfout: {e}")
-        return False
+    # Skip sending email to avoid external side effects.
+    return True
 
 def translate_order_text_to_english(order_text_nl: str) -> str:
     translations = {
