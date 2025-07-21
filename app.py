@@ -251,14 +251,14 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
     if discount_code:
         formatted = f"€{discount_amount:.2f}" if discount_amount is not None else ""
         korting_html = (
-            f"<br><br>🎁 Je kortingscode: <strong>{discount_code}</strong><br>"
+            f"<br><br> Je kortingscode: <strong>{discount_code}</strong><br>"
             "Gebruik deze code bij je volgende bestelling!"
         )
         if formatted:
             korting_html += f"<br>Deze code geeft je 3% korting.<br>De verwachte korting op basis van je huidige bestelling is ongeveer {formatted}."
 
         korting_en_html = (
-            f"<br><br>🎁 Your discount code: <strong>{discount_code}</strong><br>"
+            f"<br><br>Your discount code: <strong>{discount_code}</strong><br>"
             "Use this code on your next order!"
         )
         if formatted:
@@ -270,7 +270,7 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
 
     # 📧 拼接 HTML 邮件
     html_body = (
-        "<strong>🇳🇱 Nederlands bovenaan | 🇬🇧 English version below</strong><br><br>"
+        "<strong>Nederlands bovenaan |  English version below</strong><br><br>"
         "<strong>--- Nederlands ---</strong><br><br>"
         "Bedankt voor je bestelling bij Nova Asia!<br><br>"
         + order_text_nl +
@@ -308,13 +308,13 @@ def send_discount_email(code, customer_email):
     subject = "Nova Asia - Kortingscode | Discount Code"
 
     body = (
-        "🇳🇱 Nederlands bovenaan | 🇬🇧 English version below\n\n"
-        "🎁 Bedankt voor je bestelling bij Nova Asia!\n\n"
+        " Nederlands bovenaan | English version below\n\n"
+        "Bedankt voor je bestelling bij Nova Asia!\n\n"
         f"Gebruik deze code voor 3% korting op je volgende bestelling: {code}\n"
         "Voer deze code in bij het afrekenen via onze website.\n\n"
         "Met vriendelijke groet,\nNova Asia\n"
         "----------------------------------------------\n\n"
-        "🎁 Thank you for your order at Nova Asia!\n\n"
+        " Thank you for your order at Nova Asia!\n\n"
         f"Use this code to get 3% discount on your next order: {code}\n"
         "Apply this code during checkout on our website.\n\n"
         "Kind regards,\nNova Asia"
@@ -810,7 +810,7 @@ def order_complete():
 
     if email:
         html_body = (
-            "<strong>🇳🇱 Nederlands bovenaan | 🇬🇧 English version below</strong><br><br>"
+            "<strong>Nederlands bovenaan |  English version below</strong><br><br>"
             "<strong>--- Nederlands ---</strong><br><br>"
             f"Beste {name},<br><br>"
             f"{dutch_message}<br><br>"
@@ -890,7 +890,7 @@ def mollie_webhook():
 
                     if kortingscode:
                         text += (
-                            f"\n\n🎁 Je kortingscode: {kortingscode}"
+                            f"\n\nJe kortingscode: {kortingscode}"
                             f"\nGebruik deze code bij je volgende bestelling!"
                             f"\nDeze code geeft je 3% korting."
                             f"\nDe verwachte korting op basis van je huidige bestelling is ongeveer €{kortingsbedrag:.2f}"
