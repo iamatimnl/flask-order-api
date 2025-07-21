@@ -1050,7 +1050,7 @@ def submit_order():
 
     # ✅ 非 online betaling，立即通知 POS、Telegram、Email、socketio
     telegram_ok = send_telegram_message(order_text)
-    email_ok = send_email_notification(order_text)
+    
     pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
