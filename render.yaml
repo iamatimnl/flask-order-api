@@ -15,7 +15,7 @@ services:
         value: 7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio
       - key: TELEGRAM_CHAT_ID
         value: 8047420957
-        key: MAIL_USERNAME
+
         value: postmaster@mg.novaasia.nl
       - key: MAIL_PASSWORD
         value: db54d6fa02661e1cdaa222787a5dbb73-45de04af-7920c20d
@@ -25,8 +25,6 @@ services:
         value: 587
       - key: MAIL_DEFAULT_SENDER
         value: orders@novaasia.nl
-      - key: SMTP_PASSWORD
-        value: xsmtpsib-88d7ff089edf0b1aa531dca7274d7b0ed64175dac44813eef7f022d8c31f858b-b0sWj5haIfcywPZ8
       - key: MOLLIE_API_KEY
         value: test_E6gVk3tT2Frgdedj9Bcexar82dgUMe
       - key: MOLLIE_REDIRECT_URL
