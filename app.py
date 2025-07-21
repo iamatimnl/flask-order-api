@@ -66,6 +66,8 @@ SMTP_PORT = 587
 SMTP_USERNAME = "92a3ac002@smtp-brevo.com"
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")
 FROM_EMAIL = "orders@novaasia.nl"
+# Compatibility alias used by old code paths
+SENDER_EMAIL = FROM_EMAIL
 
 # === POS 配置 ===
 # Endpoint for forwarding orders to the POS system. Replace with the actual URL.
