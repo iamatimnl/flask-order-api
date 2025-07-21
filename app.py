@@ -708,16 +708,18 @@ def api_send_order():
             resp["paymentLink"] = payment_link
         return jsonify(resp), 200
 
-    if telegram_ok and email_ok and pos_ok:
+    if telegram_ok and pos_ok:
         resp = {"status": "ok"}
         return jsonify(resp), 200
 
     if not telegram_ok:
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
-    if not email_ok:
-        return jsonify({"status": "fail", "error": "E-mailfout"}), 500
     if not pos_ok:
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
+
+    if not email_ok:
+        # Email failure doesn't stop the request; just log it.
+        print("Email notification failed but continuing")
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
@@ -1089,15 +1091,16 @@ def submit_order():
     )
     socketio.emit("new_order", socket_order)
 
-    if telegram_ok and email_ok and pos_ok:
+    if telegram_ok and pos_ok:
         return jsonify({"status": "ok"}), 200
 
     if not telegram_ok:
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
-    if not email_ok:
-        return jsonify({"status": "fail", "error": "E-mailfout"}), 500
     if not pos_ok:
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
+
+    if not email_ok:
+        print("Email notification failed but continuing")
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
 
