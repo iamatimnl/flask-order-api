@@ -60,13 +60,10 @@ load_settings()
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
 CHAT_ID = '8047420957'
 
-MAIL_SERVER = 'smtp.eu.mailgun.org'
-MAIL_PORT = 587
-MAIL_USE_TLS = True
-MAIL_USERNAME = 'postmaster@mg.novaasia.nl'
-MAIL_PASSWORD = 'db54d6fa02661e1cdaa222787a5dbb73-45de04af-7920c20d'
-MAIL_DEFAULT_SENDER = 'orders@novaasia.nl'
-
+# === Gmail 配置 ===
+SENDER_EMAIL = "qianchennl@gmail.com"
+SENDER_PASSWORD = "wtuyxljsjwftyzfm"
+RECEIVER_EMAIL = "qianchennl@gmail.com"
 
 # === POS 配置 ===
 # Endpoint for forwarding orders to the POS system. Replace with the actual URL.
@@ -202,7 +199,23 @@ def add_section():
     # 暂时什么都不做，直接返回 dashboard
     return redirect(url_for('dashboard'))
 
+def send_email_notification(order_text):
+    subject = "Nova Asia - Nieuwe bestelling"
+    msg = MIMEText(order_text, "plain", "utf-8")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
+    msg["To"] = RECEIVER_EMAIL
 
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [RECEIVER_EMAIL], msg.as_string())
+        print("✅ E-mail verzonden!")
+        return True
+    except Exception as e:
+        print(f"❌ Verzendfout: {e}")
+        return False
 
 def translate_order_text_to_english(order_text_nl: str) -> str:
     translations = {
@@ -285,15 +298,14 @@ def send_confirmation_email(order_text, customer_email, order_number, discount_c
     # 发送邮件
     msg = MIMEText(html_body, "html", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = formataddr(("NovaAsia", MAIL_DEFAULT_SENDER))
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = customer_email
 
     try:
-        with smtplib.SMTP(MAIL_SERVER, MAIL_PORT) as server:
-            if MAIL_USE_TLS:
-                server.starttls()
-            server.login(MAIL_USERNAME, MAIL_PASSWORD)
-            server.sendmail(MAIL_DEFAULT_SENDER, [customer_email], msg.as_string())
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
         print("✅ Bilingual confirmation email sent!")
     except Exception as e:
         print(f"❌ Email send error: {e}")
@@ -319,15 +331,14 @@ def send_discount_email(code, customer_email):
 
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = formataddr(("NovaAsia", MAIL_DEFAULT_SENDER))
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = customer_email
 
     try:
-        with smtplib.SMTP(MAIL_SERVER, MAIL_PORT) as server:
-            if MAIL_USE_TLS:
-                server.starttls()
-            server.login(MAIL_USERNAME, MAIL_PASSWORD)
-            server.sendmail(MAIL_DEFAULT_SENDER, [customer_email], msg.as_string())
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [customer_email], msg.as_string())
         print("✅ Kortingscode verzonden!")
     except Exception as e:
         print(f"❌ Kortingscode-fout: {e}")
@@ -338,15 +349,14 @@ def send_simple_email(subject, body, to_email):
     """Send a plain text email to a specific recipient."""
     msg = MIMEText(body, "plain", "utf-8")
     msg["Subject"] = Header(subject, "utf-8")
-    msg["From"] = formataddr(("NovaAsia", MAIL_DEFAULT_SENDER))
+    msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
     msg["To"] = to_email
 
     try:
-        with smtplib.SMTP(MAIL_SERVER, MAIL_PORT) as server:
-            if MAIL_USE_TLS:
-                server.starttls()
-            server.login(MAIL_USERNAME, MAIL_PASSWORD)
-            server.sendmail(MAIL_DEFAULT_SENDER, [to_email], msg.as_string())
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(SENDER_EMAIL, SENDER_PASSWORD)
+            server.sendmail(SENDER_EMAIL, [to_email], msg.as_string())
         print("✅ Bevestigingsmail verzonden!")
         return True
     except Exception as e:
@@ -821,15 +831,14 @@ def order_complete():
 
         msg = MIMEText(html_body, "html", "utf-8")
         msg["Subject"] = Header(subject, "utf-8")
-        msg["From"] = formataddr(("NovaAsia", MAIL_DEFAULT_SENDER))
+        msg["From"] = formataddr(("NovaAsia", SENDER_EMAIL))
         msg["To"] = email
 
         try:
-            with smtplib.SMTP(MAIL_SERVER, MAIL_PORT) as server:
-                if MAIL_USE_TLS:
-                    server.starttls()
-                server.login(MAIL_USERNAME, MAIL_PASSWORD)
-                server.sendmail(MAIL_DEFAULT_SENDER, [email], msg.as_string())
+            with smtplib.SMTP("smtp.gmail.com", 587) as server:
+                server.starttls()
+                server.login(SENDER_EMAIL, SENDER_PASSWORD)
+                server.sendmail(SENDER_EMAIL, [email], msg.as_string())
             print("✅ Order complete confirmation sent!")
         except Exception as e:
             print(f"❌ Error sending email: {e}")
@@ -1050,7 +1059,7 @@ def submit_order():
 
     # ✅ 非 online betaling，立即通知 POS、Telegram、Email、socketio
     telegram_ok = send_telegram_message(order_text)
-    
+    email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
 
     record_order(data, pos_ok)
