@@ -620,13 +620,15 @@ def get_orders_today():
 @app.route("/api/send", methods=["POST"])
 def api_send_order():
     data = request.get_json()
+
+    # 基础字段预处理
     message = data.get("message", "")
     remark = data.get("opmerking") or data.get("remark", "")
     data["opmerking"] = remark
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
 
-    order_text = data.get("message") or format_order_notification(data)
+    order_text = message or format_order_notification(data)
     maps_link = build_google_maps_link(data)
     if maps_link:
         order_text += f"\n📍 Google Maps: {maps_link}"
@@ -635,11 +637,14 @@ def api_send_order():
     created_at = now.strftime('%Y-%m-%d %H:%M:%S')
     created_date = now.strftime('%Y-%m-%d')
     created_time = now.strftime('%H:%M')
+
+    # 总价 & 小费
     data["total"] = data.get("totaal") or (data.get("summary") or {}).get("total")
     data["fooi"] = float(data.get("tip") or 0)
     data["created_at"] = created_at
     data["status"] = "Pending"
 
+    # 折扣处理
     discount_code = None
     discount_amount = None
     order_total_val = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
@@ -649,39 +654,58 @@ def api_send_order():
         data["discount_code"] = discount_code
         data["discount_amount"] = discount_amount
 
+    # 处理时间字段
+    delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
+    pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
+    tijdslot = data.get("tijdslot") or delivery_time or pickup_time
+
+    # ✅ 如果是 ZSM 或空，设置 tijdslot_display 为 "ZSM"
+    if not tijdslot or str(tijdslot).strip().lower() in ["", "zsm", "asap"]:
+        tijdslot = "ZSM"
+    data["tijdslot"] = tijdslot
+    data["tijdslot_display"] = tijdslot  # 👈 确保前端 addRow() 也能正确显示
+
+    # 如果 delivery_time / pickup_time 缺失，从 tijdslot 推导回来
+    if not delivery_time and not pickup_time:
+        if data.get("orderType") == "bezorgen":
+            data["delivery_time"] = tijdslot
+        else:
+            data["pickup_time"] = tijdslot
+
+    # 支付链接处理（仅在线支付）
+    payment_link = None
+    if payment_method == "online":
+        amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+        payment_link, payment_id = create_mollie_payment(
+            data.get("order_number") or data.get("orderNumber"),
+            amount
+        )
+        if payment_id:
+            data["payment_id"] = payment_id
+
+    # 通知处理
     telegram_ok = True
     email_ok = True
     pos_ok = False
     pos_error = None
 
-    payment_link = None
-    if payment_method == "online":
-        amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
-        payment_link, payment_id = create_mollie_payment(data.get("order_number") or data.get("orderNumber"), amount)
-        if payment_id:
-            data["payment_id"] = payment_id
-    else:
+    if payment_method != "online":
         telegram_ok = send_telegram_message(order_text)
         email_ok = send_email_notification(order_text)
         pos_ok, pos_error = send_pos_order(data)
 
+    # ✅ 保存到数据库
     record_order(data, pos_ok)
 
+    # 客户确认邮件
     if payment_method != "online" and customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
+        send_confirmation_email(
+            order_text, customer_email, order_number,
+            discount_code, discount_amount
+        )
 
-    delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
-    pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
-    tijdslot = data.get("tijdslot") or delivery_time or pickup_time
-
-    if tijdslot:
-        if not delivery_time and not pickup_time:
-            if data.get("orderType") == "bezorgen":
-                delivery_time = tijdslot
-            else:
-                pickup_time = tijdslot
-
+    # WebSocket 推送到 POS
     if payment_method != "online":
         socket_order = build_socket_order(
             data,
@@ -693,6 +717,7 @@ def api_send_order():
         )
         socketio.emit("new_order", socket_order)
 
+    # 返回响应
     if payment_method == "online":
         resp = {"status": "ok"}
         if payment_link:
@@ -700,9 +725,7 @@ def api_send_order():
         return jsonify(resp), 200
 
     if telegram_ok and email_ok and pos_ok:
-        resp = {"status": "ok"}
-        return jsonify(resp), 200
-
+        return jsonify({"status": "ok"}), 200
     if not telegram_ok:
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
     if not email_ok:
