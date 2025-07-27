@@ -378,8 +378,9 @@ def send_telegram_to_customer(phone, text):
     except Exception as e:
         print(f"❌ Telegram-klantfout: {e}")
         return False
-def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_number):
-    """Send Telegram message to selected delivery person with order info."""
+def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_number,
+                              address, tijdslot, phone, opmerking=""):
+    """Send Telegram message to selected delivery person with complete order info."""
     if not chat_id or not order_number:
         print("⚠️ Ontbrekend chat_id of ordernummer")
         return False
@@ -388,8 +389,11 @@ def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_num
         f"📦 Nieuwe bezorging toegewezen!\n"
         f"🧾 Ordernummer: #{order_number}\n"
         f"👤 Klant: {customer_name or 'Onbekend'}\n"
-        f"🚴 Bezorger: {delivery_person}\n"
-        f"📞 Contact: 0622599566"
+        f"📍 Adres: {address}\n"
+        f"🕒 Tijdslot: {tijdslot or 'Onbekend'}\n"
+        f"📞 Telefoon: {phone or 'Geen nummer'}\n"
+        f"📝 Opmerking: {opmerking or 'Geen'}\n"
+        f"🚴 Bezorger: {delivery_person}"
     )
 
     try:
