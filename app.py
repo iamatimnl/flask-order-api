@@ -802,6 +802,8 @@ def send_telegram_to_delivery(
     delivery_person,
     customer_name,
     order_number,
+    phone="",
+    opmerking="",
     totaal="",
     payment_method="",
     tijdslot="",
@@ -810,6 +812,7 @@ def send_telegram_to_delivery(
     postcode="",
     city=""
 ):
+
     # 🔗 构建完整地址和 Google Maps URL
     full_address = f"{street} {house_number}, {postcode} {city}".strip()
     google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
@@ -825,6 +828,8 @@ def send_telegram_to_delivery(
         f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
         f"👤 Klant: {customer_name}\n"
         f"🧾 Ordernummer: #{order_number}\n"
+        f"📞 Telefoon: {phone or 'Niet opgegeven'}\n"       # ✅ 添加电话号码
+        f"💬 Opmerking: {opmerking or 'Geen'}\n\n"         # 
         f"🕐 Tijdslot: {tijdslot or 'ZSM'}\n"
         f"💶 Bedrag: {bedrag}\n"
         f"💳 Betaalmethode: {payment_method}\n"
