@@ -414,7 +414,8 @@ def send_telegram_to_delivery(
         f"✅ Bevestig bezorging in POS zodra klaar."
     )
 
-    requests.post(f"{TELEGRAM_API}/sendMessage", json={
+    requests.post(TELEGRAM_API_URL, json={
+
         "chat_id": chat_id,
         "text": message,
         "parse_mode": "Markdown"
