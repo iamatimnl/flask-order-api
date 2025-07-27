@@ -786,7 +786,6 @@ def order_time_changed():
     send_simple_email(subject, body, email)
     return jsonify({"status": "ok"})
 
-
 @app.route('/api/order_complete', methods=['POST'])
 def order_complete():
     """Handle order completion notifications from the POS system."""
@@ -795,6 +794,9 @@ def order_complete():
     name = data.get("name", "")
     email = data.get("email", "")
     order_type = data.get("order_type", "afhaal").lower()
+
+    delivery_person = data.get("delivery_person", "")
+    delivery_chat_id = data.get("delivery_chat_id", "")
 
     if not order_number:
         return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
@@ -837,6 +839,28 @@ def order_complete():
             f"We hope you enjoy your meal and sincerely thank you for ordering at Nova Asia!"
         )
 
+        # ✅ 新增 Telegram 推送给配送员
+        if delivery_chat_id:
+            telegram_message = (
+                f"📦 Nieuwe bezorging toegewezen!\n"
+                f"👤 Klant: {name or 'Onbekend'}\n"
+                f"🧾 Ordernummer: #{order_number}\n"
+                f"🚴 Bezorger: {delivery_person}\n"
+                f"📞 Contact: {contact_number}"
+            )
+            try:
+                tg_response = requests.post(TELEGRAM_API_URL, json={
+                    "chat_id": delivery_chat_id,
+                    "text": telegram_message
+                })
+                if tg_response.ok:
+                    print("✅ Telegram bericht naar bezorger verzonden.")
+                else:
+                    print("❌ Telegram fout:", tg_response.text)
+            except Exception as e:
+                print("❌ Telegram exception:", e)
+
+    # ✅ 发邮件部分（保持不变）
     if email:
         html_body = (
             "<strong>Nederlands bovenaan |  English version below</strong><br><br>"
