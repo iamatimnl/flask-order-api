@@ -32,6 +32,27 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 SETTINGS_FILE = "settings.json"
 SETTINGS = {}
 
+def load_settings():
+    global SETTINGS
+    try:
+        with open(SETTINGS_FILE, "r") as f:
+            SETTINGS = json.load(f)
+        if "bubble_tea_available" not in SETTINGS:
+            SETTINGS["bubble_tea_available"] = "true"
+    except Exception:
+        SETTINGS = {
+            "is_open": "true",
+            "open_time": "11:00",
+            "close_time": "21:00",
+            "bubble_tea_available": "true",
+        }
+
+def save_settings():
+    try:
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(SETTINGS, f)
+    except Exception as e:
+        print(f"Failed to save settings: {e}")
 
 load_settings()
 
@@ -65,75 +86,6 @@ ORDERS = []
 # Keywords for identifying extra items that should be shown in bold
 EXTRA_KEYWORDS = ["sojasaus", "stokjes", "gember", "wasabi"]
 
-def fetch_order_details(order_number):
-    try:
-        response = requests.get(f"{POS_API_URL}/{order_number}")
-        if response.ok:
-            return response.json()
-        else:
-            print(f"❌ Fout bij ophalen order: {response.status_code} - {response.text}")
-    except Exception as e:
-        print(f"❌ Exception bij ophalen order: {e}")
-    return {}
-
-
-def send_telegram_to_delivery(
-    chat_id,
-    delivery_person,
-    customer_name,
-    order_number,
-    totaal="",
-    payment_method="",
-    tijdslot="",
-    street="",
-    house_number="",
-    postcode="",
-    city=""
-):
-    # 🔗 构建完整地址和 Google Maps URL
-    full_address = f"{street} {house_number}, {postcode} {city}".strip()
-    google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
-
-    message = (
-        f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
-        f"👤 Klant: {customer_name}\n"
-        f"🧾 Ordernummer: #{order_number}\n"
-        f"🕐 Tijdslot: {tijdslot or 'ZSM'}\n"
-        f"💶 Bedrag: {totaal}\n"
-        f"💳 Betaalmethode: {payment_method}\n"
-        f"📍 Adres: {full_address}\n"
-        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n\n"
-        f"✅ Bevestig bezorging in POS zodra klaar."
-    )
-
-    requests.post(f"{TELEGRAM_API}/sendMessage", json={
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"
-    })
-
-
-def load_settings():
-    global SETTINGS
-    try:
-        with open(SETTINGS_FILE, "r") as f:
-            SETTINGS = json.load(f)
-        if "bubble_tea_available" not in SETTINGS:
-            SETTINGS["bubble_tea_available"] = "true"
-    except Exception:
-        SETTINGS = {
-            "is_open": "true",
-            "open_time": "11:00",
-            "close_time": "21:00",
-            "bubble_tea_available": "true",
-        }
-
-def save_settings():
-    try:
-        with open(SETTINGS_FILE, "w") as f:
-            json.dump(SETTINGS, f)
-    except Exception as e:
-        print(f"Failed to save settings: {e}")
 
 def sort_items(items):
     """Return items dict sorted with main items first and extras last."""
@@ -426,6 +378,48 @@ def send_telegram_to_customer(phone, text):
     except Exception as e:
         print(f"❌ Telegram-klantfout: {e}")
         return False
+def fetch_order_details(order_number):
+    # 从 App A 请求订单详情（示例）
+    response = requests.get(f"{POS_API_URL}/{order_number}")
+    if response.ok:
+        return response.json()
+    return {}
+
+def send_telegram_to_delivery(
+    chat_id,
+    delivery_person,
+    customer_name,
+    order_number,
+    totaal="",
+    payment_method="",
+    tijdslot="",
+    street="",
+    house_number="",
+    postcode="",
+    city=""
+):
+    # 🔗 构建完整地址和 Google Maps URL
+    full_address = f"{street} {house_number}, {postcode} {city}".strip()
+    google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
+
+    message = (
+        f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
+        f"👤 Klant: {customer_name}\n"
+        f"🧾 Ordernummer: #{order_number}\n"
+        f"🕐 Tijdslot: {tijdslot or 'ZSM'}\n"
+        f"💶 Bedrag: {totaal}\n"
+        f"💳 Betaalmethode: {payment_method}\n"
+        f"📍 Adres: {full_address}\n"
+        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n\n"
+        f"✅ Bevestig bezorging in POS zodra klaar."
+    )
+
+    requests.post(f"{TELEGRAM_API}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    })
+
 
 
 
