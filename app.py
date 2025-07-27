@@ -32,27 +32,6 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 SETTINGS_FILE = "settings.json"
 SETTINGS = {}
 
-def load_settings():
-    global SETTINGS
-    try:
-        with open(SETTINGS_FILE, "r") as f:
-            SETTINGS = json.load(f)
-        if "bubble_tea_available" not in SETTINGS:
-            SETTINGS["bubble_tea_available"] = "true"
-    except Exception:
-        SETTINGS = {
-            "is_open": "true",
-            "open_time": "11:00",
-            "close_time": "21:00",
-            "bubble_tea_available": "true",
-        }
-
-def save_settings():
-    try:
-        with open(SETTINGS_FILE, "w") as f:
-            json.dump(SETTINGS, f)
-    except Exception as e:
-        print(f"Failed to save settings: {e}")
 
 load_settings()
 
@@ -86,6 +65,75 @@ ORDERS = []
 # Keywords for identifying extra items that should be shown in bold
 EXTRA_KEYWORDS = ["sojasaus", "stokjes", "gember", "wasabi"]
 
+def fetch_order_details(order_number):
+    try:
+        response = requests.get(f"{POS_API_URL}/{order_number}")
+        if response.ok:
+            return response.json()
+        else:
+            print(f"❌ Fout bij ophalen order: {response.status_code} - {response.text}")
+    except Exception as e:
+        print(f"❌ Exception bij ophalen order: {e}")
+    return {}
+
+
+def send_telegram_to_delivery(
+    chat_id,
+    delivery_person,
+    customer_name,
+    order_number,
+    totaal="",
+    payment_method="",
+    tijdslot="",
+    street="",
+    house_number="",
+    postcode="",
+    city=""
+):
+    # 🔗 构建完整地址和 Google Maps URL
+    full_address = f"{street} {house_number}, {postcode} {city}".strip()
+    google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
+
+    message = (
+        f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
+        f"👤 Klant: {customer_name}\n"
+        f"🧾 Ordernummer: #{order_number}\n"
+        f"🕐 Tijdslot: {tijdslot or 'ZSM'}\n"
+        f"💶 Bedrag: {totaal}\n"
+        f"💳 Betaalmethode: {payment_method}\n"
+        f"📍 Adres: {full_address}\n"
+        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n\n"
+        f"✅ Bevestig bezorging in POS zodra klaar."
+    )
+
+    requests.post(f"{TELEGRAM_API}/sendMessage", json={
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    })
+
+
+def load_settings():
+    global SETTINGS
+    try:
+        with open(SETTINGS_FILE, "r") as f:
+            SETTINGS = json.load(f)
+        if "bubble_tea_available" not in SETTINGS:
+            SETTINGS["bubble_tea_available"] = "true"
+    except Exception:
+        SETTINGS = {
+            "is_open": "true",
+            "open_time": "11:00",
+            "close_time": "21:00",
+            "bubble_tea_available": "true",
+        }
+
+def save_settings():
+    try:
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(SETTINGS, f)
+    except Exception as e:
+        print(f"Failed to save settings: {e}")
 
 def sort_items(items):
     """Return items dict sorted with main items first and extras last."""
@@ -377,62 +425,6 @@ def send_telegram_to_customer(phone, text):
         return response.status_code == 200
     except Exception as e:
         print(f"❌ Telegram-klantfout: {e}")
-        return False
-def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_number,
-                               street=None, house_number=None, postcode=None, city=None,
-                               tijdslot=None, phone=None, opmerking=None,
-                               totaal=None, payment_method=None, created_at=None):
-    """Send Telegram message to selected delivery person with order info."""
-    if not chat_id or not order_number:
-        print("⚠️ Ontbrekend chat_id of ordernummer")
-        return False
-
-    # 地址组合
-    address_parts = [street, house_number, postcode, city]
-    full_address = ' '.join([part for part in address_parts if part]).strip()
-    maps_link = f"https://www.google.com/maps/search/?api=1&query={full_address.replace(' ', '+')}" if full_address else "Geen adres"
-
-    # 默认值
-    customer_name = customer_name or "Onbekend"
-    phone = phone or "Geen nummer"
-    tijdslot = tijdslot or "ZSM"
-    opmerking = opmerking or "Geen"
-    totaal_display = f"€{float(totaal):.2f}" if totaal is not None else "Onbekend"
-    payment_method = payment_method or "Onbekend"
-    created_at = created_at or "-"
-
-    message = (
-        f"📦 *Nieuwe bezorging toegewezen!*\n"
-        f"🧾 *Ordernummer:* #{order_number}\n"
-        f"👤 *Klant:* {customer_name}\n"
-        f"💶 *Totaal:* {totaal_display}\n"
-        f"💳 *Betaling:* {payment_method}\n"
-        f"⏰ *Tijdslot:* {tijdslot}\n"
-        f"🕒 *Besteld om:* {created_at}\n"
-        f"📞 *Telefoon:* {phone}\n"
-        f"📍 *Adres:* {full_address}\n"
-        f"🌐 [Bekijk op Google Maps]({maps_link})\n"
-        f"📝 *Opmerking:* {opmerking}\n"
-        f"🚴 *Bezorger:* {delivery_person}"
-    )
-
-    try:
-        response = requests.post(
-            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-            json={
-                "chat_id": str(chat_id),
-                "text": message,
-                "parse_mode": "Markdown"  # ✅ 保证加粗等格式生效
-            }
-        )
-        if response.ok:
-            print(f"✅ Telegram naar bezorger {delivery_person} verzonden.")
-            return True
-        else:
-            print(f"❌ Telegram fout: {response.text}")
-            return False
-    except Exception as e:
-        print(f"❌ Telegram exception: {e}")
         return False
 
 
@@ -847,53 +839,36 @@ def order_time_changed():
 def order_complete():
     """Handle order completion notifications from the POS system."""
     data = request.get_json() or {}
-
     order_number = data.get("order_number", "")
-    name = data.get("name", "")
-    email = data.get("email", "")
-    phone = data.get("phone", "")
-    order_type = data.get("order_type", "afhaal").lower()
-
-    delivery_person = data.get("delivery_person", "")
-    delivery_chat_id = data.get("delivery_chat_id", "")
-
-    # ✅ 新增字段（用于配送信息）
-    street = data.get("street", "")
-    house_number = data.get("house_number", "")
-    postcode = data.get("postcode", "")
-    city = data.get("city", "")
-    tijdslot = data.get("tijdslot", "")
-    opmerking = data.get("opmerking", "")
-    totaal = data.get("totaal") or data.get("total")
-    payment_method = data.get("payment_method")
-    created_at = data.get("created_at")
 
     if not order_number:
         return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
 
+    # 🔍 拉取完整订单详情（从 App A）
+    full_order = fetch_order_details(order_number)
+
+    # ✅ 优先用现有 data，补充缺失字段
+    data.setdefault("tijdslot", full_order.get("tijdslot_display") or full_order.get("pickup_time") or "")
+    data.setdefault("street", full_order.get("street", ""))
+    data.setdefault("house_number", full_order.get("house_number", ""))
+    data.setdefault("postcode", full_order.get("postcode", ""))
+    data.setdefault("city", full_order.get("city", ""))
+    data.setdefault("totaal", full_order.get("totaal", ""))
+    data.setdefault("payment_method", full_order.get("payment_method", ""))
+    data.setdefault("created_at", full_order.get("created_at", ""))
+    data.setdefault("opmerking", full_order.get("opmerking", ""))
+    data.setdefault("name", full_order.get("name", data.get("name", "")))
+    data.setdefault("email", full_order.get("email", data.get("email", "")))
+    data.setdefault("order_type", full_order.get("order_type", data.get("order_type", "afhaal")))
+
+    # 🎯 公共变量
+    name = data.get("name", "")
+    email = data.get("email", "")
+    order_type = data.get("order_type", "afhaal").lower()
     shop_address = "Sjoukje Dijkstralaan 83, 2134CN Hoofddorp"
     contact_number = "0622599566"
 
-    # ✅ 外送订单：推送 Telegram 给配送员
-    if order_type in ["bezorg", "bezorging", "delivery"] and delivery_chat_id:
-        send_telegram_to_delivery(
-            chat_id=delivery_chat_id,
-            delivery_person=delivery_person,
-            customer_name=name,
-            order_number=order_number,
-            street=street,
-            house_number=house_number,
-            postcode=postcode,
-            city=city,
-            tijdslot=tijdslot,
-            phone=phone,
-            opmerking=opmerking,
-            totaal=totaal,
-            payment_method=payment_method,
-            created_at=created_at
-        )
-
-    # ✅ 邮件通知客户（保持原样）
+    # 📨 邮件通知内容
     if order_type in ["afhaal", "afhalen", "pickup"]:
         subject = f"Nova Asia - Uw bestelling #{order_number} is klaar | Order ready"
         dutch_message = (
@@ -929,7 +904,26 @@ def order_complete():
             f"We hope you enjoy your meal and sincerely thank you for ordering at Nova Asia!"
         )
 
-    # ✅ 邮件发送（如有）
+        # 📦 Telegram 配送通知
+        delivery_person = data.get("delivery_person", "")
+        delivery_chat_id = data.get("delivery_chat_id", "")
+        klant_naam = name
+        totaal = data.get("totaal", "")
+        payment_method = data.get("payment_method", "")
+        tijdslot = data.get("tijdslot", "")
+
+        if delivery_chat_id:
+            send_telegram_to_delivery(
+                delivery_chat_id,
+                delivery_person,
+                klant_naam,
+                order_number,
+                totaal,
+                payment_method,
+                tijdslot
+            )
+
+    # 📧 邮件通知客户
     if email:
         html_body = (
             "<strong>Nederlands bovenaan |  English version below</strong><br><br>"
