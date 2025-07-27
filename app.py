@@ -832,17 +832,53 @@ def send_telegram_to_delivery(
 def order_complete():
     data = request.get_json() or {}
     order_number = data.get("order_number", "")
+
     if not order_number:
         return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
 
-    name = data.get("customer_name", "")
+    name = data.get("name", "")
     email = data.get("email", "")
     order_type = data.get("order_type", "afhaal").lower()
     shop_address = "Sjoukje Dijkstralaan 83, 2134CN Hoofddorp"
     contact_number = "0622599566"
 
-    # 📦 Telegram 配送通知（仅送餐）
-    if order_type in ["bezorgen", "bezorg", "delivery"]:
+    # 📨 邮件通知内容
+    if order_type in ["afhaal", "afhalen", "pickup"]:
+        subject = f"Nova Asia - Uw bestelling #{order_number} is klaar | Order ready"
+        dutch_message = (
+            f"Goed nieuws,<br>"
+            f"Uw bestelling is zojuist vers bereid en staat klaar om opgehaald te worden bij:<br><br>"
+            f"{shop_address}<br><br>"
+            f"Wij hopen dat u volop gaat genieten van uw maaltijd.<br>"
+            f"Mocht u vragen hebben, bel ons gerust: {contact_number}.<br><br>"
+            f"Bedankt dat u voor Nova Asia heeft gekozen!"
+        )
+        english_message = (
+            f"Good news,<br>"
+            f"Your order has just been freshly prepared and is ready for pickup at:<br><br>"
+            f"{shop_address}<br><br>"
+            f"We hope you enjoy your meal!<br>"
+            f"If you have any questions, feel free to call us: {contact_number}.<br><br>"
+            f"Thank you for choosing Nova Asia!"
+        )
+    else:
+        subject = f"Nova Asia - Uw bestelling #{order_number} is onderweg | Order on the way"
+        dutch_message = (
+            f"Goed nieuws,<br>"
+            f"Uw bestelling is onderweg naar het door u opgegeven bezorgadres.<br>"
+            f"Onze bezorger doet zijn best om op tijd bij u te zijn.<br><br>"
+            f"Mocht u vragen hebben, bel ons gerust: {contact_number}.<br><br>"
+            f"Wij wensen u alvast smakelijk eten en bedanken u hartelijk voor uw bestelling bij Nova Asia!"
+        )
+        english_message = (
+            f"Good news,<br>"
+            f"Your order is on its way to the delivery address you provided.<br>"
+            f"Our delivery driver is doing their best to arrive on time.<br><br>"
+            f"If you have any questions, feel free to call us: {contact_number}.<br><br>"
+            f"We hope you enjoy your meal and sincerely thank you for ordering at Nova Asia!"
+        )
+
+        # 📦 Telegram 配送通知
         send_telegram_to_delivery(
             chat_id=data.get("delivery_chat_id", ""),
             delivery_person=data.get("delivery_person", ""),
@@ -852,45 +888,15 @@ def order_complete():
             opmerking=data.get("opmerking", ""),
             totaal=data.get("totaal", ""),
             payment_method=data.get("payment_method", ""),
-            tijdslot=data.get("tijdslot_display") or data.get("pickup_time") or "",
+            tijdslot=data.get("tijdslot", ""),
             street=data.get("street", ""),
             house_number=data.get("house_number", ""),
             postcode=data.get("postcode", ""),
             city=data.get("city", "")
         )
 
-    # 📧 邮件通知（可选）
+    # 📧 邮件通知
     if email:
-        if order_type in ["afhaal", "pickup"]:
-            subject = f"Nova Asia - Uw bestelling #{order_number} is klaar | Order ready"
-            dutch_message = (
-                f"Goed nieuws,<br>Uw bestelling is zojuist vers bereid en staat klaar om opgehaald te worden bij:<br><br>"
-                f"{shop_address}<br><br>"
-                f"Wij hopen dat u volop gaat genieten van uw maaltijd.<br>"
-                f"Mocht u vragen hebben, bel ons gerust: {contact_number}.<br><br>"
-                f"Bedankt dat u voor Nova Asia heeft gekozen!"
-            )
-            english_message = (
-                f"Good news,<br>Your order has just been freshly prepared and is ready for pickup at:<br><br>"
-                f"{shop_address}<br><br>"
-                f"We hope you enjoy your meal!<br>If you have any questions, feel free to call us: {contact_number}.<br><br>"
-                f"Thank you for choosing Nova Asia!"
-            )
-        else:
-            subject = f"Nova Asia - Uw bestelling #{order_number} is onderweg | Order on the way"
-            dutch_message = (
-                f"Goed nieuws,<br>Uw bestelling is onderweg naar het door u opgegeven bezorgadres.<br>"
-                f"Onze bezorger doet zijn best om op tijd bij u te zijn.<br><br>"
-                f"Mocht u vragen hebben, bel ons gerust: {contact_number}.<br><br>"
-                f"Wij wensen u alvast smakelijk eten en bedanken u hartelijk voor uw bestelling bij Nova Asia!"
-            )
-            english_message = (
-                f"Good news,<br>Your order is on its way to the delivery address you provided.<br>"
-                f"Our delivery driver is doing their best to arrive on time.<br><br>"
-                f"If you have any questions, feel free to call us: {contact_number}.<br><br>"
-                f"We hope you enjoy your meal and sincerely thank you for ordering at Nova Asia!"
-            )
-
         html_body = (
             "<strong>Nederlands bovenaan |  English version below</strong><br><br>"
             "<strong>--- Nederlands ---</strong><br><br>"
@@ -902,7 +908,7 @@ def order_complete():
 
         msg = MIMEText(html_body, "html", "utf-8")
         msg["Subject"] = Header(subject, "utf-8")
-        msg["From"] = formataddr(("Nova Asia", FROM_EMAIL))
+        msg["From"] = formataddr(("NovaAsia", FROM_EMAIL))
         msg["To"] = email
 
         try:
@@ -916,65 +922,6 @@ def order_complete():
 
     return jsonify({"status": "ok"})
 
-
-@app.route('/api/order_cancelled', methods=['POST'])
-def order_cancelled():
-    """Handle order cancellation notifications from the POS system."""
-    data = request.get_json() or {}
-    order_number = data.get("order_number", "")
-    name = data.get("name", "")
-    email = data.get("email", "")
-    order_type = data.get("order_type", "afhaal").lower()
-
-    if not order_number:
-        return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
-
-    shop_address = "Sjoukje Dijkstralaan 83, 2134CN Hoofddorp"
-    contact_number = "0622599566"
-
-    subject = f"Nova Asia - Uw bestelling #{order_number} is geannuleerd | Order Cancelled"
-
-    dutch_message = (
-        f"Helaas moeten wij u informeren dat uw bestelling #{order_number} is geannuleerd.<br><br>"
-        f"Mocht dit een vergissing zijn of heeft u vragen, neem dan gerust contact met ons op via:<br>"
-        f"{contact_number} of kom langs bij:<br>{shop_address}<br><br>"
-        f"Onze excuses voor het ongemak en hopelijk tot snel bij Nova Asia."
-    )
-
-    english_message = (
-        f"We regret to inform you that your order #{order_number} has been cancelled.<br><br>"
-        f"If this was a mistake or you have any questions, feel free to contact us at:<br>"
-        f"{contact_number} or visit us at:<br>{shop_address}<br><br>"
-        f"We apologize for the inconvenience and hope to serve you again soon at Nova Asia."
-    )
-
-    if email:
-        html_body = (
-            "<strong>Nederlands bovenaan | English version below</strong><br><br>"
-            "<strong>--- Nederlands ---</strong><br><br>"
-            f"Beste {name},<br><br>"
-            f"{dutch_message}<br><br>"
-            "<strong>--- English ---</strong><br><br>"
-            f"Dear {name},<br><br>"
-            f"{english_message}<br><br>"
-            "Met vriendelijke groet,<br>Team Nova Asia"
-        )
-
-        msg = MIMEText(html_body, "html", "utf-8")
-        msg["Subject"] = Header(subject, "utf-8")
-        msg["From"] = formataddr(("NovaAsia", FROM_EMAIL))
-        msg["To"] = email
-
-        try:
-            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
-                server.starttls()
-                server.login(SMTP_USERNAME, SMTP_PASSWORD)
-                server.sendmail(FROM_EMAIL, [email], msg.as_string())
-            print("✅ Cancellation email sent successfully!")
-        except Exception as e:
-            print(f"❌ Error sending cancellation email: {e}")
-
-    return jsonify({"status": "ok"})
 
 
 
