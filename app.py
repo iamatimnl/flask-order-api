@@ -130,16 +130,21 @@ def build_google_maps_link(data):
 def build_socket_order(data, created_date="", created_time="", maps_link=None,
                        discount_code=None, discount_amount=None):
     """Return order data formatted for POS socket events."""
+
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
+    tijdslot = str(tijdslot).strip()
 
-    if tijdslot:
-        if not delivery_time and not pickup_time:
-            if data.get("orderType") == "bezorgen":
-                delivery_time = tijdslot
-            else:
-                pickup_time = tijdslot
+    # ✅ 修复 ZSM 问题：强制识别为 ZSM 并清空其他时间字段
+    if tijdslot.lower() in ["zsm", "asap"]:
+        tijdslot = "ZSM"
+        tijdslot_display = "ZSM"
+        delivery_time = "" if data.get("orderType") == "bezorgen" else delivery_time
+        pickup_time = "" if data.get("orderType") != "bezorgen" else pickup_time
+    else:
+        tijdslot_display = tijdslot
+
 
     order = {
         "message": data.get("message", ""),
@@ -166,6 +171,7 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "delivery_time": delivery_time,
         "pickup_time": pickup_time,
         "tijdslot": tijdslot,
+        "tijdslot_display": tijdslot_display,
         "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
         "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
         "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
