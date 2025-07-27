@@ -379,49 +379,6 @@ def send_telegram_to_customer(phone, text):
     except Exception as e:
         print(f"❌ Telegram-klantfout: {e}")
         return False
-def fetch_order_details(order_number):
-    # 从 App A 请求订单详情（示例）
-    response = requests.get(f"{POS_API_URL}/{order_number}")
-    if response.ok:
-        return response.json()
-    return {}
-
-def send_telegram_to_delivery(
-    chat_id,
-    delivery_person,
-    customer_name,
-    order_number,
-    totaal="",
-    payment_method="",
-    tijdslot="",
-    street="",
-    house_number="",
-    postcode="",
-    city=""
-):
-    # 🔗 构建完整地址和 Google Maps URL
-    full_address = f"{street} {house_number}, {postcode} {city}".strip()
-    google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
-
-    message = (
-        f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
-        f"👤 Klant: {customer_name}\n"
-        f"🧾 Ordernummer: #{order_number}\n"
-        f"🕐 Tijdslot: {tijdslot or 'ZSM'}\n"
-        f"💶 Bedrag: {totaal}\n"
-        f"💳 Betaalmethode: {payment_method}\n"
-        f"📍 Adres: {full_address}\n"
-        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n\n"
-        f"✅ Bevestig bezorging in POS zodra klaar."
-    )
-
-    requests.post(TELEGRAM_API_URL, json={
-
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "Markdown"
-    })
-
 
 
 
@@ -830,6 +787,53 @@ def order_time_changed():
 
     send_simple_email(subject, body, email)
     return jsonify({"status": "ok"})
+
+
+
+def fetch_order_details(order_number):
+    # 从 App A 请求订单详情（示例）
+    response = requests.get(f"{POS_API_URL}/{order_number}")
+    if response.ok:
+        return response.json()
+    return {}
+
+def send_telegram_to_delivery(
+    chat_id,
+    delivery_person,
+    customer_name,
+    order_number,
+    totaal="",
+    payment_method="",
+    tijdslot="",
+    street="",
+    house_number="",
+    postcode="",
+    city=""
+):
+    # 🔗 构建完整地址和 Google Maps URL
+    full_address = f"{street} {house_number}, {postcode} {city}".strip()
+    google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
+
+    message = (
+        f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
+        f"👤 Klant: {customer_name}\n"
+        f"🧾 Ordernummer: #{order_number}\n"
+        f"🕐 Tijdslot: {tijdslot or 'ZSM'}\n"
+        f"💶 Bedrag: {totaal}\n"
+        f"💳 Betaalmethode: {payment_method}\n"
+        f"📍 Adres: {full_address}\n"
+        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n\n"
+       
+    )
+
+    requests.post(TELEGRAM_API_URL, json={
+
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "Markdown"
+    })
+
+
 
 @app.route('/api/order_complete', methods=['POST'])
 def order_complete():
