@@ -59,6 +59,7 @@ load_settings()
 # === Telegram 配置 ===
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
 CHAT_ID = '8047420957'
+TELEGRAM_API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 # === Email SMTP config ===
 SMTP_SERVER = "smtp-relay.brevo.com"
