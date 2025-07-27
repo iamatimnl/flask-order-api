@@ -378,6 +378,37 @@ def send_telegram_to_customer(phone, text):
     except Exception as e:
         print(f"❌ Telegram-klantfout: {e}")
         return False
+def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_number):
+    """Send Telegram message to selected delivery person with order info."""
+    if not chat_id or not order_number:
+        print("⚠️ Ontbrekend chat_id of ordernummer")
+        return False
+
+    message = (
+        f"📦 Nieuwe bezorging toegewezen!\n"
+        f"🧾 Ordernummer: #{order_number}\n"
+        f"👤 Klant: {customer_name or 'Onbekend'}\n"
+        f"🚴 Bezorger: {delivery_person}\n"
+        f"📞 Contact: 0622599566"
+    )
+
+    try:
+        response = requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json={
+                "chat_id": str(chat_id),
+                "text": message
+            }
+        )
+        if response.ok:
+            print(f"✅ Telegram naar bezorger {delivery_person} verzonden.")
+            return True
+        else:
+            print(f"❌ Telegram fout: {response.text}")
+            return False
+    except Exception as e:
+        print(f"❌ Telegram exception: {e}")
+        return False
 
 
 def send_pos_order(order_data):
@@ -793,6 +824,7 @@ def order_complete():
     order_number = data.get("order_number", "")
     name = data.get("name", "")
     email = data.get("email", "")
+    phone = data.get("phone", "")
     order_type = data.get("order_type", "afhaal").lower()
 
     delivery_person = data.get("delivery_person", "")
@@ -804,6 +836,16 @@ def order_complete():
     shop_address = "Sjoukje Dijkstralaan 83, 2134CN Hoofddorp"
     contact_number = "0622599566"
 
+    # ✅ 外送订单：推送 Telegram 给配送员
+    if order_type in ["bezorg", "bezorging", "delivery"] and delivery_chat_id:
+        send_telegram_to_delivery(
+            chat_id=delivery_chat_id,
+            delivery_person=delivery_person,
+            customer_name=name,
+            order_number=order_number
+        )
+
+    # ✅ 邮件通知客户
     if order_type in ["afhaal", "afhalen", "pickup"]:
         subject = f"Nova Asia - Uw bestelling #{order_number} is klaar | Order ready"
         dutch_message = (
@@ -839,28 +881,7 @@ def order_complete():
             f"We hope you enjoy your meal and sincerely thank you for ordering at Nova Asia!"
         )
 
-        # ✅ 新增 Telegram 推送给配送员
-        if delivery_chat_id:
-            telegram_message = (
-                f"📦 Nieuwe bezorging toegewezen!\n"
-                f"👤 Klant: {name or 'Onbekend'}\n"
-                f"🧾 Ordernummer: #{order_number}\n"
-                f"🚴 Bezorger: {delivery_person}\n"
-                f"📞 Contact: {contact_number}"
-            )
-            try:
-                tg_response = requests.post(TELEGRAM_API_URL, json={
-                    "chat_id": delivery_chat_id,
-                    "text": telegram_message
-                })
-                if tg_response.ok:
-                    print("✅ Telegram bericht naar bezorger verzonden.")
-                else:
-                    print("❌ Telegram fout:", tg_response.text)
-            except Exception as e:
-                print("❌ Telegram exception:", e)
-
-    # ✅ 发邮件部分（保持不变）
+    # ✅ 邮件发送（如有）
     if email:
         html_body = (
             "<strong>Nederlands bovenaan |  English version below</strong><br><br>"
