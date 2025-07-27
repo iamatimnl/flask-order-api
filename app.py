@@ -840,6 +840,7 @@ def order_time_changed():
 def order_complete():
     """Handle order completion notifications from the POS system."""
     data = request.get_json() or {}
+
     order_number = data.get("order_number", "")
     name = data.get("name", "")
     email = data.get("email", "")
@@ -848,6 +849,14 @@ def order_complete():
 
     delivery_person = data.get("delivery_person", "")
     delivery_chat_id = data.get("delivery_chat_id", "")
+
+    # ✅ 新增字段（用于配送信息）
+    street = data.get("street", "")
+    house_number = data.get("house_number", "")
+    postcode = data.get("postcode", "")
+    city = data.get("city", "")
+    tijdslot = data.get("tijdslot", "")
+    opmerking = data.get("opmerking", "")
 
     if not order_number:
         return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
@@ -861,10 +870,17 @@ def order_complete():
             chat_id=delivery_chat_id,
             delivery_person=delivery_person,
             customer_name=name,
-            order_number=order_number
+            order_number=order_number,
+            street=street,
+            house_number=house_number,
+            postcode=postcode,
+            city=city,
+            tijdslot=tijdslot,
+            phone=phone,
+            opmerking=opmerking
         )
 
-    # ✅ 邮件通知客户
+    # ✅ 邮件通知客户（保持原样）
     if order_type in ["afhaal", "afhalen", "pickup"]:
         subject = f"Nova Asia - Uw bestelling #{order_number} is klaar | Order ready"
         dutch_message = (
