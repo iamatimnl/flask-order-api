@@ -791,61 +791,11 @@ def order_time_changed():
 
 
 def fetch_order_details(order_number):
-    url = f"{POS_API_URL}/{order_number}"
-    try:
-        response = requests.get(url, timeout=5)
-        response.raise_for_status()
-        order = response.json()
+    response = requests.get(f"{POS_API_URL}/{order_number}")
+    if response.ok:
+        return response.json()
+    return {}
 
-        return {
-            "order_number": order.get("order_number", order_number),
-            "customer_name": order.get("customer_name", ""),
-            "phone": order.get("phone", ""),
-            "email": order.get("email", ""),
-            "totaal": order.get("totaal", 0),
-            "payment_method": order.get("payment_method", ""),
-            "order_type": order.get("order_type", ""),
-            "pickup_time": order.get("pickup_time", ""),
-            "tijdslot_display": order.get("tijdslot_display", ""),
-            "street": order.get("street", ""),
-            "house_number": order.get("house_number", ""),
-            "postcode": order.get("postcode", ""),
-            "city": order.get("city", ""),
-            "opmerking": order.get("opmerking", ""),
-            "created_at": order.get("created_at", ""),
-            "fooi": order.get("fooi", 0),
-            "discount_code": order.get("discount_code", ""),
-            "discount_amount": order.get("discount_amount", 0),
-            "items": order.get("items", {}),
-            "is_completed": order.get("is_completed", False),
-            "is_cancelled": order.get("is_cancelled", False)
-        }
-
-    except requests.RequestException as e:
-        logging.error(f"❌ Fout bij ophalen van order {order_number}: {e}")
-        return {
-            "order_number": order_number,
-            "customer_name": "",
-            "phone": "",
-            "email": "",
-            "totaal": 0,
-            "payment_method": "",
-            "order_type": "",
-            "pickup_time": "",
-            "tijdslot_display": "",
-            "street": "",
-            "house_number": "",
-            "postcode": "",
-            "city": "",
-            "opmerking": "",
-            "created_at": "",
-            "fooi": 0,
-            "discount_code": "",
-            "discount_amount": 0,
-            "items": {},
-            "is_completed": False,
-            "is_cancelled": False
-        }
 
 
 def send_telegram_to_delivery(chat_id, delivery_person, order_number):
