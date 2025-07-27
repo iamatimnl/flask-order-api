@@ -927,13 +927,21 @@ def order_complete():
 
         if delivery_chat_id:
             send_telegram_to_delivery(
-                delivery_chat_id,
-                delivery_person,
-                klant_naam,
-                order_number,
-                totaal,
-                payment_method,
-                tijdslot
+                chat_id=delivery_chat_id,
+                delivery_person=delivery_person,
+                customer_name=klant_naam,
+                order_number=order_number,
+                phone=data.get("phone", ""),
+                opmerking=data.get("opmerking", ""),
+                totaal=totaal,
+                payment_method=payment_method,
+                tijdslot=tijdslot,
+                street=data.get("street", ""),
+                house_number=data.get("house_number", ""),
+                postcode=data.get("postcode", ""),
+                city=data.get("city", "")
+             
+
             )
 
     # 📧 邮件通知客户
