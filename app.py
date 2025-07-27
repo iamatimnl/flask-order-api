@@ -378,22 +378,28 @@ def send_telegram_to_customer(phone, text):
     except Exception as e:
         print(f"❌ Telegram-klantfout: {e}")
         return False
-def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_number,
-                              address, tijdslot, phone, opmerking=""):
-    """Send Telegram message to selected delivery person with complete order info."""
+def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_number, address=None, tijdslot=None, phone=None, opmerking=None):
+    """Stuur een Telegram-bericht naar de gekozen bezorger met alle ordergegevens."""
     if not chat_id or not order_number:
         print("⚠️ Ontbrekend chat_id of ordernummer")
         return False
 
+    maps_link = ""
+    if address:
+        link = f"https://www.google.com/maps/search/?api=1&query={address.replace(' ', '+')}"
+        maps_link = f"[{address}]({link})"
+    else:
+        maps_link = "Onbekend adres"
+
     message = (
-        f"📦 Nieuwe bezorging toegewezen!\n"
-        f"🧾 Ordernummer: #{order_number}\n"
-        f"👤 Klant: {customer_name or 'Onbekend'}\n"
-        f"📍 Adres: {address}\n"
-        f"🕒 Tijdslot: {tijdslot or 'Onbekend'}\n"
-        f"📞 Telefoon: {phone or 'Geen nummer'}\n"
-        f"📝 Opmerking: {opmerking or 'Geen'}\n"
-        f"🚴 Bezorger: {delivery_person}"
+        f"📦 *Nieuwe bezorging toegewezen!*\n"
+        f"🧾 *Ordernummer:* #{order_number}\n"
+        f"👤 *Klant:* {customer_name or 'Onbekend'}\n"
+        f"📍 *Adres:* {maps_link}\n"
+        f"🕒 *Tijdslot:* {tijdslot or 'Onbekend'}\n"
+        f"📞 *Telefoon:* {phone or 'Geen nummer'}\n"
+        f"📝 *Opmerking:* {opmerking or 'Geen'}\n"
+        f"🚴 *Bezorger:* {delivery_person}"
     )
 
     try:
@@ -401,7 +407,8 @@ def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_num
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
             json={
                 "chat_id": str(chat_id),
-                "text": message
+                "text": message,
+                "parse_mode": "Markdown"
             }
         )
         if response.ok:
@@ -413,6 +420,7 @@ def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_num
     except Exception as e:
         print(f"❌ Telegram exception: {e}")
         return False
+
 
 
 def send_pos_order(order_data):
