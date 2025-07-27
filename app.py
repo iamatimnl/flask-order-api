@@ -802,101 +802,85 @@ def send_telegram_to_delivery(
     delivery_person,
     customer_name,
     order_number,
+    phone="",
+    opmerking="",
     totaal="",
     payment_method="",
     tijdslot="",
     street="",
     house_number="",
     postcode="",
-    city="",
-    phone="",
-    opmerking=""
+    city=""
 ):
+
     # 🔗 构建完整地址和 Google Maps URL
     full_address = f"{street} {house_number}, {postcode} {city}".strip()
-    full_address = full_address.strip(", ")
-
-    google_maps_url = ""
-    if full_address:
-        google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
-
+    google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
+    # 💶 金额格式化
+    bedrag = ""
+    if totaal:
+        try:
+            amount = float(str(totaal).replace(",", "."))
+            bedrag = f"€{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        except ValueError:
+            bedrag = f"€{totaal}"
     message = (
         f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
         f"👤 Klant: {customer_name}\n"
-        f"📞 Telefoon: {phone or 'Niet opgegeven'}\n"
         f"🧾 Ordernummer: #{order_number}\n"
+        f"📞 Telefoon: {phone or 'Niet opgegeven'}\n"       # ✅ 添加电话号码
+        f"💬 Opmerking: {opmerking or 'Geen'}\n\n"         # 
         f"🕐 Tijdslot: {tijdslot or 'ZSM'}\n"
-        f"💶 Bedrag: €{totaal}\n"
+        f"💶 Bedrag: {bedrag}\n"
         f"💳 Betaalmethode: {payment_method}\n"
-        f"📍 Adres: {full_address or 'Niet opgegeven'}\n"
-        f"📝 Opmerking: {opmerking or 'Geen'}\n"
+        f"📍 Adres: {full_address}\n"
+        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n\n"
+       
     )
 
-    if google_maps_url:
-        message += f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n"
-
-    message += "\n✅ Bevestig bezorging in POS zodra klaar."
-
-    # ✅ 发送 Telegram 消息
     requests.post(TELEGRAM_API_URL, json={
+
         "chat_id": chat_id,
         "text": message,
         "parse_mode": "Markdown"
     })
 
 
+
 @app.route('/api/order_complete', methods=['POST'])
 def order_complete():
+    """Handle order completion notifications from the POS system."""
     data = request.get_json() or {}
     order_number = data.get("order_number", "")
-    delivery_person = data.get("delivery_person", "")
-    delivery_chat_id = data.get("delivery_chat_id") or data.get("chat_id", "")
 
     if not order_number:
         return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
 
-    # 🔍 拉取数据库中的完整订单详情（App A）
+    # 🔍 拉取完整订单详情（从 App A）
     full_order = fetch_order_details(order_number)
-    if not full_order:
-        return jsonify({"status": "fail", "error": "Order niet gevonden"}), 404
 
-    # ✅ 提取字段（全部以数据库为准）
-    tijdslot = full_order.get("tijdslot_display") or full_order.get("pickup_time") or ""
-    street = full_order.get("street", "")
-    house_number = full_order.get("house_number", "")
-    postcode = full_order.get("postcode", "")
-    city = full_order.get("city", "")
-    totaal = full_order.get("totaal", "")
-    payment_method = full_order.get("payment_method", "")
-    created_at = full_order.get("created_at", "")
-    opmerking = full_order.get("opmerking", "")
-    name = full_order.get("customer_name", "")  # ✅ 修复字段名
-    email = full_order.get("email", "")
-    phone = full_order.get("phone", "")
-    order_type = full_order.get("order_type", "afhaal").lower()
+    # ✅ 优先用现有 data，补充缺失字段
+    data.setdefault("tijdslot", full_order.get("tijdslot_display") or full_order.get("pickup_time") or "")
+    data.setdefault("street", full_order.get("street", ""))
+    data.setdefault("house_number", full_order.get("house_number", ""))
+    data.setdefault("postcode", full_order.get("postcode", ""))
+    data.setdefault("city", full_order.get("city", ""))
+    data.setdefault("totaal", full_order.get("totaal", ""))
+    data.setdefault("payment_method", full_order.get("payment_method", ""))
+    data.setdefault("created_at", full_order.get("created_at", ""))
+    data.setdefault("opmerking", full_order.get("opmerking", ""))
+    data.setdefault("name", full_order.get("name", data.get("name", "")))
+    data.setdefault("email", full_order.get("email", data.get("email", "")))
+    data.setdefault("order_type", full_order.get("order_type", data.get("order_type", "afhaal")))
 
-    # 📦 Telegram 通知（仅 bezorg）
-    if order_type in ["bezorg", "delivery"] and delivery_chat_id:
-        send_telegram_to_delivery(
-            chat_id=delivery_chat_id,
-            delivery_person=delivery_person,
-            customer_name=name,
-            order_number=order_number,
-            totaal=totaal,
-            payment_method=payment_method,
-            tijdslot=tijdslot,
-            street=street,
-            house_number=house_number,
-            postcode=postcode,
-            city=city,
-            phone=phone,
-            opmerking=opmerking
-        )
-
-    # 📧 邮件通知客户（所有订单类型）
+    # 🎯 公共变量
+    name = data.get("name", "")
+    email = data.get("email", "")
+    order_type = data.get("order_type", "afhaal").lower()
     shop_address = "Sjoukje Dijkstralaan 83, 2134CN Hoofddorp"
     contact_number = "0622599566"
 
+    # 📨 邮件通知内容
     if order_type in ["afhaal", "afhalen", "pickup"]:
         subject = f"Nova Asia - Uw bestelling #{order_number} is klaar | Order ready"
         dutch_message = (
@@ -932,13 +916,44 @@ def order_complete():
             f"We hope you enjoy your meal and sincerely thank you for ordering at Nova Asia!"
         )
 
+        # 📦 Telegram 配送通知
+        delivery_person = data.get("delivery_person", "")
+        delivery_chat_id = data.get("delivery_chat_id") or data.get("chat_id", "")
+
+        klant_naam = name
+        totaal = data.get("totaal", "")
+        payment_method = data.get("payment_method", "")
+        tijdslot = data.get("tijdslot", "")
+
+        if delivery_chat_id:
+            send_telegram_to_delivery(
+                chat_id=delivery_chat_id,
+                delivery_person=delivery_person,
+                customer_name=klant_naam,
+                order_number=order_number,
+                phone=data.get("phone", ""),
+                opmerking=data.get("opmerking", ""),
+                totaal=totaal,
+                payment_method=payment_method,
+                tijdslot=tijdslot,
+                street=data.get("street", ""),
+                house_number=data.get("house_number", ""),
+                postcode=data.get("postcode", ""),
+                city=data.get("city", "")
+             
+
+            )
+
+    # 📧 邮件通知客户
     if email:
         html_body = (
-            "<strong>Nederlands bovenaan | English version below</strong><br><br>"
+            "<strong>Nederlands bovenaan |  English version below</strong><br><br>"
             "<strong>--- Nederlands ---</strong><br><br>"
-            f"Beste {name},<br><br>{dutch_message}<br><br>"
+            f"Beste {name},<br><br>"
+            f"{dutch_message}<br><br>"
             "<strong>--- English ---</strong><br><br>"
-            f"Dear {name},<br><br>{english_message}<br><br>"
+            f"Dear {name},<br><br>"
+            f"{english_message}<br><br>"
             "Kind regards,<br>Team Nova Asia"
         )
 
@@ -955,6 +970,66 @@ def order_complete():
             print("✅ Order complete confirmation sent!")
         except Exception as e:
             print(f"❌ Error sending email: {e}")
+
+    return jsonify({"status": "ok"})
+
+
+@app.route('/api/order_cancelled', methods=['POST'])
+def order_cancelled():
+    """Handle order cancellation notifications from the POS system."""
+    data = request.get_json() or {}
+    order_number = data.get("order_number", "")
+    name = data.get("name", "")
+    email = data.get("email", "")
+    order_type = data.get("order_type", "afhaal").lower()
+
+    if not order_number:
+        return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
+
+    shop_address = "Sjoukje Dijkstralaan 83, 2134CN Hoofddorp"
+    contact_number = "0622599566"
+
+    subject = f"Nova Asia - Uw bestelling #{order_number} is geannuleerd | Order Cancelled"
+
+    dutch_message = (
+        f"Helaas moeten wij u informeren dat uw bestelling #{order_number} is geannuleerd.<br><br>"
+        f"Mocht dit een vergissing zijn of heeft u vragen, neem dan gerust contact met ons op via:<br>"
+        f"{contact_number} of kom langs bij:<br>{shop_address}<br><br>"
+        f"Onze excuses voor het ongemak en hopelijk tot snel bij Nova Asia."
+    )
+
+    english_message = (
+        f"We regret to inform you that your order #{order_number} has been cancelled.<br><br>"
+        f"If this was a mistake or you have any questions, feel free to contact us at:<br>"
+        f"{contact_number} or visit us at:<br>{shop_address}<br><br>"
+        f"We apologize for the inconvenience and hope to serve you again soon at Nova Asia."
+    )
+
+    if email:
+        html_body = (
+            "<strong>Nederlands bovenaan | English version below</strong><br><br>"
+            "<strong>--- Nederlands ---</strong><br><br>"
+            f"Beste {name},<br><br>"
+            f"{dutch_message}<br><br>"
+            "<strong>--- English ---</strong><br><br>"
+            f"Dear {name},<br><br>"
+            f"{english_message}<br><br>"
+            "Met vriendelijke groet,<br>Team Nova Asia"
+        )
+
+        msg = MIMEText(html_body, "html", "utf-8")
+        msg["Subject"] = Header(subject, "utf-8")
+        msg["From"] = formataddr(("NovaAsia", FROM_EMAIL))
+        msg["To"] = email
+
+        try:
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.starttls()
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.sendmail(FROM_EMAIL, [email], msg.as_string())
+            print("✅ Cancellation email sent successfully!")
+        except Exception as e:
+            print(f"❌ Error sending cancellation email: {e}")
 
     return jsonify({"status": "ok"})
 
