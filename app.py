@@ -380,7 +380,8 @@ def send_telegram_to_customer(phone, text):
         return False
 def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_number,
                                street=None, house_number=None, postcode=None, city=None,
-                               tijdslot=None, phone=None, opmerking=None):
+                               tijdslot=None, phone=None, opmerking=None,
+                               totaal=None, payment_method=None, created_at=None):
     """Send Telegram message to selected delivery person with order info."""
     if not chat_id or not order_number:
         print("⚠️ Ontbrekend chat_id of ordernummer")
@@ -396,12 +397,18 @@ def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_num
     phone = phone or "Geen nummer"
     tijdslot = tijdslot or "ZSM"
     opmerking = opmerking or "Geen"
+    totaal_display = f"€{float(totaal):.2f}" if totaal is not None else "Onbekend"
+    payment_method = payment_method or "Onbekend"
+    created_at = created_at or "-"
 
     message = (
         f"📦 *Nieuwe bezorging toegewezen!*\n"
         f"🧾 *Ordernummer:* #{order_number}\n"
         f"👤 *Klant:* {customer_name}\n"
+        f"💶 *Totaal:* {totaal_display}\n"
+        f"💳 *Betaling:* {payment_method}\n"
         f"⏰ *Tijdslot:* {tijdslot}\n"
+        f"🕒 *Besteld om:* {created_at}\n"
         f"📞 *Telefoon:* {phone}\n"
         f"📍 *Adres:* {full_address}\n"
         f"🌐 [Bekijk op Google Maps]({maps_link})\n"
@@ -857,6 +864,9 @@ def order_complete():
     city = data.get("city", "")
     tijdslot = data.get("tijdslot", "")
     opmerking = data.get("opmerking", "")
+    totaal = data.get("totaal") or data.get("total")
+    payment_method = data.get("payment_method")
+    created_at = data.get("created_at")
 
     if not order_number:
         return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
@@ -877,7 +887,10 @@ def order_complete():
             city=city,
             tijdslot=tijdslot,
             phone=phone,
-            opmerking=opmerking
+            opmerking=opmerking,
+            totaal=totaal,
+            payment_method=payment_method,
+            created_at=created_at
         )
 
     # ✅ 邮件通知客户（保持原样）
