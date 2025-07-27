@@ -791,60 +791,99 @@ def order_time_changed():
 
 
 def fetch_order_details(order_number):
-    # 从 App A 请求订单详情（示例）
-    response = requests.get(f"{POS_API_URL}/{order_number}")
-    if response.ok:
-        return response.json()
-    return {}
+    url = f"{POS_API_URL}/{order_number}"
+    try:
+        response = requests.get(url, timeout=5)
+        response.raise_for_status()
+        order = response.json()
 
-def send_telegram_to_delivery(
-    chat_id,
-    delivery_person,
-    customer_name,
-    order_number,
-    phone="",
-    opmerking="",
-    totaal="",
-    payment_method="",
-    tijdslot="",
-    street="",
-    house_number="",
-    postcode="",
-    city=""
-):
+        return {
+            "order_number": order.get("order_number", order_number),
+            "customer_name": order.get("customer_name", ""),
+            "phone": order.get("phone", ""),
+            "email": order.get("email", ""),
+            "totaal": order.get("totaal", 0),
+            "payment_method": order.get("payment_method", ""),
+            "order_type": order.get("order_type", ""),
+            "pickup_time": order.get("pickup_time", ""),
+            "tijdslot_display": order.get("tijdslot_display", ""),
+            "street": order.get("street", ""),
+            "house_number": order.get("house_number", ""),
+            "postcode": order.get("postcode", ""),
+            "city": order.get("city", ""),
+            "opmerking": order.get("opmerking", ""),
+            "created_at": order.get("created_at", ""),
+            "fooi": order.get("fooi", 0),
+            "discount_code": order.get("discount_code", ""),
+            "discount_amount": order.get("discount_amount", 0),
+            "items": order.get("items", {}),
+            "is_completed": order.get("is_completed", False),
+            "is_cancelled": order.get("is_cancelled", False)
+        }
 
-    # 🔗 构建完整地址和 Google Maps URL
-    full_address = f"{street} {house_number}, {postcode} {city}".strip()
+    except requests.RequestException as e:
+        logging.error(f"❌ Fout bij ophalen van order {order_number}: {e}")
+        return {
+            "order_number": order_number,
+            "customer_name": "",
+            "phone": "",
+            "email": "",
+            "totaal": 0,
+            "payment_method": "",
+            "order_type": "",
+            "pickup_time": "",
+            "tijdslot_display": "",
+            "street": "",
+            "house_number": "",
+            "postcode": "",
+            "city": "",
+            "opmerking": "",
+            "created_at": "",
+            "fooi": 0,
+            "discount_code": "",
+            "discount_amount": 0,
+            "items": {},
+            "is_completed": False,
+            "is_cancelled": False
+        }
+
+
+def send_telegram_to_delivery(chat_id, delivery_person, order_number):
+    # 获取订单详情
+    order = fetch_order_details(order_number)
+
+    # 构建地址和 Google Maps URL
+    full_address = f"{order.get('street', '')} {order.get('house_number', '')}, {order.get('postcode', '')} {order.get('city', '')}".strip()
     google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
-    # 💶 金额格式化
+
+    # 金额格式化
     bedrag = ""
-    if totaal:
-        try:
-            amount = float(str(totaal).replace(",", "."))
-            bedrag = f"€{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        except ValueError:
-            bedrag = f"€{totaal}"
+    try:
+        amount = float(order.get("totaal", 0))
+        bedrag = f"€{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except Exception:
+        bedrag = f"€{order.get('totaal', 0)}"
+
+    # 构建 Telegram 消息
     message = (
         f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
-        f"👤 Klant: {customer_name}\n"
+        f"👤 Klant: {order.get('customer_name', '')}\n"
         f"🧾 Ordernummer: #{order_number}\n"
-        f"📞 Telefoon: {phone or 'Niet opgegeven'}\n"       # ✅ 添加电话号码
-        f"💬 Opmerking: {opmerking or 'Geen'}\n\n"         # 
-        f"🕐 Tijdslot: {tijdslot or 'ZSM'}\n"
+        f"📞 Telefoon: {order.get('phone') or 'Niet opgegeven'}\n"
+        f"💬 Opmerking: {order.get('opmerking') or 'Geen'}\n\n"
+        f"🕐 Tijdslot: {order.get('tijdslot_display') or order.get('pickup_time') or 'ZSM'}\n"
         f"💶 Bedrag: {bedrag}\n"
-        f"💳 Betaalmethode: {payment_method}\n"
+        f"💳 Betaalmethode: {order.get('payment_method', '')}\n"
         f"📍 Adres: {full_address}\n"
-        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n\n"
-       
+        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n"
     )
 
+    # 发送通知
     requests.post(TELEGRAM_API_URL, json={
-
         "chat_id": chat_id,
         "text": message,
         "parse_mode": "Markdown"
     })
-
 
 
 @app.route('/api/order_complete', methods=['POST'])
