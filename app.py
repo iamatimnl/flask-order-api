@@ -808,23 +808,46 @@ def send_telegram_to_delivery(
     street="",
     house_number="",
     postcode="",
-    city=""
+    city="",
+    first_name=None,
+    last_name=None
 ):
-    # 🔗 构建完整地址和 Google Maps URL
-    full_address = f"{street} {house_number}, {postcode} {city}".strip()
-    google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
+    # 🔗 构建完整地址
+    first_part = f"{street} {house_number}".strip()
+    second_part = " ".join(part for part in [postcode, city] if part).strip()
+    address_parts = [part for part in [first_part, second_part] if part]
+    full_address = ", ".join(address_parts)
+
+    # 🗺️ Google Maps 链接
+    google_maps_url = ""
+    if full_address:
+        query = quote_plus(full_address)
+        google_maps_url = f"https://www.google.com/maps/search/?api=1&query={query}"
+
+    # 📛 完整客户名
+    full_name_parts = [part for part in [first_name, last_name] if part]
+    full_name = " ".join(full_name_parts).strip() or customer_name
+
+    # 💶 金额格式化
+    bedrag = ""
+    if totaal:
+        try:
+            amount = float(str(totaal).replace(",", "."))
+            bedrag = f"€{amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        except ValueError:
+            bedrag = f"€{totaal}"
 
     message = (
         f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
-        f"👤 Klant: {customer_name}\n"
+        f"👤 Klant: {full_name}\n"
         f"🧾 Ordernummer: #{order_number}\n"
         f"🕐 Tijdslot: {tijdslot or 'ZSM'}\n"
-        f"💶 Bedrag: {totaal}\n"
+        f"💶 Bedrag: {bedrag}\n"
         f"💳 Betaalmethode: {payment_method}\n"
         f"📍 Adres: {full_address}\n"
-        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n\n"
-       
     )
+    if google_maps_url:
+        message += f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n\n"
 
     requests.post(TELEGRAM_API_URL, json={
 
@@ -921,7 +944,13 @@ def order_complete():
                 order_number,
                 totaal,
                 payment_method,
-                tijdslot
+                tijdslot,
+                data.get("street", ""),
+                data.get("house_number", ""),
+                data.get("postcode", ""),
+                data.get("city", ""),
+                data.get("first_name"),
+                data.get("last_name")
             )
 
     # 📧 邮件通知客户
