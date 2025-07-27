@@ -902,7 +902,8 @@ def order_complete():
 
         # 📦 Telegram 配送通知
         delivery_person = data.get("delivery_person", "")
-        delivery_chat_id = data.get("delivery_chat_id", "")
+        delivery_chat_id = data.get("delivery_chat_id") or data.get("chat_id", "")
+
         klant_naam = name
         totaal = data.get("totaal", "")
         payment_method = data.get("payment_method", "")
