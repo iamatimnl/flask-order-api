@@ -378,35 +378,28 @@ def send_telegram_to_customer(phone, text):
     except Exception as e:
         print(f"❌ Telegram-klantfout: {e}")
         return False
-def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_number,
-                               street=None, house_number=None, postcode=None, city=None,
-                               tijdslot=None, phone=None, opmerking=None):
-    """Send Telegram message to selected delivery person with full order info."""
+def send_telegram_to_delivery(chat_id, delivery_person, customer_name, order_number):
+    """Send Telegram message to selected delivery person with order info."""
     if not chat_id or not order_number:
         print("⚠️ Ontbrekend chat_id of ordernummer")
         return False
-
-    # 拼接地址
-    address = f"{street or ''} {house_number or ''}, {postcode or ''} {city or ''}".strip()
-    maps_url = f"https://www.google.com/maps/search/?api=1&query={address.replace(' ', '+')}" if address.strip(", ") else "Geen link"
 
     message = (
         f"📦 Nieuwe bezorging toegewezen!\n"
         f"🧾 Ordernummer: #{order_number}\n"
         f"👤 Klant: {customer_name or 'Onbekend'}\n"
-        f"📍 Adres: {address or 'Onbekend'}\n"
-        f"🗺️ Route: {maps_url}\n"
-        f"🕒 Tijdslot: {tijdslot or 'Onbekend'}\n"
-        f"📞 Telefoon: {phone or 'Geen nummer'}\n"
-        f"📝 Opmerking: {opmerking or 'Geen'}\n"
-        f"🚴 Bezorger: {delivery_person or 'Onbekend'}"
+        f"🚴 Bezorger: {delivery_person}\n"
+        f"📞 Contact: 0622599566"
     )
 
     try:
-        response = requests.post(TELEGRAM_API_URL, json={
-            "chat_id": str(chat_id),
-            "text": message
-        })
+        response = requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json={
+                "chat_id": str(chat_id),
+                "text": message
+            }
+        )
         if response.ok:
             print(f"✅ Telegram naar bezorger {delivery_person} verzonden.")
             return True
