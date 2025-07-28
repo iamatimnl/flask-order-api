@@ -973,6 +973,67 @@ def order_complete():
     return jsonify({"status": "ok"})
 
 
+
+@app.route('/api/order_cancelled', methods=['POST'])
+def order_cancelled():
+    """Handle order cancellation notifications from the POS system."""
+    data = request.get_json() or {}
+    order_number = data.get("order_number", "")
+    name = data.get("name", "")
+    email = data.get("email", "")
+    order_type = data.get("order_type", "afhaal").lower()
+
+    if not order_number:
+        return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
+
+    shop_address = "Sjoukje Dijkstralaan 83, 2134CN Hoofddorp"
+    contact_number = "0622599566"
+
+    subject = f"Nova Asia - Uw bestelling #{order_number} is geannuleerd | Order Cancelled"
+
+    dutch_message = (
+        f"Helaas moeten wij u informeren dat uw bestelling #{order_number} is geannuleerd.<br><br>"
+        f"Mocht dit een vergissing zijn of heeft u vragen, neem dan gerust contact met ons op via:<br>"
+        f"{contact_number} of kom langs bij:<br>{shop_address}<br><br>"
+        f"Onze excuses voor het ongemak en hopelijk tot snel bij Nova Asia."
+    )
+
+    english_message = (
+        f"We regret to inform you that your order #{order_number} has been cancelled.<br><br>"
+        f"If this was a mistake or you have any questions, feel free to contact us at:<br>"
+        f"{contact_number} or visit us at:<br>{shop_address}<br><br>"
+        f"We apologize for the inconvenience and hope to serve you again soon at Nova Asia."
+    )
+
+    if email:
+        html_body = (
+            "<strong>Nederlands bovenaan | English version below</strong><br><br>"
+            "<strong>--- Nederlands ---</strong><br><br>"
+            f"Beste {name},<br><br>"
+            f"{dutch_message}<br><br>"
+            "<strong>--- English ---</strong><br><br>"
+            f"Dear {name},<br><br>"
+            f"{english_message}<br><br>"
+            "Met vriendelijke groet,<br>Team Nova Asia"
+        )
+
+        msg = MIMEText(html_body, "html", "utf-8")
+        msg["Subject"] = Header(subject, "utf-8")
+        msg["From"] = formataddr(("NovaAsia", FROM_EMAIL))
+        msg["To"] = email
+
+        try:
+            with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as server:
+                server.starttls()
+                server.login(SMTP_USERNAME, SMTP_PASSWORD)
+                server.sendmail(FROM_EMAIL, [email], msg.as_string())
+            print("✅ Cancellation email sent successfully!")
+        except Exception as e:
+            print(f"❌ Error sending cancellation email: {e}")
+
+    return jsonify({"status": "ok"})
+
+
 @app.route('/validate_discount', methods=['POST'])
 def validate_discount_route():
     data = request.get_json() or {}
