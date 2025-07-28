@@ -821,17 +821,17 @@ def send_telegram_to_delivery(
 
     # 构建消息内容（Markdown 格式）
     message = (
-        f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
-        f"👤 Klant: {customer_name}\n"
-        f"🧾 Ordernummer: #{order_number}\n"
-        f"📞 Telefoon: {phone or 'Niet opgegeven'}\n"
-        f"💬 Opmerking: {opmerking or 'Geen'}\n\n"
-        f"🕐 Tijdslot: {tijdslot or 'ZSM'}\n"
-        f"💶 Bedrag: {bedrag}\n"
-        f"💳 Betaalmethode: {payment_method}\n"
-        f"📍 Adres: {full_address}\n"
-        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})"
-    )
+    f"✈️ Nieuwe bezorging voor {delivery_person}!\n\n"
+    f"👤 Klant: {customer_name}\n"
+    f"🧾 BN: #{order_number}\n"
+    f"📞 Telefoon: {phone or 'Niet opgegeven'}\n"
+    f"💬 Opmerking: {opmerking or 'Geen'}\n\n"
+    f"🕐 Bezorgen: {tijdslot or 'ZSM'}\n"
+    f"💶 Bedrag: {bedrag}\n"
+    f"💳 Betaalmethode: {payment_method}\n"
+    f"📍 [Adres: {full_address}]({google_maps_url})"
+)
+
 
     # 发送 Telegram 消息
     requests.post(TELEGRAM_API_URL, json={
