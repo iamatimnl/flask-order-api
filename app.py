@@ -804,9 +804,14 @@ def send_telegram_to_delivery(
 ):
     import requests
 
-    # 构建完整地址和 Google Maps URL
+    # 构建完整地址
     full_address = f"{street} {house_number}, {postcode} {city}".strip()
-    google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
+    google_maps_url = build_google_maps_link({
+        "street": street,
+        "house_number": house_number,
+        "postcode": postcode,
+        "city": city,
+    }) or ""
 
     # 格式化金额
     try:
@@ -844,21 +849,28 @@ def order_complete():
         return jsonify({"status": "fail", "error": "Ontbrekend ordernummer"}), 400
 
     # 🔍 拉取完整订单详情（从 App A）
-    full_order = fetch_order_details(order_number)
+    full_order = fetch_order_details(order_number) or {}
 
-    # ✅ 优先用现有 data，补充缺失字段
-    data.setdefault("tijdslot", full_order.get("tijdslot_display") or full_order.get("pickup_time") or "")
-    data.setdefault("street", full_order.get("street", ""))
-    data.setdefault("house_number", full_order.get("house_number", ""))
-    data.setdefault("postcode", full_order.get("postcode", ""))
-    data.setdefault("city", full_order.get("city", ""))
-    data.setdefault("totaal", full_order.get("totaal", ""))
-    data.setdefault("payment_method", full_order.get("payment_method", ""))
-    data.setdefault("created_at", full_order.get("created_at", ""))
-    data.setdefault("opmerking", full_order.get("opmerking", ""))
-    data.setdefault("name", full_order.get("name", data.get("name", "")))
-    data.setdefault("email", full_order.get("email", data.get("email", "")))
-    data.setdefault("order_type", full_order.get("order_type", data.get("order_type", "afhaal")))
+    # 以后端数据为基础，只保留前端提供的送货信息
+    delivery_person = data.get("delivery_person")
+    delivery_chat_id = data.get("delivery_chat_id") or data.get("chat_id")
+
+    merged = full_order.copy()
+    # Fallback to frontend values only if后端没有提供
+    for key, val in data.items():
+        if key in ["order_number", "delivery_person", "delivery_chat_id", "chat_id"]:
+            continue
+        if not merged.get(key):
+            merged[key] = val
+
+    merged["order_number"] = order_number
+    if delivery_person:
+        merged["delivery_person"] = delivery_person
+    if delivery_chat_id:
+        merged["delivery_chat_id"] = delivery_chat_id
+        merged["chat_id"] = delivery_chat_id
+
+    data = merged
 
     # 🎯 公共变量
     name = data.get("name", "")
