@@ -792,22 +792,23 @@ def order_time_changed():
 
 
 
-
 def send_telegram_to_delivery(
     chat_id, delivery_person, order_number, customer_name, phone, opmerking,
     totaal, payment_method, tijdslot, street, house_number, postcode, city
 ):
-    # 构建地址和 Google Maps URL
+    import requests
+
+    # 构建完整地址和 Google Maps URL
     full_address = f"{street} {house_number}, {postcode} {city}".strip()
     google_maps_url = f"https://www.google.com/maps/search/?api=1&query={requests.utils.quote(full_address)}"
 
-    # 金额格式化
+    # 格式化金额
     try:
         bedrag = f"€{float(totaal):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     except:
         bedrag = f"€{totaal}"
 
-    # 构建 Telegram 消息
+    # 构建消息内容（Markdown 格式）
     message = (
         f"🚗 Nieuwe bezorging voor {delivery_person}!\n\n"
         f"👤 Klant: {customer_name}\n"
@@ -818,18 +819,25 @@ def send_telegram_to_delivery(
         f"💶 Bedrag: {bedrag}\n"
         f"💳 Betaalmethode: {payment_method}\n"
         f"📍 Adres: {full_address}\n"
-        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})\n"
+        f"🗺️ Navigatie: [Open in Google Maps]({google_maps_url})"
     )
 
+    # 发送 Telegram 消息
     requests.post(TELEGRAM_API_URL, json={
         "chat_id": chat_id,
         "text": message,
         "parse_mode": "Markdown"
     })
-
-
 @app.route('/api/order_complete', methods=['POST'])
 def order_complete():
+    import requests
+    from flask import request, jsonify
+    from email.mime.text import MIMEText
+    from email.header import Header
+    from email.utils import formataddr
+    import smtplib
+    import os
+
     data = request.get_json() or {}
     order_number = data.get("order_number", "")
 
@@ -839,46 +847,12 @@ def order_complete():
     name = data.get("name", "")
     email = data.get("email", "")
     order_type = data.get("order_type", "afhaal").lower()
+    translated_summary = data.get("translated_summary", "")
     shop_address = "Sjoukje Dijkstralaan 83, 2134CN Hoofddorp"
     contact_number = "0622599566"
 
-    # 📨 邮件通知内容
-    if order_type in ["afhaal", "afhalen", "pickup"]:
-        subject = f"Nova Asia - Uw bestelling #{order_number} is klaar | Order ready"
-        dutch_message = (
-            f"Goed nieuws,<br>"
-            f"Uw bestelling is zojuist vers bereid en staat klaar om opgehaald te worden bij:<br><br>"
-            f"{shop_address}<br><br>"
-            f"Wij hopen dat u volop gaat genieten van uw maaltijd.<br>"
-            f"Mocht u vragen hebben, bel ons gerust: {contact_number}.<br><br>"
-            f"Bedankt dat u voor Nova Asia heeft gekozen!"
-        )
-        english_message = (
-            f"Good news,<br>"
-            f"Your order has just been freshly prepared and is ready for pickup at:<br><br>"
-            f"{shop_address}<br><br>"
-            f"We hope you enjoy your meal!<br>"
-            f"If you have any questions, feel free to call us: {contact_number}.<br><br>"
-            f"Thank you for choosing Nova Asia!"
-        )
-    else:
-        subject = f"Nova Asia - Uw bestelling #{order_number} is onderweg | Order on the way"
-        dutch_message = (
-            f"Goed nieuws,<br>"
-            f"Uw bestelling is onderweg naar het door u opgegeven bezorgadres.<br>"
-            f"Onze bezorger doet zijn best om op tijd bij u te zijn.<br><br>"
-            f"Mocht u vragen hebben, bel ons gerust: {contact_number}.<br><br>"
-            f"Wij wensen u alvast smakelijk eten en bedanken u hartelijk voor uw bestelling bij Nova Asia!"
-        )
-        english_message = (
-            f"Good news,<br>"
-            f"Your order is on its way to the delivery address you provided.<br>"
-            f"Our delivery driver is doing their best to arrive on time.<br><br>"
-            f"If you have any questions, feel free to call us: {contact_number}.<br><br>"
-            f"We hope you enjoy your meal and sincerely thank you for ordering at Nova Asia!"
-        )
-
-        # 📦 Telegram 配送通知
+    # 🛵 配送订单：发 Telegram 给配送员
+    if order_type in ["bezorg", "bezorgen", "delivery"]:
         send_telegram_to_delivery(
             chat_id=data.get("delivery_chat_id", ""),
             delivery_person=data.get("delivery_person", ""),
@@ -895,8 +869,54 @@ def order_complete():
             city=data.get("city", "")
         )
 
+        # ✅ 发送前端生成的翻译通知（格式美观，带 emoji）
+        if translated_summary and data.get("delivery_chat_id"):
+            try:
+                requests.post(TELEGRAM_API_URL, json={
+                    "chat_id": data["delivery_chat_id"],
+                    "text": translated_summary,
+                    "parse_mode": "Markdown"
+                })
+            except Exception as e:
+                print(f"❌ Telegram versturen mislukt: {e}")
+
     # 📧 邮件通知
     if email:
+        if order_type in ["afhaal", "afhalen", "pickup"]:
+            subject = f"Nova Asia - Uw bestelling #{order_number} is klaar | Order ready"
+            dutch_message = (
+                f"Goed nieuws,<br>"
+                f"Uw bestelling is zojuist vers bereid en staat klaar om opgehaald te worden bij:<br><br>"
+                f"{shop_address}<br><br>"
+                f"Wij hopen dat u volop gaat genieten van uw maaltijd.<br>"
+                f"Mocht u vragen hebben, bel ons gerust: {contact_number}.<br><br>"
+                f"Bedankt dat u voor Nova Asia heeft gekozen!"
+            )
+            english_message = (
+                f"Good news,<br>"
+                f"Your order has just been freshly prepared and is ready for pickup at:<br><br>"
+                f"{shop_address}<br><br>"
+                f"We hope you enjoy your meal!<br>"
+                f"If you have any questions, feel free to call us: {contact_number}.<br><br>"
+                f"Thank you for choosing Nova Asia!"
+            )
+        else:
+            subject = f"Nova Asia - Uw bestelling #{order_number} is onderweg | Order on the way"
+            dutch_message = (
+                f"Goed nieuws,<br>"
+                f"Uw bestelling is onderweg naar het door u opgegeven bezorgadres.<br>"
+                f"Onze bezorger doet zijn best om op tijd bij u te zijn.<br><br>"
+                f"Mocht u vragen hebben, bel ons gerust: {contact_number}.<br><br>"
+                f"Wij wensen u alvast smakelijk eten en bedanken u hartelijk voor uw bestelling bij Nova Asia!"
+            )
+            english_message = (
+                f"Good news,<br>"
+                f"Your order is on its way to the delivery address you provided.<br>"
+                f"Our delivery driver is doing their best to arrive on time.<br><br>"
+                f"If you have any questions, feel free to call us: {contact_number}.<br><br>"
+                f"We hope you enjoy your meal and sincerely thank you for ordering at Nova Asia!"
+            )
+
         html_body = (
             "<strong>Nederlands bovenaan |  English version below</strong><br><br>"
             "<strong>--- Nederlands ---</strong><br><br>"
@@ -921,8 +941,6 @@ def order_complete():
             print(f"❌ Error sending email: {e}")
 
     return jsonify({"status": "ok"})
-
-
 
 
 @app.route('/validate_discount', methods=['POST'])
