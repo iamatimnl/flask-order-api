@@ -789,6 +789,12 @@ def order_time_changed():
     return jsonify({"status": "ok"})
 
 
+def fetch_order_details(order_number):
+    # 从 App A 请求订单详情
+    response = requests.get(f"{POS_API_URL}/{order_number}")
+    if response.ok:
+        return response.json()
+    return {}
 
 
 
