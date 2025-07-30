@@ -250,13 +250,19 @@ def kadaster_lookup():
     postcode = request.args.get('postcode')
     number = request.args.get('number')
 
+    if not postcode or not number:
+        return jsonify({'error': 'Postcode en huisnummer zijn verplicht'}), 400
+
     url = f'https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2/adressen?postcode={postcode}&huisnummer={number}'
     headers = {
         'Accept': 'application/hal+json'
     }
 
-    r = requests.get(url, headers=headers)
-    return (r.text, r.status_code, {'Content-Type': 'application/json'})
+    try:
+        response = requests.get(url, headers=headers)
+        return jsonify(response.json()), response.status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 def send_confirmation_email(order_text, customer_email, order_number, discount_code=None, discount_amount=None):
     """Send bilingual order confirmation email to the customer with review link."""
