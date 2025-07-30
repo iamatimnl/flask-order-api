@@ -245,30 +245,18 @@ def translate_order_text_to_english(order_text_nl: str) -> str:
     for nl, en in translations.items():
         translated = translated.replace(nl, en)
     return translated
-@app.route('/api/postcode')
-def fetch_postcode():
+@app.route('/api/kadaster')
+def kadaster_lookup():
     postcode = request.args.get('postcode')
     number = request.args.get('number')
-    if not postcode or not number:
-        return jsonify({'error': 'Missing postcode or number'}), 400
 
-    url = f"https://api.postcodeapi.nu/v3/lookup/{postcode}/{number}"
+    url = f'https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2/adressen?postcode={postcode}&huisnummer={number}'
     headers = {
-        'X-Api-Key': 'juW6MEgEeL2BEM0rInEtB5a15BqXjWwO3YqrdH0z',
-        'Accept': 'application/json'
+        'Accept': 'application/hal+json'
     }
 
-    try:
-        res = requests.get(url, headers=headers, timeout=5)
-        if res.status_code != 200:
-            return jsonify({'error': 'API error'}), res.status_code
-        data = res.json()
-        return jsonify({
-            'street': data.get('street'),
-            'city': data.get('city', {}).get('label', '')
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    r = requests.get(url, headers=headers)
+    return (r.text, r.status_code, {'Content-Type': 'application/json'})
 
 def send_confirmation_email(order_text, customer_email, order_number, discount_code=None, discount_amount=None):
     """Send bilingual order confirmation email to the customer with review link."""
