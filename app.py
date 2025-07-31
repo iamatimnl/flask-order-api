@@ -245,17 +245,20 @@ def translate_order_text_to_english(order_text_nl: str) -> str:
     for nl, en in translations.items():
         translated = translated.replace(nl, en)
     return translated
-@app.route('/api/kadaster')
-def kadaster_lookup():
+SPIKKL_API_KEY = '6c6d45e4c5a088949f1cc6457e99995b'
+
+@app.route('/api/spikkl')
+def spikkl_lookup():
     postcode = request.args.get('postcode')
     number = request.args.get('number')
 
     if not postcode or not number:
         return jsonify({'error': 'Postcode en huisnummer zijn verplicht'}), 400
 
-    url = f'https://api.bag.kadaster.nl/lvbag/individuelebevragingen/v2/adressen?postcode={postcode}&huisnummer={number}'
+    url = f'https://api.spikkl.nl/geo/address?postcode={postcode}&number={number}'
+
     headers = {
-        'Accept': 'application/hal+json'
+        'Authorization': f'Bearer {SPIKKL_API_KEY}'
     }
 
     try:
