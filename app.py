@@ -245,7 +245,7 @@ def translate_order_text_to_english(order_text_nl: str) -> str:
     for nl, en in translations.items():
         translated = translated.replace(nl, en)
     return translated
-SPIKKL_API_KEY = '6c6d45e4c5a088949f1cc6457e99995b'
+SPIKKL_API_KEY = 'c1d185b1dea75706c00c4b6961680546'
 
 @app.route('/api/spikkl')
 def spikkl_lookup():
