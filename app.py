@@ -245,8 +245,6 @@ def translate_order_text_to_english(order_text_nl: str) -> str:
     for nl, en in translations.items():
         translated = translated.replace(nl, en)
     return translated
-SPIKKL_API_KEY = 'c1d185b1dea75706c00c4b6961680546'
-
 @app.route('/api/spikkl')
 def spikkl_lookup():
     postcode = request.args.get('postcode')
@@ -255,13 +253,18 @@ def spikkl_lookup():
     if not postcode or not number:
         return jsonify({'error': 'Postcode en huisnummer zijn verplicht'}), 400
 
-    url = f'https://api.spikkl.nl/lookup/zip-address/nl/{postcode}/{number}'
+    url = 'https://api.spikkl.nl/geo/nl/lookup.json'
     headers = {
-        'Authorization': f'Key {SPIKKL_API_KEY}'
+        'Accept': 'application/json'
+    }
+    params = {
+        'key': 'c1d185b1dea75706c00c4b6961680546',  # ✅ 加引号！
+        'postal_code': postcode,
+        'street_number': number
     }
 
     try:
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers, params=params)
         if response.status_code != 200:
             return jsonify({'error': 'Adres niet gevonden'}), response.status_code
 
@@ -274,6 +277,8 @@ def spikkl_lookup():
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
 def send_confirmation_email(order_text, customer_email, order_number, discount_code=None, discount_amount=None):
     """Send bilingual order confirmation email to the customer with review link."""
     review_link = f"https://www.novaasia.nl/review?order={order_number}"
