@@ -650,6 +650,7 @@ def api_send_order():
     # 总价 & 小费
     data["total"] = data.get("totaal") or (data.get("summary") or {}).get("total")
     data["fooi"] = float(data.get("tip") or 0)
+    data["bezorgkosten"] = data.get("delivery_cost") or (data.get("summary") or {}).get("delivery_cost") or 0
     data["created_at"] = created_at
     data["status"] = "Pending"
 
