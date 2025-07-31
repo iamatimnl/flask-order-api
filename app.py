@@ -245,38 +245,7 @@ def translate_order_text_to_english(order_text_nl: str) -> str:
     for nl, en in translations.items():
         translated = translated.replace(nl, en)
     return translated
-@app.route('/api/spikkl')
-def spikkl_lookup():
-    postcode = request.args.get('postcode')
-    number = request.args.get('number')
 
-    if not postcode or not number:
-        return jsonify({'error': 'Postcode en huisnummer zijn verplicht'}), 400
-
-    url = 'https://api.spikkl.nl/geo/nl/lookup.json'
-    headers = {
-        'Accept': 'application/json'
-    }
-    params = {
-        'key': 'c1d185b1dea75706c00c4b6961680546',  # ✅ 加引号！
-        'postal_code': postcode,
-        'street_number': number
-    }
-
-    try:
-        response = requests.get(url, headers=headers, params=params)
-        if response.status_code != 200:
-            return jsonify({'error': 'Adres niet gevonden'}), response.status_code
-
-        data = response.json()
-        result = {
-            'street': data.get('street', ''),
-            'city': data.get('city', '')
-        }
-
-        return jsonify(result), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 
 def send_confirmation_email(order_text, customer_email, order_number, discount_code=None, discount_amount=None):
