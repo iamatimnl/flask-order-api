@@ -255,18 +255,25 @@ def spikkl_lookup():
     if not postcode or not number:
         return jsonify({'error': 'Postcode en huisnummer zijn verplicht'}), 400
 
-    url = f'https://api.spikkl.nl/geo/address?postcode={postcode}&number={number}'
-
+    url = f'https://api.spikkl.nl/lookup/zip-address/nl/{postcode}/{number}'
     headers = {
-        'Authorization': f'Bearer {SPIKKL_API_KEY}'
+        'Authorization': f'Key {SPIKKL_API_KEY}'
     }
 
     try:
         response = requests.get(url, headers=headers)
-        return jsonify(response.json()), response.status_code
+        if response.status_code != 200:
+            return jsonify({'error': 'Adres niet gevonden'}), response.status_code
+
+        data = response.json()
+        result = {
+            'street': data.get('street', ''),
+            'city': data.get('city', '')
+        }
+
+        return jsonify(result), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 def send_confirmation_email(order_text, customer_email, order_number, discount_code=None, discount_amount=None):
     """Send bilingual order confirmation email to the customer with review link."""
     review_link = f"https://www.novaasia.nl/review?order={order_number}"
