@@ -137,15 +137,14 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
     tijdslot = str(tijdslot).strip()
 
-    # ✅ 修复 ZSM 问题：强制识别为 ZSM 并清空其他时间字段
-    if tijdslot.lower() in ["zsm", "asap"]:
+    # ✅ 修复 ZSM 问题：识别为 ZSM，同时保留时间字段，添加 is_zsm 字段
+    if tijdslot.lower() in ["zsm", "z.s.m", "asap"]:
         tijdslot = "ZSM"
         tijdslot_display = "ZSM"
-        delivery_time = "" if data.get("orderType") == "bezorgen" else delivery_time
-        pickup_time = "" if data.get("orderType") != "bezorgen" else pickup_time
+        is_zsm = True
     else:
         tijdslot_display = tijdslot
-
+        is_zsm = False
 
     order = {
         "message": data.get("message", ""),
@@ -169,10 +168,17 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "maps_link": maps_link,
         "google_maps_link": maps_link,
         "isNew": True,
+
+        # ✅ 时间相关字段
         "delivery_time": delivery_time,
         "pickup_time": pickup_time,
         "tijdslot": tijdslot,
         "tijdslot_display": tijdslot_display,
+        "is_zsm": is_zsm,
+        "pickup_time_auto": pickup_time,
+        "delivery_time_auto": delivery_time,
+
+        # ✅ 金额信息
         "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
         "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
         "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
@@ -180,6 +186,8 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "tip": data.get("tip"),
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+
+        # ✅ 折扣信息
         "discount_code": discount_code,
         "discount_amount": discount_amount,
         "discountAmount": data.get("discountAmount"),
@@ -188,6 +196,7 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
 
     order["items"] = sort_items(order.get("items", {}))
     return order
+
 @app.route('/logout')
 def logout():
     return redirect(url_for('dashboard'))
