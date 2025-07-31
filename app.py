@@ -670,11 +670,17 @@ def api_send_order():
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
 
-    # ✅ 如果是 ZSM 或空，设置 tijdslot_display 为 "ZSM"
-    if not tijdslot or str(tijdslot).strip().lower() in ["", "zsm", "asap"]:
+    # ✅ ✅ 修复 ZSM 误判问题（只在明确 ZSM/ASAP/Z.S.M. 时才设置为 ZSM）
+    tijdslot = str(tijdslot or "").strip()
+    tijdslot_lower = tijdslot.lower()
+    if tijdslot_lower in ["zsm", "asap", "z.s.m."]:
         tijdslot = "ZSM"
+        tijdslot_display = "ZSM"
+    else:
+        tijdslot_display = tijdslot
+
     data["tijdslot"] = tijdslot
-    data["tijdslot_display"] = tijdslot  # 👈 确保前端 addRow() 也能正确显示
+    data["tijdslot_display"] = tijdslot_display  # 👈 确保前端 addRow() 正确显示
 
     # 如果 delivery_time / pickup_time 缺失，从 tijdslot 推导回来
     if not delivery_time and not pickup_time:
@@ -745,6 +751,7 @@ def api_send_order():
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
+
 
 @app.route('/api/order_time_changed', methods=['POST'])
 def order_time_changed():
