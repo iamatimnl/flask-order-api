@@ -137,14 +137,16 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
     tijdslot = str(tijdslot).strip()
 
-    # ✅ 修复 ZSM 问题：识别为 ZSM，同时保留时间字段，添加 is_zsm 字段
-    if tijdslot.lower() in ["zsm", "z.s.m", "asap"]:
+    # ✅ 统一格式判断 ZSM
+    tijdslot_raw = tijdslot.lower().replace('.', '').strip()
+    if tijdslot_raw in ["zsm", "asap"]:
         tijdslot = "ZSM"
         tijdslot_display = "ZSM"
         is_zsm = True
     else:
         tijdslot_display = tijdslot
         is_zsm = False
+
 
     order = {
         "message": data.get("message", ""),
