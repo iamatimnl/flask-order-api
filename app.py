@@ -1223,6 +1223,11 @@ def update_setting():
 @app.route("/submit_order", methods=["POST"])
 def submit_order():
     data = request.get_json()
+    tijdslot = data.get("tijdslot") or data.get("pickup_time") or data.get("delivery_time")
+    if not tijdslot or not str(tijdslot).strip():
+        data["tijdslot"] = "Z.S.M."
+    else:
+        data["tijdslot"] = str(tijdslot).strip()
     message = data.get("message", "")
     remark = data.get("opmerking") or data.get("remark", "")
     data["opmerking"] = remark
