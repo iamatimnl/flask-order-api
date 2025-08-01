@@ -1,4 +1,5 @@
 
+
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -457,8 +458,7 @@ def record_order(order_data, pos_ok):
     delivery_time = order_data.get("delivery_time") or order_data.get("deliveryTime")
     if not pickup_time and not delivery_time:
         tijdslot = order_data.get("tijdslot")
-        tijdslot_raw = str(tijdslot).lower().replace(".", "").strip()
-        if tijdslot and tijdslot_raw not in ["zsm", "asap"]:
+        if tijdslot:
             if order_data.get("orderType") == "bezorgen":
                 delivery_time = tijdslot
             else:
@@ -685,9 +685,7 @@ def api_send_order():
     # ✅ ✅ 修复 ZSM 误判问题（只在明确 ZSM/ASAP/Z.S.M. 时才设置为 ZSM）
     tijdslot = str(tijdslot or "").strip()
     tijdslot_lower = tijdslot.lower()
-    tijdslot_clean = tijdslot_lower.replace(".", "")
-    is_zsm = tijdslot_clean in ["zsm", "asap"]
-    if is_zsm:
+    if tijdslot_lower in ["zsm", "asap", "z.s.m."]:
         tijdslot = "ZSM"
         tijdslot_display = "ZSM"
     else:
@@ -697,7 +695,7 @@ def api_send_order():
     data["tijdslot_display"] = tijdslot_display  # 👈 确保前端 addRow() 正确显示
 
     # 如果 delivery_time / pickup_time 缺失，从 tijdslot 推导回来
-    if not delivery_time and not pickup_time and not is_zsm:
+    if not delivery_time and not pickup_time:
         if data.get("orderType") == "bezorgen":
             data["delivery_time"] = tijdslot
         else:
@@ -1313,14 +1311,12 @@ def submit_order():
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
 
-    tijdslot_clean = str(tijdslot).lower().replace(".", "").strip()
-    is_zsm = tijdslot_clean in ["zsm", "asap"]
-
-    if tijdslot and not delivery_time and not pickup_time and not is_zsm:
-        if data.get("orderType") == "bezorgen":
-            delivery_time = tijdslot
-        else:
-            pickup_time = tijdslot
+    if tijdslot:
+        if not delivery_time and not pickup_time:
+            if data.get("orderType") == "bezorgen":
+                delivery_time = tijdslot
+            else:
+                pickup_time = tijdslot
 
     # ✅ 广播订单
     socket_order = build_socket_order(
