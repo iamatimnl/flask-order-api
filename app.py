@@ -458,8 +458,9 @@ def record_order(order_data, pos_ok):
     delivery_time = order_data.get("delivery_time") or order_data.get("deliveryTime")
     tijdslot = order_data.get("tijdslot", "")
     tijdslot_raw = str(tijdslot).lower().replace(".", "").strip()
+    is_zsm = tijdslot_raw in ["zsm", "z.s.m", "z.s.m.", "asap"]
 
-    if not pickup_time and not delivery_time and tijdslot_raw not in ["zsm", "asap"]:
+    if not pickup_time and not delivery_time and not is_zsm:
         if order_data.get("orderType") == "bezorgen":
             delivery_time = tijdslot
         else:
@@ -475,11 +476,10 @@ def record_order(order_data, pos_ok):
         "order_number": order_data.get("order_number") or order_data.get("orderNumber"),
         "status": order_data.get("status", "Pending"),
         "payment_id": order_data.get("payment_id"),
-        # Use snake_case for time fields when storing orders
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
-        "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total"),  # ✅ 添加这行
+        "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total"),
         "discountAmount": order_data.get("discountAmount"),
         "discountCode": order_data.get("discountCode"),
         "full": order_data,
