@@ -141,8 +141,8 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
     # ✅ 统一格式判断 ZSM
     tijdslot_raw = tijdslot.lower().replace('.', '').strip()
     if tijdslot_raw in ["zsm", "asap"]:
-        tijdslot = "ZSM"
-        tijdslot_display = "ZSM"
+        tijdslot = "Z.S.M."
+        tijdslot_display = "Z.S.M."
         is_zsm = True
     else:
         tijdslot_display = tijdslot
@@ -456,13 +456,14 @@ def record_order(order_data, pos_ok):
     """Store a simplified snapshot of the order for today's overview."""
     pickup_time = order_data.get("pickup_time") or order_data.get("pickupTime")
     delivery_time = order_data.get("delivery_time") or order_data.get("deliveryTime")
-    if not pickup_time and not delivery_time:
-        tijdslot = order_data.get("tijdslot")
-        if tijdslot:
-            if order_data.get("orderType") == "bezorgen":
-                delivery_time = tijdslot
-            else:
-                pickup_time = tijdslot
+    tijdslot = order_data.get("tijdslot", "")
+    tijdslot_raw = str(tijdslot).lower().replace(".", "").strip()
+
+    if not pickup_time and not delivery_time and tijdslot_raw not in ["zsm", "asap"]:
+        if order_data.get("orderType") == "bezorgen":
+            delivery_time = tijdslot
+        else:
+            pickup_time = tijdslot
 
     ORDERS.append({
         "timestamp": datetime.now(TZ).isoformat(timespec="seconds"),
@@ -682,20 +683,23 @@ def api_send_order():
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
 
-    # ✅ ✅ 修复 ZSM 误判问题（只在明确 ZSM/ASAP/Z.S.M. 时才设置为 ZSM）
+    # ✅ 判断 ZSM
     tijdslot = str(tijdslot or "").strip()
-    tijdslot_lower = tijdslot.lower()
-    if tijdslot_lower in ["zsm", "asap", "z.s.m."]:
-        tijdslot = "ZSM"
-        tijdslot_display = "ZSM"
+    tijdslot_raw = tijdslot.lower().replace(".", "")
+    is_zsm = tijdslot_raw in ["zsm", "asap"]
+    if is_zsm:
+        tijdslot = "Z.S.M."
+        tijdslot_display = "Z.S.M."
     else:
         tijdslot_display = tijdslot
 
     data["tijdslot"] = tijdslot
     data["tijdslot_display"] = tijdslot_display  # 👈 确保前端 addRow() 正确显示
 
-    # 如果 delivery_time / pickup_time 缺失，从 tijdslot 推导回来
-    if not delivery_time and not pickup_time:
+    if is_zsm:
+        data["delivery_time"] = ""
+        data["pickup_time"] = ""
+    elif not delivery_time and not pickup_time:
         if data.get("orderType") == "bezorgen":
             data["delivery_time"] = tijdslot
         else:
@@ -848,7 +852,7 @@ def send_telegram_to_delivery(
     f"🧾 BN: #{order_number}\n"
     f"📞 Telefoon: {phone or 'Niet opgegeven'}\n"
     f"💬 Opmerking: {opmerking or 'Geen'}\n\n"
-    f"🕐 Bezorgen: {tijdslot or 'ZSM'}\n"
+    f"🕐 Bezorgen: {tijdslot or 'Z.S.M.'}\n"
     f"💶 Bedrag: {bedrag}\n"
     f"💳 Betaalmethode: {payment_method}\n"
     f"📍 [Adres: {full_address}]({google_maps_url})"
@@ -1228,7 +1232,8 @@ def submit_order():
     # ✅ 标准化 tijdslot 字段
     tijdslot = data.get("tijdslot") or data.get("pickup_time") or data.get("delivery_time")
     tijdslot_raw = str(tijdslot).lower().replace(".", "").strip()
-    if not tijdslot_raw or tijdslot_raw in ["zsm", "asap"]:
+    is_zsm = not tijdslot_raw or tijdslot_raw in ["zsm", "asap"]
+    if is_zsm:
         data["tijdslot"] = "Z.S.M."
     else:
         data["tijdslot"] = str(tijdslot).strip()
@@ -1257,9 +1262,14 @@ def submit_order():
         or data.get("delivery_time")
         or ""
     )
-    if not str(tijdslot).strip() or str(tijdslot).lower().strip() in ["zsm", "z.s.m.", "z.s.m"]:
+    tijdslot_str = str(tijdslot).strip()
+    tijdslot_raw = tijdslot_str.lower().replace(".", "")
+    is_zsm = not tijdslot_raw or tijdslot_raw in ["zsm", "asap"]
+    if is_zsm:
         tijdslot = "Z.S.M."
-    data["tijdslot"] = tijdslot.strip()
+        data["delivery_time"] = ""
+        data["pickup_time"] = ""
+    data["tijdslot"] = str(tijdslot).strip()
 
     # ✅ 构造通知文本
     order_text = format_order_notification(data)
@@ -1310,13 +1320,17 @@ def submit_order():
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
+    tijdslot_raw = str(tijdslot).lower().replace(".", "").strip()
 
-    if tijdslot:
+    if tijdslot and tijdslot_raw not in ["zsm", "asap"]:
         if not delivery_time and not pickup_time:
             if data.get("orderType") == "bezorgen":
-                delivery_time = tijdslot
+                data["delivery_time"] = tijdslot
             else:
-                pickup_time = tijdslot
+                data["pickup_time"] = tijdslot
+    elif tijdslot_raw in ["zsm", "asap"]:
+        data["delivery_time"] = ""
+        data["pickup_time"] = ""
 
     # ✅ 广播订单
     socket_order = build_socket_order(
