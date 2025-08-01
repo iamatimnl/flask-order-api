@@ -1224,13 +1224,22 @@ def update_setting():
 def submit_order():
     data = request.get_json()
 
-    # ✅ 【建议位置】标准化 tijdslot 放到 remark 之后，确保先处理所有字段
+    # ✅ 标准化 tijdslot 字段
+    tijdslot = data.get("tijdslot") or data.get("pickup_time") or data.get("delivery_time")
+    tijdslot_raw = str(tijdslot).lower().replace(".", "").strip()
+    if not tijdslot_raw or tijdslot_raw in ["zsm", "asap"]:
+        data["tijdslot"] = "Z.S.M."
+    else:
+        data["tijdslot"] = str(tijdslot).strip()
+
+    # ✅ remark 优先设置
     message = data.get("message", "")
     remark = data.get("opmerking") or data.get("remark", "")
     data["opmerking"] = remark
     customer_email = data.get("customerEmail") or data.get("email")
     payment_method = data.get("paymentMethod", "").lower()
 
+    # ✅ 时间戳处理
     now = datetime.now(TZ)
     created_at = now.strftime('%Y-%m-%d %H:%M:%S')
     created_date = now.strftime('%Y-%m-%d')
@@ -1240,7 +1249,7 @@ def submit_order():
     data["created_at"] = created_at
     data["status"] = "Pending"
 
-    # ✅ 【正式修正点】tijdslot 标准化处理 —— 防止为 None 或空字符串，确保 POS 与数据库一致
+    # ✅ tijdslot 最终校验（确保字段统一）
     tijdslot = (
         data.get("tijdslot")
         or data.get("pickup_time")
@@ -1251,12 +1260,13 @@ def submit_order():
         tijdslot = "Z.S.M."
     data["tijdslot"] = tijdslot.strip()
 
-    # ⬇️ 以下为原始代码继续
+    # ✅ 构造通知文本
     order_text = format_order_notification(data)
     maps_link = build_google_maps_link(data)
     if maps_link:
         order_text += f"\n📍 Google Maps: {maps_link}"
 
+    # ✅ 折扣处理
     discount_code = None
     discount_amount = None
     order_total_val = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
@@ -1266,6 +1276,7 @@ def submit_order():
         data["discount_code"] = discount_code
         data["discount_amount"] = discount_amount
 
+    # ✅ 处理在线支付
     payment_link = None
     if payment_method == "online":
         amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
@@ -1281,21 +1292,24 @@ def submit_order():
             resp["paymentLink"] = payment_link
         return jsonify(resp), 200
 
+    # ✅ 推送到 Telegram / Email / POS
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
 
+    # ✅ 记录订单（含 POS 推送结果）
     record_order(data, pos_ok)
 
+    # ✅ 客户确认邮件
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
         send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
 
+    # ✅ 设置 pickup_time / delivery_time
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
 
-    # ✅ 保留这段，设置 delivery/pickup_time
     if tijdslot:
         if not delivery_time and not pickup_time:
             if data.get("orderType") == "bezorgen":
@@ -1303,6 +1317,7 @@ def submit_order():
             else:
                 pickup_time = tijdslot
 
+    # ✅ 广播订单
     socket_order = build_socket_order(
         data,
         created_date=created_date,
@@ -1313,6 +1328,7 @@ def submit_order():
     )
     socketio.emit("new_order", socket_order)
 
+    # ✅ 返回响应状态
     if telegram_ok and email_ok and pos_ok:
         return jsonify({"status": "ok"}), 200
     if not telegram_ok:
@@ -1323,6 +1339,7 @@ def submit_order():
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
+
 
 
 
