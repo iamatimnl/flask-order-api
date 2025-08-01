@@ -1223,11 +1223,8 @@ def update_setting():
 @app.route("/submit_order", methods=["POST"])
 def submit_order():
     data = request.get_json()
-    tijdslot = data.get("tijdslot") or data.get("pickup_time") or data.get("delivery_time")
-    if not tijdslot or not str(tijdslot).strip():
-        data["tijdslot"] = "Z.S.M."
-    else:
-        data["tijdslot"] = str(tijdslot).strip()
+
+    # ✅ 【建议位置】标准化 tijdslot 放到 remark 之后，确保先处理所有字段
     message = data.get("message", "")
     remark = data.get("opmerking") or data.get("remark", "")
     data["opmerking"] = remark
@@ -1243,6 +1240,18 @@ def submit_order():
     data["created_at"] = created_at
     data["status"] = "Pending"
 
+    # ✅ 【正式修正点】tijdslot 标准化处理 —— 防止为 None 或空字符串，确保 POS 与数据库一致
+    tijdslot = (
+        data.get("tijdslot")
+        or data.get("pickup_time")
+        or data.get("delivery_time")
+        or ""
+    )
+    if not str(tijdslot).strip() or str(tijdslot).lower().strip() in ["zsm", "z.s.m.", "z.s.m"]:
+        tijdslot = "Z.S.M."
+    data["tijdslot"] = tijdslot.strip()
+
+    # ⬇️ 以下为原始代码继续
     order_text = format_order_notification(data)
     maps_link = build_google_maps_link(data)
     if maps_link:
@@ -1259,20 +1268,19 @@ def submit_order():
 
     payment_link = None
     if payment_method == "online":
-        # ✅ 仅创建支付链接，立即返回，不通知
         amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
-        payment_link, payment_id = create_mollie_payment(data.get("order_number") or data.get("orderNumber"), amount)
+        payment_link, payment_id = create_mollie_payment(
+            data.get("order_number") or data.get("orderNumber"), amount
+        )
         if payment_id:
             data["payment_id"] = payment_id
 
-        record_order(data, False)  # 记录订单，状态 Pending，尚未支付
-
+        record_order(data, False)
         resp = {"status": "ok"}
         if payment_link:
             resp["paymentLink"] = payment_link
         return jsonify(resp), 200
 
-    # ✅ 非 online betaling，立即通知 POS、Telegram、Email、socketio
     telegram_ok = send_telegram_message(order_text)
     email_ok = send_email_notification(order_text)
     pos_ok, pos_error = send_pos_order(data)
@@ -1287,6 +1295,7 @@ def submit_order():
     pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
     tijdslot = data.get("tijdslot") or delivery_time or pickup_time
 
+    # ✅ 保留这段，设置 delivery/pickup_time
     if tijdslot:
         if not delivery_time and not pickup_time:
             if data.get("orderType") == "bezorgen":
@@ -1306,7 +1315,6 @@ def submit_order():
 
     if telegram_ok and email_ok and pos_ok:
         return jsonify({"status": "ok"}), 200
-
     if not telegram_ok:
         return jsonify({"status": "fail", "error": "Telegram-fout"}), 500
     if not email_ok:
@@ -1315,6 +1323,7 @@ def submit_order():
         return jsonify({"status": "fail", "error": f"POS-fout: {pos_error}"}), 500
 
     return jsonify({"status": "fail", "error": "Beide mislukt"}), 500
+
 
 
 if __name__ == "__main__":
