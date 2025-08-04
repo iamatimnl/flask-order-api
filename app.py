@@ -67,6 +67,38 @@ def load_prices():
     except Exception:
         return {}
 
+# Items whose prices are calculated on the front-end. These items may still
+# exist in ``prices.json`` but the back-end should trust the incoming price
+# instead of the static value.
+FRONTEND_PRICED_ITEMS = {"xbento", "x-bowl", "xbowl"}
+
+
+def is_frontend_priced(name: str) -> bool:
+    """Return True if the item price should come from the request body."""
+    lname = name.lower()
+    return lname in FRONTEND_PRICED_ITEMS or "ramen" in lname
+
+
+def sanitize_items(items, prices):
+    """Resolve item prices from mixed front-end/back-end sources."""
+    sanitized = {}
+    subtotal = 0.0
+    packaging_fee = 0.0
+    for name, item in items.items():
+        qty = int(item.get("qty", 0))
+        if not is_frontend_priced(name) and name in prices:
+            info = prices.get(name, {})
+            price = float(info.get("price", 0))
+            pack = float(info.get("packaging", 0))
+        else:
+            info = prices.get(name, {})
+            price = float(item.get("price") or 0)
+            pack = float(item.get("packaging") or info.get("packaging", 0))
+        subtotal += price * qty
+        packaging_fee += pack * qty
+        sanitized[name] = {"price": price, "qty": qty, "packaging": pack}
+    return sanitized, subtotal, packaging_fee
+
 # === Telegram 配置 ===
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
 CHAT_ID = '8047420957'
@@ -656,17 +688,7 @@ def api_send_order():
 
     prices = load_prices()
     items = data.get("items", {})
-    sanitized_items = {}
-    subtotal = 0.0
-    packaging_fee = 0.0
-    for name, item in items.items():
-        qty = int(item.get("qty", 0))
-        info = prices.get(name, {})
-        price = float(info.get("price", 0))
-        pack = float(info.get("packaging", 0))
-        subtotal += price * qty
-        packaging_fee += pack * qty
-        sanitized_items[name] = {"price": price, "qty": qty, "packaging": pack}
+    sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
     delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
     tip = float(data.get("tip") or 0)
     discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
@@ -1275,17 +1297,7 @@ def submit_order():
 
     prices = load_prices()
     items = data.get("items", {})
-    sanitized_items = {}
-    subtotal = 0.0
-    packaging_fee = 0.0
-    for name, item in items.items():
-        qty = int(item.get("qty", 0))
-        info = prices.get(name, {})
-        price = float(info.get("price", 0))
-        pack = float(info.get("packaging", 0))
-        subtotal += price * qty
-        packaging_fee += pack * qty
-        sanitized_items[name] = {"price": price, "qty": qty, "packaging": pack}
+    sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
     delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
     tip = float(data.get("tip") or 0)
     discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
