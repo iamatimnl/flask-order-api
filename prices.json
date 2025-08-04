@@ -1,0 +1,326 @@
+{
+  "Japans Chicken Bento": {
+    "price": 22.0,
+    "packaging": 0.2
+  },
+  "Korean Chicken Bento": {
+    "price": 22.0,
+    "packaging": 0.2
+  },
+  "Korean Beef Bento": {
+    "price": 25.0,
+    "packaging": 0.2
+  },
+  "Meatlover Bento": {
+    "price": 25.0,
+    "packaging": 0.2
+  },
+  "Zalm Lover Bento": {
+    "price": 23.0,
+    "packaging": 0.2
+  },
+  "Ebi Lover Bento": {
+    "price": 23.0,
+    "packaging": 0.2
+  },
+  "Surf & Turf Bento": {
+    "price": 25.0,
+    "packaging": 0.2
+  },
+  "Dimsum Bento": {
+    "price": 20.0,
+    "packaging": 0.2
+  },
+  "Lamskotelet Bento": {
+    "price": 30.0,
+    "packaging": 0.2
+  },
+  "Unagi Bento": {
+    "price": 24.0,
+    "packaging": 0.2
+  },
+  "Tuna Bento": {
+    "price": 25.0,
+    "packaging": 0.2
+  },
+  "Veggie Bento": {
+    "price": 20.0,
+    "packaging": 0.2
+  },
+  "Bento Sushi Omakase": {
+    "price": 22.0,
+    "packaging": 0.2
+  },
+  "Xbento": {
+    "price": 25.0,
+    "packaging": 0.2
+  },
+  "Ebi Furai": {
+    "price": 18.0,
+    "packaging": 0.2
+  },
+  "Chicken": {
+    "price": 18.0,
+    "packaging": 0.2
+  },
+  "Beef": {
+    "price": 18.0,
+    "packaging": 0.2
+  },
+  "Ribeye": {
+    "price": 18.0,
+    "packaging": 0.2
+  },
+  "Chasiu": {
+    "price": 18.0,
+    "packaging": 0.2
+  },
+  "Zhai": {
+    "price": 18.0,
+    "packaging": 0.2
+  },
+  "Zalm Bowl": {
+    "price": 15.0,
+    "packaging": 0.2
+  },
+  "Tuna Bowl": {
+    "price": 15.0,
+    "packaging": 0.2
+  },
+  "Ebi Fry Bowl": {
+    "price": 15.5,
+    "packaging": 0.2
+  },
+  "Chicken Karaage Bowl": {
+    "price": 15.5,
+    "packaging": 0.2
+  },
+  "Spicy Chicken Bowl": {
+    "price": 15.5,
+    "packaging": 0.2
+  },
+  "Teriyaki Chicken Bowl": {
+    "price": 15.5,
+    "packaging": 0.2
+  },
+  "Teriyaki Beef Bowl": {
+    "price": 15.5,
+    "packaging": 0.2
+  },
+  "California Bowl": {
+    "price": 14.0,
+    "packaging": 0.2
+  },
+  "Unagi Bowl": {
+    "price": 16.0,
+    "packaging": 0.2
+  },
+  "Vega Bowl": {
+    "price": 13.0,
+    "packaging": 0.2
+  },
+  "Meatlover Bowl": {
+    "price": 17.0,
+    "packaging": 0.2
+  },
+  "Rainbow Bowl": {
+    "price": 17.0,
+    "packaging": 0.2
+  },
+  "Spicy Tuna Bowl": {
+    "price": 15.5,
+    "packaging": 0.2
+  },
+  "Flamed Zalm Bowl": {
+    "price": 16.0,
+    "packaging": 0.2
+  },
+  "Flamed Tuna Bowl": {
+    "price": 16.0,
+    "packaging": 0.2
+  },
+  "X-Bowl": {
+    "price": 0.0,
+    "packaging": 0.2
+  },
+  "Teppanyaki Shrimp": {
+    "price": 18.0,
+    "packaging": 0.2
+  },
+  "Teppanyaki Beef": {
+    "price": 18.0,
+    "packaging": 0.2
+  },
+  "Teppanyaki Chicken": {
+    "price": 18.0,
+    "packaging": 0.2
+  },
+  "Teppanyaki Char Siu": {
+    "price": 18.0,
+    "packaging": 0.2
+  },
+  "Salmon Roll Omakase": {
+    "price": 16.0,
+    "packaging": 0.2
+  },
+  "Dragon Roll Omakase": {
+    "price": 16.0,
+    "packaging": 0.2
+  },
+  "Beef Roll Omakase": {
+    "price": 16.0,
+    "packaging": 0.2
+  },
+  "Chicken Roll Omakase": {
+    "price": 16.0,
+    "packaging": 0.2
+  },
+  "Nigiri Box Omakase": {
+    "price": 10.0,
+    "packaging": 0.2
+  },
+  "Salmon sashimi": {
+    "price": 10.5,
+    "packaging": 0.2
+  },
+  "Flamed salmon sashimi": {
+    "price": 10.0,
+    "packaging": 0.2
+  },
+  "Tonijn sashimi": {
+    "price": 10.0,
+    "packaging": 0.2
+  },
+  "Beef sashimi": {
+    "price": 10.0,
+    "packaging": 0.2
+  },
+  "Zalm crispy rice sandwich": {
+    "price": 7.0,
+    "packaging": 0.2
+  },
+  "Spicytuna crispy rice sandwich": {
+    "price": 7.0,
+    "packaging": 0.2
+  },
+  "Ebi crispy rice sandwich": {
+    "price": 7.0,
+    "packaging": 0.2
+  },
+  "Beef crispy rice sandwich": {
+    "price": 7.5,
+    "packaging": 0.2
+  },
+  "California crispy rice sandwich": {
+    "price": 7.5,
+    "packaging": 0.2
+  },
+  "Chicken crispy rice sandwich": {
+    "price": 7.0,
+    "packaging": 0.2
+  },
+  "Karaage": {
+    "price": 6.5,
+    "packaging": 0.2
+  },
+  "Ebi Fry – 4 st": {
+    "price": 6.5,
+    "packaging": 0.2
+  },
+  "Ebi kroket": {
+    "price": 5.0,
+    "packaging": 0.2
+  },
+  "Spicy Crispy Chicken – 5 st": {
+    "price": 6.5,
+    "packaging": 0.2
+  },
+  "Japans Zalm Nugget": {
+    "price": 6.5,
+    "packaging": 0.2
+  },
+  "Mini Loempia – 6 st": {
+    "price": 3.5,
+    "packaging": 0.2
+  },
+  "Chicken Loempia – 2 st": {
+    "price": 5.0,
+    "packaging": 0.2
+  },
+  "Gyoza – 5 st": {
+    "price": 5.0,
+    "packaging": 0.2
+  },
+  "Inktvis Ringen – 5 st": {
+    "price": 5.0,
+    "packaging": 0.2
+  },
+  "Sesambal – 5 st": {
+    "price": 5.0,
+    "packaging": 0.2
+  },
+  "Yakitori – 4 st": {
+    "price": 6.0,
+    "packaging": 0.2
+  },
+  "Edamame": {
+    "price": 4.5,
+    "packaging": 0.2
+  },
+  "Kimchi Komkommer": {
+    "price": 4.5,
+    "packaging": 0.2
+  },
+  "Kimchi Kool": {
+    "price": 5.0,
+    "packaging": 0.2
+  },
+  "Zeewiersalade – 100g": {
+    "price": 5.0,
+    "packaging": 0.2
+  },
+  "Mochi Mango": {
+    "price": 4.0,
+    "packaging": 0.2
+  },
+  "Mochi Aardbei": {
+    "price": 4.0,
+    "packaging": 0.2
+  },
+  "Mochi Matcha": {
+    "price": 4.0,
+    "packaging": 0.2
+  },
+  "Mochi Pistachio": {
+    "price": 4.0,
+    "packaging": 0.2
+  },
+  "Cola": {
+    "price": 2.5,
+    "packaging": 0.15
+  },
+  "Cola Zero": {
+    "price": 2.5,
+    "packaging": 0.15
+  },
+  "Spa Blauw": {
+    "price": 2.5,
+    "packaging": 0.15
+  },
+  "Spa Rood": {
+    "price": 2.5,
+    "packaging": 0.15
+  },
+  "Red Bull": {
+    "price": 2.5,
+    "packaging": 0.15
+  },
+  "Heineken 330ml": {
+    "price": 3.0,
+    "packaging": 0.15
+  },
+  "Bubble Tea": {
+    "price": 5.0,
+    "packaging": 0.2
+  }
+}
