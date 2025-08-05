@@ -32,6 +32,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 SETTINGS_FILE = "settings.json"
 SETTINGS = {}
+PRICES_FILE = "prices.json"
 
 def load_settings():
     global SETTINGS
@@ -56,6 +57,47 @@ def save_settings():
         print(f"Failed to save settings: {e}")
 
 load_settings()
+
+
+def load_prices():
+    """Load product prices from JSON file."""
+    try:
+        with open(PRICES_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+# Items whose prices are calculated on the front-end. These items may still
+# exist in ``prices.json`` but the back-end should trust the incoming price
+# instead of the static value.
+FRONTEND_PRICED_ITEMS = {"xbento", "x-bowl", "xbowl"}
+
+
+def is_frontend_priced(name: str) -> bool:
+    """Return True if the item price should come from the request body."""
+    lname = name.lower()
+    return lname in FRONTEND_PRICED_ITEMS or "ramen" in lname
+
+
+def sanitize_items(items, prices):
+    """Resolve item prices from mixed front-end/back-end sources."""
+    sanitized = {}
+    subtotal = 0.0
+    packaging_fee = 0.0
+    for name, item in items.items():
+        qty = int(item.get("qty", 0))
+        if not is_frontend_priced(name) and name in prices:
+            info = prices.get(name, {})
+            price = float(info.get("price", 0))
+            pack = float(info.get("packaging", 0))
+        else:
+            info = prices.get(name, {})
+            price = float(item.get("price") or 0)
+            pack = float(item.get("packaging") or info.get("packaging", 0))
+        subtotal += price * qty
+        packaging_fee += pack * qty
+        sanitized[name] = {"price": price, "qty": qty, "packaging": pack}
+    return sanitized, subtotal, packaging_fee
 
 # === Telegram 配置 ===
 BOT_TOKEN = '7509433067:AAGoLc1NVWqmgKGcrRVb3DwMh1o5_v5Fyio'
@@ -644,6 +686,30 @@ def get_orders_today():
 def api_send_order():
     data = request.get_json()
 
+    prices = load_prices()
+    items = data.get("items", {})
+    sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
+    delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
+    tip = float(data.get("tip") or 0)
+    discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
+    btw = (subtotal + packaging_fee) * 9 / 109
+    totaal = subtotal + packaging_fee + delivery_fee + tip - discount
+    data["items"] = sanitized_items
+    data["subtotal"] = round(subtotal, 2)
+    data["packaging_fee"] = round(packaging_fee, 2)
+    data["delivery_fee"] = round(delivery_fee, 2)
+    data["btw"] = round(btw, 2)
+    data["totaal"] = round(totaal, 2)
+    data["total"] = data["totaal"]
+    data["summary"] = {
+        "subtotal": f"{subtotal:.2f}",
+        "packaging": f"{packaging_fee:.2f}",
+        "delivery": f"{delivery_fee:.2f}",
+        "discount_amount": f"{discount:.2f}",
+        "btw": f"{btw:.2f}",
+        "total": f"{totaal:.2f}",
+    }
+
     # 基础字段预处理
     message = data.get("message", "")
     remark = data.get("opmerking") or data.get("remark", "")
@@ -662,16 +728,16 @@ def api_send_order():
     created_time = now.strftime('%H:%M')
 
     # 总价 & 小费
-    data["total"] = data.get("totaal") or (data.get("summary") or {}).get("total")
-    data["fooi"] = float(data.get("tip") or 0)
-    data["bezorgkosten"] = data.get("delivery_cost") or (data.get("summary") or {}).get("delivery_cost") or 0
+    data["total"] = data.get("totaal")
+    data["fooi"] = tip
+    data["bezorgkosten"] = delivery_fee
     data["created_at"] = created_at
     data["status"] = "Pending"
 
     # 折扣处理
     discount_code = None
     discount_amount = None
-    order_total_val = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+    order_total_val = float(data.get("totaal") or 0)
     if customer_email and order_total_val >= 20:
         discount_amount = round(order_total_val * 0.03, 2)
         discount_code = generate_discount_code()
@@ -1229,6 +1295,30 @@ def update_setting():
 def submit_order():
     data = request.get_json()
 
+    prices = load_prices()
+    items = data.get("items", {})
+    sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
+    delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
+    tip = float(data.get("tip") or 0)
+    discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
+    btw = (subtotal + packaging_fee) * 9 / 109
+    totaal = subtotal + packaging_fee + delivery_fee + tip - discount
+    data["items"] = sanitized_items
+    data["subtotal"] = round(subtotal, 2)
+    data["packaging_fee"] = round(packaging_fee, 2)
+    data["delivery_fee"] = round(delivery_fee, 2)
+    data["btw"] = round(btw, 2)
+    data["totaal"] = round(totaal, 2)
+    data["total"] = data["totaal"]
+    data["summary"] = {
+        "subtotal": f"{subtotal:.2f}",
+        "packaging": f"{packaging_fee:.2f}",
+        "delivery": f"{delivery_fee:.2f}",
+        "discount_amount": f"{discount:.2f}",
+        "btw": f"{btw:.2f}",
+        "total": f"{totaal:.2f}",
+    }
+
     # ✅ 标准化 tijdslot 字段（处理 Z.S.M.）
     tijdslot = data.get("tijdslot") or data.get("pickup_time") or data.get("delivery_time")
     tijdslot_raw = str(tijdslot).lower().replace(".", "").strip()
@@ -1247,7 +1337,7 @@ def submit_order():
     created_at = now.strftime('%Y-%m-%d %H:%M:%S')
     created_date = now.strftime('%Y-%m-%d')
     created_time = now.strftime('%H:%M')
-    data["total"] = data.get("totaal") or (data.get("summary") or {}).get("total")
+    data["total"] = data.get("totaal")
     data["fooi"] = float(data.get("tip") or 0)
     data["created_at"] = created_at
     data["status"] = "Pending"
@@ -1273,7 +1363,7 @@ def submit_order():
     # ✅ 折扣处理
     discount_code = None
     discount_amount = None
-    order_total_val = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+    order_total_val = float(data.get("totaal") or 0)
     if customer_email and order_total_val >= 20:
         discount_amount = round(order_total_val * 0.03, 2)
         discount_code = generate_discount_code()
@@ -1282,7 +1372,7 @@ def submit_order():
 
     # ✅ 在线支付处理（先记录订单）
     if payment_method == "online":
-        amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+        amount = float(data.get("totaal") or 0)
         payment_link, payment_id = create_mollie_payment(
             data.get("order_number") or data.get("orderNumber"), amount
         )
