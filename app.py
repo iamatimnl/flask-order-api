@@ -1294,15 +1294,64 @@ def update_setting():
 @app.route("/submit_order", methods=["POST"])
 def submit_order():
     data = request.get_json()
-
-    prices = load_prices()
     items = data.get("items", {})
-    sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
-    delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
-    tip = float(data.get("tip") or 0)
-    discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
-    btw = (subtotal + packaging_fee) * 9 / 109
-    totaal = subtotal + packaging_fee + delivery_fee + tip - discount
+
+    if data.get("source") == "pos":
+        sanitized_items = {}
+        subtotal = 0.0
+        packaging_fee = 0.0
+        for name, item in items.items():
+            qty = int(item.get("qty", 0))
+            price = float(item.get("price") or 0)
+            pack = float(item.get("packaging") or 0)
+            subtotal += price * qty
+            packaging_fee += pack * qty
+            sanitized_items[name] = {"price": price, "qty": qty, "packaging": pack}
+
+        summary = data.get("summary", {})
+        delivery_fee = float(summary.get("delivery", 0.0))
+        tip = float(data.get("tip") or 0)
+        discount = float(
+            summary.get("discountAmount")
+            or summary.get("discount_amount")
+            or data.get("discountAmount")
+            or data.get("discount_amount")
+            or 0
+        )
+        btw = float(summary.get("btw", 0))
+        totaal = float(
+            summary.get(
+                "total",
+                subtotal + packaging_fee + delivery_fee + tip - discount,
+            )
+        )
+        data["summary"] = {
+            "subtotal": f"{subtotal:.2f}",
+            "packaging": f"{packaging_fee:.2f}",
+            "delivery": f"{delivery_fee:.2f}",
+            "discount_amount": f"{discount:.2f}",
+            "btw": f"{btw:.2f}",
+            "total": f"{totaal:.2f}",
+        }
+    else:
+        prices = load_prices()
+        sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
+        delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
+        tip = float(data.get("tip") or 0)
+        discount = float(
+            data.get("discountAmount") or data.get("discount_amount") or 0
+        )
+        btw = (subtotal + packaging_fee) * 9 / 109
+        totaal = subtotal + packaging_fee + delivery_fee + tip - discount
+        data["summary"] = {
+            "subtotal": f"{subtotal:.2f}",
+            "packaging": f"{packaging_fee:.2f}",
+            "delivery": f"{delivery_fee:.2f}",
+            "discount_amount": f"{discount:.2f}",
+            "btw": f"{btw:.2f}",
+            "total": f"{totaal:.2f}",
+        }
+
     data["items"] = sanitized_items
     data["subtotal"] = round(subtotal, 2)
     data["packaging_fee"] = round(packaging_fee, 2)
@@ -1310,14 +1359,6 @@ def submit_order():
     data["btw"] = round(btw, 2)
     data["totaal"] = round(totaal, 2)
     data["total"] = data["totaal"]
-    data["summary"] = {
-        "subtotal": f"{subtotal:.2f}",
-        "packaging": f"{packaging_fee:.2f}",
-        "delivery": f"{delivery_fee:.2f}",
-        "discount_amount": f"{discount:.2f}",
-        "btw": f"{btw:.2f}",
-        "total": f"{totaal:.2f}",
-    }
 
     # ✅ 标准化 tijdslot 字段（处理 Z.S.M.）
     tijdslot = data.get("tijdslot") or data.get("pickup_time") or data.get("delivery_time")
