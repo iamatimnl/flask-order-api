@@ -734,10 +734,20 @@ def api_send_order():
         for k, v in sanitized_items.items()
         if "heineken" in k.lower()
     )
-    btw_21 = heineken_total * 0.21
-    btw_9 = (subtotal - heineken_total + packaging_fee + delivery_fee) * 0.09
+
+    base_excl_tip = subtotal + packaging_fee + delivery_fee
+    bucket21 = heineken_total
+    bucket9 = max(base_excl_tip - bucket21, 0.0)
+    if base_excl_tip > 0:
+        d21 = discount * (bucket21 / base_excl_tip)
+        d9 = discount * (bucket9 / base_excl_tip)
+    else:
+        d21 = d9 = 0.0
+
+    btw_21 = max(bucket21 - d21, 0.0) * 0.21
+    btw_9 = max(bucket9 - d9, 0.0) * 0.09
     btw = btw_9 + btw_21
-    totaal = subtotal + packaging_fee + delivery_fee + tip - discount
+    totaal = base_excl_tip - discount + tip
     data["items"] = sanitized_items
     data["subtotal"] = round(subtotal, 2)
     data["packaging_fee"] = round(packaging_fee, 2)
@@ -1428,10 +1438,20 @@ def submit_order():
             for k, v in sanitized_items.items()
             if "heineken" in k.lower()
         )
-        btw_21 = heineken_total * 0.21
-        btw_9 = (subtotal - heineken_total + packaging_fee + delivery_fee) * 0.09
+
+        base_excl_tip = subtotal + packaging_fee + delivery_fee
+        bucket21 = heineken_total
+        bucket9 = max(base_excl_tip - bucket21, 0.0)
+        if base_excl_tip > 0:
+            d21 = discount * (bucket21 / base_excl_tip)
+            d9 = discount * (bucket9 / base_excl_tip)
+        else:
+            d21 = d9 = 0.0
+
+        btw_21 = max(bucket21 - d21, 0.0) * 0.21
+        btw_9 = max(bucket9 - d9, 0.0) * 0.09
         btw = btw_9 + btw_21
-        totaal = subtotal + packaging_fee + delivery_fee + tip - discount
+        totaal = base_excl_tip - discount + tip
         data["summary"] = {
             "subtotal": f"{subtotal:.2f}",
             "packaging": f"{packaging_fee:.2f}",
