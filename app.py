@@ -692,7 +692,7 @@ def api_send_order():
     delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
     tip = float(data.get("tip") or 0)
     discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
-    btw = (subtotal + packaging_fee) * 9 / 109
+    btw = (subtotal + packaging_fee + delivery_fee) * 0.09
     totaal = subtotal + packaging_fee + delivery_fee + tip - discount
     data["items"] = sanitized_items
     data["subtotal"] = round(subtotal, 2)
@@ -1341,7 +1341,7 @@ def submit_order():
         discount = float(
             data.get("discountAmount") or data.get("discount_amount") or 0
         )
-        btw = (subtotal + packaging_fee) * 9 / 109
+        btw = (subtotal + packaging_fee + delivery_fee) * 0.09
         totaal = subtotal + packaging_fee + delivery_fee + tip - discount
         data["summary"] = {
             "subtotal": f"{subtotal:.2f}",
