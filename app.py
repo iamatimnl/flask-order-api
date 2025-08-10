@@ -189,7 +189,14 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
     else:
         tijdslot_display = tijdslot
         is_zsm = False
-
+    summary = data.get("summary") or {}
+    btw_total_value = (
+        data.get("btw_total")
+        or summary.get("btw_total")
+        or summary.get("btw")
+    )
+    if btw_total_value is None and data.get("source") != "index":
+        btw_total_value = (data.get("btw_9") or 0) + (data.get("btw_21") or 0)
 
     order = {
         "message": data.get("message", ""),
@@ -229,13 +236,11 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
         "bezorgkosten": data.get("bezorgkosten") or data.get("delivery_fee") or (data.get("summary") or {}).get("delivery_cost") or 0,
         "tip": data.get("tip"),
-        "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
-        "btw_9": data.get("btw_9") or (data.get("summary") or {}).get("btw_9"),
-        "btw_21": data.get("btw_21") or (data.get("summary") or {}).get("btw_21"),
-        "btw_total": data.get("btw_total") or (data.get("summary") or {}).get("btw_total") or (
-            (data.get("btw_9") or 0) + (data.get("btw_21") or 0)
-        ),
-        "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
+        "btw": data.get("btw") or summary.get("btw"),
+        "btw_9": data.get("btw_9") or summary.get("btw_9"),
+        "btw_21": data.get("btw_21") or summary.get("btw_21"),
+        "btw_total": btw_total_value,
+        "totaal": data.get("totaal") or summary.get("total"),
 
         # ✅ 折扣信息
         "discount_code": discount_code,
@@ -513,6 +518,15 @@ def record_order(order_data, pos_ok):
         else:
             pickup_time = tijdslot
 
+    summary = order_data.get("summary") or {}
+    btw_total_value = (
+        order_data.get("btw_total")
+        or summary.get("btw_total")
+        or summary.get("btw")
+    )
+    if btw_total_value is None and order_data.get("source") != "index":
+        btw_total_value = (order_data.get("btw_9") or 0) + (order_data.get("btw_21") or 0)
+
     ORDERS.append({
         "timestamp": datetime.now(TZ).isoformat(timespec="seconds"),
         "name": order_data.get("name"),
@@ -526,12 +540,10 @@ def record_order(order_data, pos_ok):
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
-        "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total"),
-        "btw_9": order_data.get("btw_9") or (order_data.get("summary") or {}).get("btw_9"),
-        "btw_21": order_data.get("btw_21") or (order_data.get("summary") or {}).get("btw_21"),
-        "btw_total": order_data.get("btw_total") or (order_data.get("summary") or {}).get("btw_total") or (
-            (order_data.get("btw_9") or 0) + (order_data.get("btw_21") or 0)
-        ),
+        "totaal": order_data.get("totaal") or summary.get("total"),
+        "btw_9": order_data.get("btw_9") or summary.get("btw_9"),
+        "btw_21": order_data.get("btw_21") or summary.get("btw_21"),
+        "btw_total": btw_total_value,
         "discountAmount": order_data.get("discountAmount"),
         "discountCode": order_data.get("discountCode"),
         "full": order_data,
@@ -641,9 +653,13 @@ def format_order_notification(data):
     btw9_value = data.get("btw_9") or summary.get("btw_9")
     btw21_value = data.get("btw_21") or summary.get("btw_21")
     total_value = data.get("totaal") or summary.get("total")
-    btw_total_value = data.get("btw_total") or summary.get("btw_total") or (
-        (btw9_value or 0) + (btw21_value or 0)
+    btw_total_value = (
+        data.get("btw_total")
+        or summary.get("btw_total")
+        or summary.get("btw")
     )
+    if btw_total_value is None and data.get("source") != "index":
+        btw_total_value = (btw9_value or 0) + (btw21_value or 0)
     for label, value in fields:
         if value is not None:
             lines.append(f"{label}: {fmt(value)}")
@@ -1331,7 +1347,9 @@ def submit_order():
     data = request.get_json()
     items = data.get("items", {})
 
-    if data.get("source") == "pos":
+    source = data.get("source")
+
+    if source == "pos":
         sanitized_items = {}
         subtotal = 0.0
         packaging_fee = 0.0
@@ -1374,6 +1392,29 @@ def submit_order():
             "btw_split": {"9": f"{btw_9:.2f}", "21": f"{btw_21:.2f}"},
             "total": f"{totaal:.2f}",
         }
+    elif source == "index":
+        prices = load_prices()
+        sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
+        summary = data.get("summary", {})
+        delivery_fee = float(summary.get("delivery", 0.0))
+        tip = float(data.get("tip") or 0)
+        discount = float(
+            summary.get("discountAmount")
+            or summary.get("discount_amount")
+            or data.get("discountAmount")
+            or data.get("discount_amount")
+            or 0
+        )
+        btw = summary.get("btw")
+        btw_9 = summary.get("btw_9")
+        btw_21 = summary.get("btw_21")
+        totaal = float(
+            summary.get(
+                "total",
+                subtotal + packaging_fee + delivery_fee + tip - discount,
+            )
+        )
+        data["summary"] = summary
     else:
         prices = load_prices()
         sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
@@ -1404,16 +1445,29 @@ def submit_order():
             "total": f"{totaal:.2f}",
         }
 
-    data["items"] = sanitized_items
-    data["subtotal"] = round(subtotal, 2)
-    data["packaging_fee"] = round(packaging_fee, 2)
-    data["delivery_fee"] = round(delivery_fee, 2)
-    data["btw"] = round(btw, 2)
-    data["btw_9"] = round(btw_9, 2)
-    data["btw_21"] = round(btw_21, 2)
-    data["btw_total"] = round(btw, 2)
-    data["totaal"] = round(totaal, 2)
-    data["total"] = data["totaal"]
+    if source == "index":
+        summary = data.get("summary", {})
+        data["items"] = sanitized_items
+        data["subtotal"] = round(subtotal, 2)
+        data["packaging_fee"] = round(packaging_fee, 2)
+        data["delivery_fee"] = round(delivery_fee, 2)
+        data["btw"] = summary.get("btw")
+        data["btw_9"] = summary.get("btw_9")
+        data["btw_21"] = summary.get("btw_21")
+        data["btw_total"] = summary.get("btw_total") or summary.get("btw")
+        data["totaal"] = float(summary.get("total", totaal))
+        data["total"] = data["totaal"]
+    else:
+        data["items"] = sanitized_items
+        data["subtotal"] = round(subtotal, 2)
+        data["packaging_fee"] = round(packaging_fee, 2)
+        data["delivery_fee"] = round(delivery_fee, 2)
+        data["btw"] = round(btw, 2)
+        data["btw_9"] = round(btw_9, 2)
+        data["btw_21"] = round(btw_21, 2)
+        data["btw_total"] = round(btw, 2)
+        data["totaal"] = round(totaal, 2)
+        data["total"] = data["totaal"]
 
     # ✅ 标准化 tijdslot 字段（处理 Z.S.M.）
     tijdslot = data.get("tijdslot") or data.get("pickup_time") or data.get("delivery_time")
