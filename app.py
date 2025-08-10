@@ -230,6 +230,11 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "bezorgkosten": data.get("bezorgkosten") or data.get("delivery_fee") or (data.get("summary") or {}).get("delivery_cost") or 0,
         "tip": data.get("tip"),
         "btw": data.get("btw") or (data.get("summary") or {}).get("btw"),
+        "btw_9": data.get("btw_9") or (data.get("summary") or {}).get("btw_9"),
+        "btw_21": data.get("btw_21") or (data.get("summary") or {}).get("btw_21"),
+        "btw_total": data.get("btw_total") or (data.get("summary") or {}).get("btw_total") or (
+            (data.get("btw_9") or 0) + (data.get("btw_21") or 0)
+        ),
         "totaal": data.get("totaal") or (data.get("summary") or {}).get("total"),
 
         # ✅ 折扣信息
@@ -522,6 +527,11 @@ def record_order(order_data, pos_ok):
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
         "totaal": order_data.get("totaal") or (order_data.get("summary") or {}).get("total"),
+        "btw_9": order_data.get("btw_9") or (order_data.get("summary") or {}).get("btw_9"),
+        "btw_21": order_data.get("btw_21") or (order_data.get("summary") or {}).get("btw_21"),
+        "btw_total": order_data.get("btw_total") or (order_data.get("summary") or {}).get("btw_total") or (
+            (order_data.get("btw_9") or 0) + (order_data.get("btw_21") or 0)
+        ),
         "discountAmount": order_data.get("discountAmount"),
         "discountCode": order_data.get("discountCode"),
         "full": order_data,
@@ -628,8 +638,12 @@ def format_order_notification(data):
     discount_code_used = data.get("discountCode")
 
     btw_value = data.get("btw") or summary.get("btw")
+    btw9_value = data.get("btw_9") or summary.get("btw_9")
+    btw21_value = data.get("btw_21") or summary.get("btw_21")
     total_value = data.get("totaal") or summary.get("total")
-
+    btw_total_value = data.get("btw_total") or summary.get("btw_total") or (
+        (btw9_value or 0) + (btw21_value or 0)
+    )
     for label, value in fields:
         if value is not None:
             lines.append(f"{label}: {fmt(value)}")
@@ -638,8 +652,12 @@ def format_order_notification(data):
         amount_str = fmt(discount_amount_used or 0)
         lines.append(f"Korting: -{amount_str} (Code: {discount_code_used or 'geen'})")
 
-    if btw_value is not None:
-        lines.append(f"BTW: {fmt(btw_value)}")
+    if btw9_value is not None:
+        lines.append(f"BTW 9%: {fmt(btw9_value)}")
+    if btw21_value:
+        lines.append(f"BTW 21%: {fmt(btw21_value)}")
+    if btw_total_value is not None:
+        lines.append(f"BTW Totaal: {fmt(btw_total_value)}")
     if total_value is not None:
         lines.append(f"Totaal: {fmt(total_value)}")
 
@@ -668,6 +686,9 @@ def _orders_overview():
                 "opmerking": entry.get("opmerking") or entry.get("remark"),
                 "pos_ok": entry.get("pos_ok"),
                 "totaal": entry.get("totaal"),
+                "btw_9": entry.get("btw_9"),
+                "btw_21": entry.get("btw_21"),
+                "btw_total": entry.get("btw_total"),
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
                 "order_number": entry.get("order_number"),
@@ -692,13 +713,23 @@ def api_send_order():
     delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
     tip = float(data.get("tip") or 0)
     discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
-    btw = (subtotal + packaging_fee + delivery_fee) * 0.09
+    heineken_total = sum(
+        v["price"] * v["qty"]
+        for k, v in sanitized_items.items()
+        if "heineken" in k.lower()
+    )
+    btw_21 = heineken_total * 0.21
+    btw_9 = (subtotal - heineken_total + packaging_fee + delivery_fee) * 0.09
+    btw = btw_9 + btw_21
     totaal = subtotal + packaging_fee + delivery_fee + tip - discount
     data["items"] = sanitized_items
     data["subtotal"] = round(subtotal, 2)
     data["packaging_fee"] = round(packaging_fee, 2)
     data["delivery_fee"] = round(delivery_fee, 2)
     data["btw"] = round(btw, 2)
+    data["btw_9"] = round(btw_9, 2)
+    data["btw_21"] = round(btw_21, 2)
+    data["btw_total"] = round(btw, 2)
     data["totaal"] = round(totaal, 2)
     data["total"] = data["totaal"]
     data["summary"] = {
@@ -707,6 +738,10 @@ def api_send_order():
         "delivery": f"{delivery_fee:.2f}",
         "discount_amount": f"{discount:.2f}",
         "btw": f"{btw:.2f}",
+        "btw_9": f"{btw_9:.2f}",
+        "btw_21": f"{btw_21:.2f}",
+        "btw_total": f"{btw:.2f}",
+        "btw_split": {"9": f"{btw_9:.2f}", "21": f"{btw_21:.2f}"},
         "total": f"{totaal:.2f}",
     }
 
@@ -1318,7 +1353,9 @@ def submit_order():
             or data.get("discount_amount")
             or 0
         )
-        btw = float(summary.get("btw", 0))
+        btw_9 = float(summary.get("btw_9", 0))
+        btw_21 = float(summary.get("btw_21", 0))
+        btw = btw_9 + btw_21 if (btw_9 or btw_21) else float(summary.get("btw", 0))
         totaal = float(
             summary.get(
                 "total",
@@ -1331,6 +1368,10 @@ def submit_order():
             "delivery": f"{delivery_fee:.2f}",
             "discount_amount": f"{discount:.2f}",
             "btw": f"{btw:.2f}",
+            "btw_9": f"{btw_9:.2f}",
+            "btw_21": f"{btw_21:.2f}",
+            "btw_total": f"{btw:.2f}",
+            "btw_split": {"9": f"{btw_9:.2f}", "21": f"{btw_21:.2f}"},
             "total": f"{totaal:.2f}",
         }
     else:
@@ -1341,7 +1382,14 @@ def submit_order():
         discount = float(
             data.get("discountAmount") or data.get("discount_amount") or 0
         )
-        btw = (subtotal + packaging_fee + delivery_fee) * 0.09
+        heineken_total = sum(
+            v["price"] * v["qty"]
+            for k, v in sanitized_items.items()
+            if "heineken" in k.lower()
+        )
+        btw_21 = heineken_total * 0.21
+        btw_9 = (subtotal - heineken_total + packaging_fee + delivery_fee) * 0.09
+        btw = btw_9 + btw_21
         totaal = subtotal + packaging_fee + delivery_fee + tip - discount
         data["summary"] = {
             "subtotal": f"{subtotal:.2f}",
@@ -1349,6 +1397,10 @@ def submit_order():
             "delivery": f"{delivery_fee:.2f}",
             "discount_amount": f"{discount:.2f}",
             "btw": f"{btw:.2f}",
+            "btw_9": f"{btw_9:.2f}",
+            "btw_21": f"{btw_21:.2f}",
+            "btw_total": f"{btw:.2f}",
+            "btw_split": {"9": f"{btw_9:.2f}", "21": f"{btw_21:.2f}"},
             "total": f"{totaal:.2f}",
         }
 
@@ -1357,6 +1409,9 @@ def submit_order():
     data["packaging_fee"] = round(packaging_fee, 2)
     data["delivery_fee"] = round(delivery_fee, 2)
     data["btw"] = round(btw, 2)
+    data["btw_9"] = round(btw_9, 2)
+    data["btw_21"] = round(btw_21, 2)
+    data["btw_total"] = round(btw, 2)
     data["totaal"] = round(totaal, 2)
     data["total"] = data["totaal"]
 
