@@ -297,6 +297,7 @@ def translate_order_text_to_english(order_text_nl: str) -> str:
         "Bezorgkosten": "Delivery fee",
         "Fooi": "Tip",
         "Korting": "Discount",
+        "Kassa Korting": "Cash register discount",
         "BTW": "VAT",
         "Totaal": "Total",
         "contant": "cash",
@@ -666,7 +667,11 @@ def format_order_notification(data):
 
     if discount_amount_used is not None or discount_code_used:
         amount_str = fmt(discount_amount_used or 0)
-        lines.append(f"Korting: -{amount_str} (Code: {discount_code_used or 'geen'})")
+        source = (data.get("source") or "").lower()
+        if source == "pos":
+            lines.append(f"Kassa Korting: -{amount_str}")
+        else:
+            lines.append(f"Korting: -{amount_str} (Code: {discount_code_used or 'geen'})")
 
     if btw9_value is not None:
         lines.append(f"BTW 9%: {fmt(btw9_value)}")
@@ -1357,7 +1362,8 @@ def submit_order():
     data = request.get_json()
     items = data.get("items", {})
 
-    source = data.get("source")
+    # Normalize source to handle values like 'POS'
+    source = (data.get("source") or "").lower()
 
     if source == "pos":
         sanitized_items = {}
@@ -1402,6 +1408,11 @@ def submit_order():
             "btw_split": {"9": f"{btw_9:.2f}", "21": f"{btw_21:.2f}"},
             "total": f"{totaal:.2f}",
         }
+
+        # Accept POS discount without code validation
+        data["discountAmount"] = round(discount, 2)
+        if discount > 0 and not data.get("discountCode"):
+            data["discountCode"] = "KASSA"
     elif source == "index":
         prices = load_prices()
         sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)

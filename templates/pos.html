@@ -991,7 +991,7 @@ dialog::backdrop {
 </div>
 
 <div class="summary-row">
-  <label for="discountValue">Korting:</label>
+  <label for="discountValue">Kassa Korting:</label>
   <div class="discount-group">
     <select id="discountType">
       <option value="amount">€</option>
@@ -2723,7 +2723,7 @@ function addRow(order, highlight = false) {
     ${order.opmerking ? `<div><strong>Opmerking:</strong> ${order.opmerking}</div>` : ''}
     ${verpakkingskosten > 0 ? `<div><strong>Verpakkingskosten:</strong> €${verpakkingDisplay}</div>` : ''}
     ${bezorgkosten > 0 ? `<div><strong>Bezorgkosten:</strong> €${bezorgDisplay}</div>` : ''}
-    ${showKorting ? `<div><strong>Korting:</strong> -€${kortingDisplay}</div>` : ''}
+    ${showKorting ? `<div><strong>Kassa Korting:</strong> -€${kortingDisplay}</div>` : ''}
     <div><strong>Totaal:</strong> €${totaalDisplay}</div>
     ${fooi > 0 ? `<div><strong>Fooi:</strong> €${fooiDisplay}</div>` : ''}
     ${address !== '-' ? `<div><strong>Adres:</strong> ${address}
