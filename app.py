@@ -294,8 +294,8 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         # ✅ 折扣信息
         "discount_code": discount_code,
         "discount_amount": discount_amount,
-        "discountAmount": data.get("discountAmount"),
-       "discountCode": data.get("discountCode"),
+        "usedDiscountAmount": data.get("usedDiscountAmount") or data.get("discountAmount"),
+        "usedDiscountCode": data.get("usedDiscountCode") or data.get("discountCode"),
     }
 
     order["items"] = sort_items(order.get("items", {}))
@@ -587,8 +587,8 @@ def record_order(order_data, pos_ok):
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
         "totaal": data.get("totaal") or summary.get("total"),
-        "discountAmount": data.get("discountAmount"),
-        "discountCode": data.get("discountCode"),
+        "usedDiscountAmount": data.get("usedDiscountAmount") or data.get("discountAmount"),
+        "usedDiscountCode": data.get("usedDiscountCode") or data.get("discountCode"),
         "full": data,
     }
 
@@ -693,10 +693,13 @@ def format_order_notification(data):
         ("Fooi", data.get("tip")),
     ]
 
-    discount_amount_used = data.get("discountAmount")
-    if discount_amount_used is None:
-        discount_amount_used = summary.get("discountAmount")
-    discount_code_used = data.get("discountCode")
+    used_discount_amount = (
+        data.get("usedDiscountAmount")
+        or summary.get("usedDiscountAmount")
+        or data.get("discountAmount")
+        or summary.get("discountAmount")
+    )
+    used_discount_code = data.get("usedDiscountCode") or data.get("discountCode")
 
     btw_value = data.get("btw") or summary.get("btw")
     btw9_value = data.get("btw_9") or summary.get("btw_9")
@@ -713,13 +716,13 @@ def format_order_notification(data):
         if value is not None:
             lines.append(f"{label}: {fmt(value)}")
 
-    if discount_amount_used is not None or discount_code_used:
-        amount_str = fmt(discount_amount_used or 0)
+    if used_discount_amount is not None or used_discount_code:
+        amount_str = fmt(used_discount_amount or 0)
         source = (data.get("source") or "").lower()
         if source == "pos":
             lines.append(f"Kassa Korting: -{amount_str}")
         else:
-            lines.append(f"Korting: -{amount_str} (Code: {discount_code_used or 'geen'})")
+            lines.append(f"Korting: -{amount_str} (Code: {used_discount_code or 'geen'})")
 
     btw_lines = _select_btw_fields(btw9_value, btw21_value, btw_total_value)
     if "btw_9" in btw_lines:
@@ -784,7 +787,16 @@ def api_send_order():
     sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
     delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
     tip = float(data.get("tip") or 0)
-    discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
+    discount = float(
+        data.get("usedDiscountAmount")
+        or data.get("discountAmount")
+        or data.get("discount_amount")
+        or 0
+    )
+    if data.get("discountCode") and not data.get("usedDiscountCode"):
+        data["usedDiscountCode"] = data.get("discountCode")
+    if data.get("usedDiscountAmount") is None and data.get("discountAmount") is not None:
+        data["usedDiscountAmount"] = data.get("discountAmount")
     heineken_total = sum(
         v["price"] * v["qty"]
         for k, v in sanitized_items.items()
@@ -819,6 +831,7 @@ def api_send_order():
         "packaging": f"{packaging_fee:.2f}",
         "delivery": f"{delivery_fee:.2f}",
         "discount_amount": f"{discount:.2f}",
+        "usedDiscountAmount": f"{discount:.2f}",
         "btw": f"{btw:.2f}",
         "btw_9": f"{btw_9:.2f}",
         "btw_21": f"{btw_21:.2f}",
@@ -1292,7 +1305,7 @@ def mollie_webhook():
                         text += f"\n📍 Google Maps: {maps_link}"
 
                     # ✅ 新增：折扣码提醒
-                    kortingscode = order_data.get('discount_code') or order_data.get('discountCode')
+                    kortingscode = order_data.get('discount_code')
                     kortingsbedrag = float(order_data.get('discount_amount') or 0)
 
                     if kortingscode:
@@ -1432,10 +1445,11 @@ def submit_order():
         delivery_fee = float(summary.get("delivery", 0.0))
         tip = float(data.get("tip") or 0)
         discount = float(
-            summary.get("discountAmount")
+            summary.get("usedDiscountAmount")
             or summary.get("discount_amount")
-            or data.get("discountAmount")
+            or data.get("usedDiscountAmount")
             or data.get("discount_amount")
+            or data.get("discountAmount")
             or 0
         )
         btw_9 = float(summary.get("btw_9", 0))
@@ -1452,6 +1466,7 @@ def submit_order():
             "packaging": f"{packaging_fee:.2f}",
             "delivery": f"{delivery_fee:.2f}",
             "discount_amount": f"{discount:.2f}",
+            "usedDiscountAmount": f"{discount:.2f}",
             "btw": f"{btw:.2f}",
             "btw_9": f"{btw_9:.2f}",
             "btw_21": f"{btw_21:.2f}",
@@ -1461,9 +1476,11 @@ def submit_order():
         }
 
         # Accept POS discount without code validation
-        data["discountAmount"] = round(discount, 2)
-        if discount > 0 and not data.get("discountCode"):
-            data["discountCode"] = "KASSA"
+        data["usedDiscountAmount"] = round(discount, 2)
+        if data.get("discountCode") and not data.get("usedDiscountCode"):
+            data["usedDiscountCode"] = data.get("discountCode")
+        if discount > 0 and not data.get("usedDiscountCode"):
+            data["usedDiscountCode"] = "KASSA"
     elif source == "index":
         prices = load_prices()
         sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
@@ -1471,10 +1488,11 @@ def submit_order():
         delivery_fee = float(summary.get("delivery", 0.0))
         tip = float(data.get("tip") or 0)
         discount = float(
-            summary.get("discountAmount")
+            summary.get("usedDiscountAmount")
             or summary.get("discount_amount")
-            or data.get("discountAmount")
+            or data.get("usedDiscountAmount")
             or data.get("discount_amount")
+            or data.get("discountAmount")
             or 0
         )
         btw = summary.get("btw")
@@ -1486,6 +1504,10 @@ def submit_order():
                 subtotal + packaging_fee + delivery_fee + tip - discount,
             )
         )
+        summary.setdefault(
+            "usedDiscountAmount",
+            summary.get("discountAmount") or summary.get("discount_amount"),
+        )
         data["summary"] = summary
     else:
         prices = load_prices()
@@ -1493,7 +1515,10 @@ def submit_order():
         delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
         tip = float(data.get("tip") or 0)
         discount = float(
-            data.get("discountAmount") or data.get("discount_amount") or 0
+            data.get("usedDiscountAmount")
+            or data.get("discountAmount")
+            or data.get("discount_amount")
+            or 0
         )
         heineken_total = sum(
             v["price"] * v["qty"]
@@ -1519,6 +1544,7 @@ def submit_order():
             "packaging": f"{packaging_fee:.2f}",
             "delivery": f"{delivery_fee:.2f}",
             "discount_amount": f"{discount:.2f}",
+            "usedDiscountAmount": f"{discount:.2f}",
             "btw": f"{btw:.2f}",
             "btw_9": f"{btw_9:.2f}",
             "btw_21": f"{btw_21:.2f}",
