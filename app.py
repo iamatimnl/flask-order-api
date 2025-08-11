@@ -148,6 +148,55 @@ def sort_items(items):
 
     return sorted_items
 
+
+def _select_btw_fields(btw9, btw21, btw_total):
+    """Apply BTW sending rules and return the relevant fields.
+
+    The rules are:
+    1. If BTW 21% is 0/empty -> only send BTW 9%.
+    2. If both 21% and 9% are non-zero -> only send BTW total.
+    3. If 21% is non-zero and 9% is 0/empty -> only send BTW 21%.
+    """
+
+    def is_zero(value):
+        try:
+            return float(value) == 0
+        except (TypeError, ValueError):
+            return value in (None, "")
+
+    if is_zero(btw21):
+        return {"btw_9": btw9} if not is_zero(btw9) else {}
+    if not is_zero(btw9):
+        return {"btw_total": btw_total}
+    return {"btw_21": btw21}
+
+
+def filter_btw_fields(data):
+    """Return a copy of ``data`` with BTW fields filtered per rules."""
+    result = dict(data)
+    selected = _select_btw_fields(
+        result.get("btw_9"),
+        result.get("btw_21"),
+        result.get("btw_total") or result.get("btw"),
+    )
+    for key in ["btw_9", "btw_21", "btw_total", "btw_split"]:
+        result.pop(key, None)
+    result.update(selected)
+
+    summary = result.get("summary")
+    if isinstance(summary, dict):
+        summary_selected = _select_btw_fields(
+            summary.get("btw_9"),
+            summary.get("btw_21"),
+            summary.get("btw_total") or summary.get("btw"),
+        )
+        for key in ["btw_9", "btw_21", "btw_total", "btw_split"]:
+            summary.pop(key, None)
+        summary.update(summary_selected)
+        result["summary"] = summary
+
+    return result
+
 def build_google_maps_link(data):
     """Return a Google Maps search link for the order address."""
     street = data.get("street", "").strip()
@@ -246,10 +295,11 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "discount_code": discount_code,
         "discount_amount": discount_amount,
         "discountAmount": data.get("discountAmount"),
-        "discountCode": data.get("discountCode"),
+       "discountCode": data.get("discountCode"),
     }
 
     order["items"] = sort_items(order.get("items", {}))
+    order = filter_btw_fields(order)
     return order
 
 @app.route('/logout')
@@ -451,8 +501,9 @@ def send_telegram_to_customer(phone, text):
 
 def send_pos_order(order_data):
     """Forward the order data to the POS system."""
+    payload = filter_btw_fields(order_data)
     try:
-        response = requests.post(POS_API_URL, json=order_data)
+        response = requests.post(POS_API_URL, json=payload)
         if response.status_code == 200:
             print("✅ POS-bestelling verzonden!")
             return True, None
@@ -507,48 +558,45 @@ def validate_discount_code_api(code, order_total):
 
 def record_order(order_data, pos_ok):
     """Store a simplified snapshot of the order for today's overview."""
-    pickup_time = order_data.get("pickup_time") or order_data.get("pickupTime")
-    delivery_time = order_data.get("delivery_time") or order_data.get("deliveryTime")
-    tijdslot = order_data.get("tijdslot", "")
+    data = filter_btw_fields(order_data)
+    pickup_time = data.get("pickup_time") or data.get("pickupTime")
+    delivery_time = data.get("delivery_time") or data.get("deliveryTime")
+    tijdslot = data.get("tijdslot", "")
     tijdslot_raw = str(tijdslot).lower().replace(".", "").strip()
     is_zsm = tijdslot_raw in ["zsm", "z.s.m", "z.s.m.", "asap"]
 
     if not pickup_time and not delivery_time and not is_zsm:
-        if order_data.get("orderType") == "bezorgen":
+        if data.get("orderType") == "bezorgen":
             delivery_time = tijdslot
         else:
             pickup_time = tijdslot
 
-    summary = order_data.get("summary") or {}
-    btw_total_value = (
-        order_data.get("btw_total")
-        or summary.get("btw_total")
-        or summary.get("btw")
-    )
-    if btw_total_value is None and order_data.get("source") != "index":
-        btw_total_value = (order_data.get("btw_9") or 0) + (order_data.get("btw_21") or 0)
+    summary = data.get("summary") or {}
 
-    ORDERS.append({
+    entry = {
         "timestamp": datetime.now(TZ).isoformat(timespec="seconds"),
-        "name": order_data.get("name"),
-        "items": order_data.get("items"),
-        "paymentMethod": order_data.get("paymentMethod"),
-        "orderType": order_data.get("orderType"),
-        "opmerking": order_data.get("opmerking") or order_data.get("remark"),
-        "order_number": order_data.get("order_number") or order_data.get("orderNumber"),
-        "status": order_data.get("status", "Pending"),
-        "payment_id": order_data.get("payment_id"),
+        "name": data.get("name"),
+        "items": data.get("items"),
+        "paymentMethod": data.get("paymentMethod"),
+        "orderType": data.get("orderType"),
+        "opmerking": data.get("opmerking") or data.get("remark"),
+        "order_number": data.get("order_number") or data.get("orderNumber"),
+        "status": data.get("status", "Pending"),
+        "payment_id": data.get("payment_id"),
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
-        "totaal": order_data.get("totaal") or summary.get("total"),
-        "btw_9": order_data.get("btw_9") or summary.get("btw_9"),
-        "btw_21": order_data.get("btw_21") or summary.get("btw_21"),
-        "btw_total": btw_total_value,
-        "discountAmount": order_data.get("discountAmount"),
-        "discountCode": order_data.get("discountCode"),
-        "full": order_data,
-    })
+        "totaal": data.get("totaal") or summary.get("total"),
+        "discountAmount": data.get("discountAmount"),
+        "discountCode": data.get("discountCode"),
+        "full": data,
+    }
+
+    for key in ("btw_9", "btw_21", "btw_total"):
+        if key in data:
+            entry[key] = data[key]
+
+    ORDERS.append(entry)
 
 
 def format_order_notification(data):
@@ -673,12 +721,13 @@ def format_order_notification(data):
         else:
             lines.append(f"Korting: -{amount_str} (Code: {discount_code_used or 'geen'})")
 
-    if btw9_value is not None:
-        lines.append(f"BTW 9%: {fmt(btw9_value)}")
-    if btw21_value:
-        lines.append(f"BTW 21%: {fmt(btw21_value)}")
-    if btw_total_value is not None:
-        lines.append(f"BTW Totaal: {fmt(btw_total_value)}")
+    btw_lines = _select_btw_fields(btw9_value, btw21_value, btw_total_value)
+    if "btw_9" in btw_lines:
+        lines.append(f"BTW 9%: {fmt(btw_lines['btw_9'])}")
+    elif "btw_21" in btw_lines:
+        lines.append(f"BTW 21%: {fmt(btw_lines['btw_21'])}")
+    elif "btw_total" in btw_lines:
+        lines.append(f"BTW Totaal: {fmt(btw_lines['btw_total'])}")
     if total_value is not None:
         lines.append(f"Totaal: {fmt(total_value)}")
 
@@ -698,6 +747,10 @@ def _orders_overview():
             # Skip malformed timestamps instead of failing
             continue
         if ts.date() == today:
+            btw_fields = {}
+            for key in ("btw_9", "btw_21", "btw_total"):
+                if key in entry:
+                    btw_fields[key] = entry[key]
             overview.append({
                 "time": ts.strftime("%H:%M"),
                 "customerName": entry.get("name"),
@@ -707,9 +760,7 @@ def _orders_overview():
                 "opmerking": entry.get("opmerking") or entry.get("remark"),
                 "pos_ok": entry.get("pos_ok"),
                 "totaal": entry.get("totaal"),
-                "btw_9": entry.get("btw_9"),
-                "btw_21": entry.get("btw_21"),
-                "btw_total": entry.get("btw_total"),
+                **btw_fields,
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
                 "order_number": entry.get("order_number"),
