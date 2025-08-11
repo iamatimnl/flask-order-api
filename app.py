@@ -294,8 +294,8 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         # ✅ 折扣信息
         "next_discount_code": next_discount_code,
         "next_discount_amount": next_discount_amount,
-        "discountAmount": data.get("discountAmount"),
-       "discountCode": data.get("discountCode"),
+        "discount_amount": data.get("discount_amount"),
+        "discount_code": data.get("discount_code"),
     }
 
     order["items"] = sort_items(order.get("items", {}))
@@ -595,8 +595,8 @@ def record_order(order_data, pos_ok):
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
         "totaal": data.get("totaal") or summary.get("total"),
-        "discountAmount": data.get("discountAmount"),
-        "discountCode": data.get("discountCode"),
+        "discount_amount": data.get("discount_amount"),
+        "discount_code": data.get("discount_code"),
         "full": data,
     }
 
@@ -701,10 +701,10 @@ def format_order_notification(data):
         ("Fooi", data.get("tip")),
     ]
 
-    discount_amount_used = data.get("discountAmount")
+    discount_amount_used = data.get("discount_amount")
     if discount_amount_used is None:
-        discount_amount_used = summary.get("discountAmount")
-    discount_code_used = data.get("discountCode")
+        discount_amount_used = summary.get("discount_amount")
+    discount_code_used = data.get("discount_code")
 
     btw_value = data.get("btw") or summary.get("btw")
     btw9_value = data.get("btw_9") or summary.get("btw_9")
@@ -792,7 +792,7 @@ def api_send_order():
     sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
     delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
     tip = float(data.get("tip") or 0)
-    discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
+    discount = float(data.get("discount_amount") or 0)
     heineken_total = sum(
         v["price"] * v["qty"]
         for k, v in sanitized_items.items()
@@ -1443,9 +1443,7 @@ def submit_order():
         delivery_fee = float(summary.get("delivery", 0.0))
         tip = float(data.get("tip") or 0)
         discount = float(
-            summary.get("discountAmount")
-            or summary.get("discount_amount")
-            or data.get("discountAmount")
+            summary.get("discount_amount")
             or data.get("discount_amount")
             or 0
         )
@@ -1472,9 +1470,9 @@ def submit_order():
         }
 
         # Accept POS discount without code validation
-        data["discountAmount"] = round(discount, 2)
-        if discount > 0 and not data.get("discountCode"):
-            data["discountCode"] = "KASSA"
+        data["discount_amount"] = round(discount, 2)
+        if discount > 0 and not data.get("discount_code"):
+            data["discount_code"] = "KASSA"
     elif source == "index":
         prices = load_prices()
         sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
@@ -1482,9 +1480,7 @@ def submit_order():
         delivery_fee = float(summary.get("delivery", 0.0))
         tip = float(data.get("tip") or 0)
         discount = float(
-            summary.get("discountAmount")
-            or summary.get("discount_amount")
-            or data.get("discountAmount")
+            summary.get("discount_amount")
             or data.get("discount_amount")
             or 0
         )
@@ -1504,7 +1500,7 @@ def submit_order():
         delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
         tip = float(data.get("tip") or 0)
         discount = float(
-            data.get("discountAmount") or data.get("discount_amount") or 0
+            data.get("discount_amount") or 0
         )
         heineken_total = sum(
             v["price"] * v["qty"]
