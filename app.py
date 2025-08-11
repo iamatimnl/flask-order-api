@@ -221,7 +221,7 @@ def build_google_maps_link(data):
 
 
 def build_socket_order(data, created_date="", created_time="", maps_link=None,
-                       next_discount_code=None, next_discount_amount=None):
+                       discount_code=None, discount_amount=None):
     """Return order data formatted for POS socket events."""
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
@@ -292,10 +292,10 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "totaal": data.get("totaal") or summary.get("total"),
 
         # ✅ 折扣信息
-        "next_discount_code": next_discount_code,
-        "next_discount_amount": next_discount_amount,
-        "discount_amount": data.get("discount_amount"),
-        "discount_code": data.get("discount_code"),
+        "discount_code": discount_code,
+        "discount_amount": discount_amount,
+        "discountAmount": data.get("discountAmount"),
+       "discountCode": data.get("discountCode"),
     }
 
     order["items"] = sort_items(order.get("items", {}))
@@ -364,7 +364,7 @@ def translate_order_text_to_english(order_text_nl: str) -> str:
 
 
 
-def send_confirmation_email(order_text, customer_email, order_number, next_discount_code=None, next_discount_amount=None):
+def send_confirmation_email(order_text, customer_email, order_number, discount_code=None, discount_amount=None):
     """Send bilingual order confirmation email to the customer with review link."""
     review_link = f"https://www.novaasia.nl/review?order={order_number}"
     subject = "Nova Asia - Bevestiging van je bestelling | Order Confirmation"
@@ -372,29 +372,21 @@ def send_confirmation_email(order_text, customer_email, order_number, next_disco
     # Format korting
     korting_html = ""
     korting_en_html = ""
-    if next_discount_code:
-        formatted = (
-            f"€{next_discount_amount:.2f}"
-            if next_discount_amount is not None
-            else ""
-        )
+    if discount_code:
+        formatted = f"€{discount_amount:.2f}" if discount_amount is not None else ""
         korting_html = (
-            f"<br><br> Je volgende kortingscode: <strong>{next_discount_code}</strong><br>"
+            f"<br><br> Je kortingscode: <strong>{discount_code}</strong><br>"
             "Gebruik deze code bij je volgende bestelling!"
         )
         if formatted:
-            korting_html += (
-                f"<br>Deze code geeft je 3% korting.<br>De verwachte korting op basis van je huidige bestelling is ongeveer {formatted}."
-            )
+            korting_html += f"<br>Deze code geeft je 3% korting.<br>De verwachte korting op basis van je huidige bestelling is ongeveer {formatted}."
 
         korting_en_html = (
-            f"<br><br>Your next discount code: <strong>{next_discount_code}</strong><br>"
+            f"<br><br>Your discount code: <strong>{discount_code}</strong><br>"
             "Use this code on your next order!"
         )
         if formatted:
-            korting_en_html += (
-                f"<br>This code gives you a 3% discount.<br>The expected discount based on your current order is about {formatted}."
-            )
+            korting_en_html += f"<br>This code gives you a 3% discount.<br>The expected discount based on your current order is about {formatted}."
 
     # 💬 翻译订单文本
     order_text_nl = order_text.replace("\n", "<br>")
@@ -595,8 +587,8 @@ def record_order(order_data, pos_ok):
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
         "totaal": data.get("totaal") or summary.get("total"),
-        "discount_amount": data.get("discount_amount"),
-        "discount_code": data.get("discount_code"),
+        "discountAmount": data.get("discountAmount"),
+        "discountCode": data.get("discountCode"),
         "full": data,
     }
 
@@ -701,10 +693,10 @@ def format_order_notification(data):
         ("Fooi", data.get("tip")),
     ]
 
-    discount_amount_used = data.get("discount_amount")
+    discount_amount_used = data.get("discountAmount")
     if discount_amount_used is None:
-        discount_amount_used = summary.get("discount_amount")
-    discount_code_used = data.get("discount_code")
+        discount_amount_used = summary.get("discountAmount")
+    discount_code_used = data.get("discountCode")
 
     btw_value = data.get("btw") or summary.get("btw")
     btw9_value = data.get("btw_9") or summary.get("btw_9")
@@ -792,7 +784,7 @@ def api_send_order():
     sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
     delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
     tip = float(data.get("tip") or 0)
-    discount = float(data.get("discount_amount") or 0)
+    discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
     heineken_total = sum(
         v["price"] * v["qty"]
         for k, v in sanitized_items.items()
@@ -860,14 +852,14 @@ def api_send_order():
     data["status"] = "Pending"
 
     # 折扣处理
-    next_discount_code = None
-    next_discount_amount = None
+    discount_code = None
+    discount_amount = None
     order_total_val = float(data.get("totaal") or 0)
     if customer_email and order_total_val >= 20:
-        next_discount_amount = round(order_total_val * 0.03, 2)
-        next_discount_code = generate_discount_code()
-        data["next_discount_code"] = next_discount_code
-        data["next_discount_amount"] = next_discount_amount
+        discount_amount = round(order_total_val * 0.03, 2)
+        discount_code = generate_discount_code()
+        data["discount_code"] = discount_code
+        data["discount_amount"] = discount_amount
 
     # 处理时间字段
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
@@ -925,11 +917,8 @@ def api_send_order():
     if payment_method != "online" and customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
         send_confirmation_email(
-            order_text,
-            customer_email,
-            order_number,
-            next_discount_code,
-            next_discount_amount,
+            order_text, customer_email, order_number,
+            discount_code, discount_amount
         )
 
     # WebSocket 推送到 POS
@@ -939,8 +928,8 @@ def api_send_order():
             created_date=created_date,
             created_time=created_time,
             maps_link=maps_link,
-            next_discount_code=next_discount_code,
-            next_discount_amount=next_discount_amount,
+            discount_code=discount_code,
+            discount_amount=discount_amount,
         )
         socketio.emit("new_order", socket_order)
 
@@ -1303,12 +1292,12 @@ def mollie_webhook():
                         text += f"\n📍 Google Maps: {maps_link}"
 
                     # ✅ 新增：折扣码提醒
-                    kortingscode = order_data.get('next_discount_code') or order_data.get('nextDiscountCode')
-                    kortingsbedrag = float(order_data.get('next_discount_amount') or 0)
+                    kortingscode = order_data.get('discount_code') or order_data.get('discountCode')
+                    kortingsbedrag = float(order_data.get('discount_amount') or 0)
 
                     if kortingscode:
                         text += (
-                            f"\n\nJe volgende kortingscode: {kortingscode}"
+                            f"\n\nJe kortingscode: {kortingscode}"
                             f"\nGebruik deze code bij je volgende bestelling!"
                             f"\nDeze code geeft je 3% korting."
                             f"\nDe verwachte korting op basis van je huidige bestelling is ongeveer €{kortingsbedrag:.2f}"
@@ -1443,7 +1432,9 @@ def submit_order():
         delivery_fee = float(summary.get("delivery", 0.0))
         tip = float(data.get("tip") or 0)
         discount = float(
-            summary.get("discount_amount")
+            summary.get("discountAmount")
+            or summary.get("discount_amount")
+            or data.get("discountAmount")
             or data.get("discount_amount")
             or 0
         )
@@ -1470,9 +1461,9 @@ def submit_order():
         }
 
         # Accept POS discount without code validation
-        data["discount_amount"] = round(discount, 2)
-        if discount > 0 and not data.get("discount_code"):
-            data["discount_code"] = "KASSA"
+        data["discountAmount"] = round(discount, 2)
+        if discount > 0 and not data.get("discountCode"):
+            data["discountCode"] = "KASSA"
     elif source == "index":
         prices = load_prices()
         sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
@@ -1480,7 +1471,9 @@ def submit_order():
         delivery_fee = float(summary.get("delivery", 0.0))
         tip = float(data.get("tip") or 0)
         discount = float(
-            summary.get("discount_amount")
+            summary.get("discountAmount")
+            or summary.get("discount_amount")
+            or data.get("discountAmount")
             or data.get("discount_amount")
             or 0
         )
@@ -1500,7 +1493,7 @@ def submit_order():
         delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
         tip = float(data.get("tip") or 0)
         discount = float(
-            data.get("discount_amount") or 0
+            data.get("discountAmount") or data.get("discount_amount") or 0
         )
         heineken_total = sum(
             v["price"] * v["qty"]
@@ -1600,14 +1593,14 @@ def submit_order():
         order_text += f"\n📍 Google Maps: {maps_link}"
 
     # ✅ 折扣处理
-    next_discount_code = None
-    next_discount_amount = None
+    discount_code = None
+    discount_amount = None
     order_total_val = float(data.get("totaal") or 0)
     if customer_email and order_total_val >= 20:
-        next_discount_amount = round(order_total_val * 0.03, 2)
-        next_discount_code = generate_discount_code()
-        data["next_discount_code"] = next_discount_code
-        data["next_discount_amount"] = next_discount_amount
+        discount_amount = round(order_total_val * 0.03, 2)
+        discount_code = generate_discount_code()
+        data["discount_code"] = discount_code
+        data["discount_amount"] = discount_amount
 
     # ✅ 在线支付处理（先记录订单）
     if payment_method == "online":
@@ -1635,13 +1628,7 @@ def submit_order():
     # ✅ 向客户发送确认邮件（如填写邮箱）
     if customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
-        send_confirmation_email(
-            order_text,
-            customer_email,
-            order_number,
-            next_discount_code,
-            next_discount_amount,
-        )
+        send_confirmation_email(order_text, customer_email, order_number, discount_code, discount_amount)
 
     # ✅ 设置 pickup_time / delivery_time（如果不是 ZSM 才做）
     if not is_zsm:
@@ -1664,8 +1651,8 @@ def submit_order():
         created_date=created_date,
         created_time=created_time,
         maps_link=maps_link,
-        next_discount_code=next_discount_code,
-        next_discount_amount=next_discount_amount,
+        discount_code=discount_code,
+        discount_amount=discount_amount,
     )
     socketio.emit("new_order", socket_order)
 
