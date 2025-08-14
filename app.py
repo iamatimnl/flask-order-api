@@ -261,6 +261,7 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "order_number": data.get("order_number") or data.get("orderNumber"),
         "status": data.get("status"),
         "payment_id": data.get("payment_id"),
+        "bron": data.get("bron"),
         "items": data.get("items", {}),
         "street": data.get("street", ""),
         "house_number": data.get("house_number") or data.get("houseNumber", ""),
@@ -579,6 +580,7 @@ def record_order(order_data, pos_ok):
         "items": data.get("items"),
         "paymentMethod": data.get("paymentMethod"),
         "orderType": data.get("orderType"),
+        "bron": data.get("bron"),
         "opmerking": data.get("opmerking") or data.get("remark"),
         "order_number": data.get("order_number") or data.get("orderNumber"),
         "status": data.get("status", "Pending"),
@@ -634,6 +636,10 @@ def format_order_notification(data):
     payment_method = data.get("payment_method") or data.get("paymentMethod")
     if payment_method:
         lines.append(f"Betaling: {payment_method}")
+
+    bron = data.get("bron")
+    if bron:
+        lines.append(f"Bron: {bron}")
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
     pickup_time = data.get("pickup_time") or data.get("pickupTime")
@@ -778,6 +784,9 @@ def get_orders_today():
 @app.route("/api/send", methods=["POST"])
 def api_send_order():
     data = request.get_json()
+
+    source = (data.get("source") or "").lower()
+    data["bron"] = "Online" if source == "index" else "Kassa"
 
     prices = load_prices()
     items = data.get("items", {})
@@ -1415,6 +1424,7 @@ def submit_order():
 
     # Normalize source to handle values like 'POS'
     source = (data.get("source") or "").lower()
+    data["bron"] = "Online" if source == "index" else "Kassa"
 
     if source == "pos":
         sanitized_items = {}
