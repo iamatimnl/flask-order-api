@@ -257,6 +257,7 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "time": created_time,
         "phone": data.get("phone", ""),
         "email": data.get("email", ""),
+        "bron": data.get("bron"),
         "payment_method": (data.get("paymentMethod") or data.get("payment_method", "")).lower(),
         "order_number": data.get("order_number") or data.get("orderNumber"),
         "status": data.get("status"),
@@ -585,6 +586,7 @@ def record_order(order_data, pos_ok):
         "payment_id": data.get("payment_id"),
         "pickup_time": pickup_time,
         "delivery_time": delivery_time,
+        "bron": data.get("bron"),
         "pos_ok": pos_ok,
         "totaal": data.get("totaal") or summary.get("total"),
         "discountAmount": data.get("discountAmount"),
@@ -634,6 +636,10 @@ def format_order_notification(data):
     payment_method = data.get("payment_method") or data.get("paymentMethod")
     if payment_method:
         lines.append(f"Betaling: {payment_method}")
+
+    bron = data.get("bron")
+    if bron:
+        lines.append(f"Bron: {bron}")
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime")
     pickup_time = data.get("pickup_time") or data.get("pickupTime")
@@ -758,6 +764,7 @@ def _orders_overview():
                 "paymentMethod": entry.get("paymentMethod"),
                 "orderType": entry.get("orderType"),
                 "opmerking": entry.get("opmerking") or entry.get("remark"),
+                "bron": entry.get("bron"),
                 "pos_ok": entry.get("pos_ok"),
                 "totaal": entry.get("totaal"),
                 **btw_fields,
@@ -778,6 +785,10 @@ def get_orders_today():
 @app.route("/api/send", methods=["POST"])
 def api_send_order():
     data = request.get_json()
+
+    # Ensure bron is set for outgoing order data
+    bron = data.get("bron") or "Online"
+    data["bron"] = bron
 
     prices = load_prices()
     items = data.get("items", {})
@@ -1415,6 +1426,12 @@ def submit_order():
 
     # Normalize source to handle values like 'POS'
     source = (data.get("source") or "").lower()
+
+    # Determine order origin (bron)
+    bron = data.get("bron")
+    if not bron:
+        bron = "Kassa" if source == "pos" else "Online"
+    data["bron"] = bron
 
     if source == "pos":
         sanitized_items = {}
