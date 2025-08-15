@@ -51,10 +51,6 @@
     "price": 24.0,
     "packaging": 0.2
   },
-  "Xbento": {
-    "price": 25.0,
-    "packaging": 0.2
-  },
   "Ebi Furai": {
     "price": 18.0,
     "packaging": 0.2
@@ -137,10 +133,6 @@
   },
   "Flamed Tuna Bowl": {
     "price": 16.0,
-    "packaging": 0.2
-  },
-  "X-Bowl": {
-    "price": 0.0,
     "packaging": 0.2
   },
   "Teppanyaki Shrimp": {
