@@ -67,33 +67,21 @@ def load_prices():
     except Exception:
         return {}
 
-# Items whose prices are calculated on the front-end. These items may still
-# exist in ``prices.json`` but the back-end should trust the incoming price
-# instead of the static value.
-FRONTEND_PRICED_ITEMS = {"xbento", "x-bowl", "xbowl"}
-
-
-def is_frontend_priced(name: str) -> bool:
-    """Return True if the item price should come from the request body."""
-    lname = name.lower()
-    return lname in FRONTEND_PRICED_ITEMS or "ramen" in lname
-
 
 def sanitize_items(items, prices):
-    """Resolve item prices from mixed front-end/back-end sources."""
+    """Resolve item prices using ``prices.json`` as the source of truth.
+
+    If an item is missing from ``prices.json`` its price (and packaging fee)
+    from the request body is used instead.
+    """
     sanitized = {}
     subtotal = 0.0
     packaging_fee = 0.0
     for name, item in items.items():
         qty = int(item.get("qty", 0))
-        if not is_frontend_priced(name) and name in prices:
-            info = prices.get(name, {})
-            price = float(info.get("price", 0))
-            pack = float(info.get("packaging", 0))
-        else:
-            info = prices.get(name, {})
-            price = float(item.get("price") or 0)
-            pack = float(item.get("packaging") or info.get("packaging", 0))
+        info = prices.get(name, {})
+        price = float(info.get("price", item.get("price") or 0))
+        pack = float(info.get("packaging", item.get("packaging") or 0))
         subtotal += price * qty
         packaging_fee += pack * qty
         sanitized[name] = {"price": price, "qty": qty, "packaging": pack}
@@ -1487,16 +1475,37 @@ def submit_order():
             or data.get("discount_amount")
             or 0
         )
-        btw = summary.get("btw")
-        btw_9 = summary.get("btw_9")
-        btw_21 = summary.get("btw_21")
-        totaal = float(
-            summary.get(
-                "total",
-                subtotal + packaging_fee + delivery_fee + tip - discount,
-            )
+        heineken_total = sum(
+            v["price"] * v["qty"]
+            for k, v in sanitized_items.items()
+            if "heineken" in k.lower()
         )
-        data["summary"] = summary
+
+        base_excl_tip = subtotal + packaging_fee + delivery_fee
+        bucket21 = heineken_total
+        bucket9 = max(base_excl_tip - bucket21, 0.0)
+        if base_excl_tip > 0:
+            d21 = discount * (bucket21 / base_excl_tip)
+            d9 = discount * (bucket9 / base_excl_tip)
+        else:
+            d21 = d9 = 0.0
+
+        btw_21 = max(bucket21 - d21, 0.0) * 0.21
+        btw_9 = max(bucket9 - d9, 0.0) * 0.09
+        btw = btw_9 + btw_21
+        totaal = base_excl_tip - discount + tip
+        data["summary"] = {
+            "subtotal": f"{subtotal:.2f}",
+            "packaging": f"{packaging_fee:.2f}",
+            "delivery": f"{delivery_fee:.2f}",
+            "discount_amount": f"{discount:.2f}",
+            "btw": f"{btw:.2f}",
+            "btw_9": f"{btw_9:.2f}",
+            "btw_21": f"{btw_21:.2f}",
+            "btw_total": f"{btw:.2f}",
+            "btw_split": {"9": f"{btw_9:.2f}", "21": f"{btw_21:.2f}"},
+            "total": f"{totaal:.2f}",
+        }
     else:
         prices = load_prices()
         sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
@@ -1537,29 +1546,16 @@ def submit_order():
             "total": f"{totaal:.2f}",
         }
 
-    if source == "index":
-        summary = data.get("summary", {})
-        data["items"] = sanitized_items
-        data["subtotal"] = round(subtotal, 2)
-        data["packaging_fee"] = round(packaging_fee, 2)
-        data["delivery_fee"] = round(delivery_fee, 2)
-        data["btw"] = summary.get("btw")
-        data["btw_9"] = summary.get("btw_9")
-        data["btw_21"] = summary.get("btw_21")
-        data["btw_total"] = summary.get("btw_total") or summary.get("btw")
-        data["totaal"] = float(summary.get("total", totaal))
-        data["total"] = data["totaal"]
-    else:
-        data["items"] = sanitized_items
-        data["subtotal"] = round(subtotal, 2)
-        data["packaging_fee"] = round(packaging_fee, 2)
-        data["delivery_fee"] = round(delivery_fee, 2)
-        data["btw"] = round(btw, 2)
-        data["btw_9"] = round(btw_9, 2)
-        data["btw_21"] = round(btw_21, 2)
-        data["btw_total"] = round(btw, 2)
-        data["totaal"] = round(totaal, 2)
-        data["total"] = data["totaal"]
+    data["items"] = sanitized_items
+    data["subtotal"] = round(subtotal, 2)
+    data["packaging_fee"] = round(packaging_fee, 2)
+    data["delivery_fee"] = round(delivery_fee, 2)
+    data["btw"] = round(btw, 2)
+    data["btw_9"] = round(btw_9, 2)
+    data["btw_21"] = round(btw_21, 2)
+    data["btw_total"] = round(btw, 2)
+    data["totaal"] = round(totaal, 2)
+    data["total"] = data["totaal"]
 
     # ✅ 标准化 tijdslot 字段（处理 Z.S.M.）
     tijdslot = data.get("tijdslot") or data.get("pickup_time") or data.get("delivery_time")
