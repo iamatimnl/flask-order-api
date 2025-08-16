@@ -172,11 +172,11 @@
     "packaging": 0.2
   },
   "Salmon sashimi": {
-    "price": 10.5,
+    "price": 10,
     "packaging": 0.2
   },
   "Flamed salmon sashimi": {
-    "price": 10.0,
+    "price": 11.0,
     "packaging": 0.2
   },
   "Tonijn sashimi": {
@@ -184,31 +184,31 @@
     "packaging": 0.2
   },
   "Beef sashimi": {
-    "price": 10.0,
+    "price": 12.0,
     "packaging": 0.2
   },
   "Zalm crispy rice sandwich": {
-    "price": 7.0,
+    "price": 10.0,
     "packaging": 0.2
   },
   "Spicytuna crispy rice sandwich": {
-    "price": 7.0,
+    "price": 10.0,
     "packaging": 0.2
   },
   "Ebi crispy rice sandwich": {
-    "price": 7.0,
+    "price": 10.0,
     "packaging": 0.2
   },
   "Beef crispy rice sandwich": {
-    "price": 7.5,
+    "price": 10.5,
     "packaging": 0.2
   },
   "California crispy rice sandwich": {
-    "price": 7.5,
+    "price": 10.5,
     "packaging": 0.2
   },
   "Chicken crispy rice sandwich": {
-    "price": 7.0,
+    "price": 10.0,
     "packaging": 0.2
   },
   "Karaage": {
