@@ -185,6 +185,60 @@ def filter_btw_fields(data):
 
     return result
 
+def format_currency_excel(value):
+    """Return ``value`` formatted as European currency for Excel."""
+    try:
+        formatted = f"{float(value):,.2f}"
+        formatted = formatted.replace(",", "X").replace(".", ",").replace("X", ".")
+        return f"€ {formatted}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def format_phone_excel(phone):
+    """Return ``phone`` prefixed so Excel treats it as text."""
+    if phone is None:
+        return ""
+    phone_str = str(phone).strip()
+    if not phone_str:
+        return ""
+    return f"'{phone_str}"
+
+
+_CURRENCY_FIELDS = {
+    "subtotal",
+    "packaging_fee",
+    "delivery_fee",
+    "bezorgkosten",
+    "tip",
+    "fooi",
+    "btw",
+    "btw_9",
+    "btw_21",
+    "btw_total",
+    "totaal",
+    "total",
+    "discount_amount",
+    "discountAmount",
+}
+
+
+def format_order_for_excel(order: dict) -> dict:
+    """Attach Excel-formatted versions of currency and phone fields."""
+    for key in list(order.keys()):
+        if key in _CURRENCY_FIELDS:
+            order[f"{key}_excel"] = format_currency_excel(order.get(key))
+    if "phone" in order:
+        order["phone_excel"] = format_phone_excel(order.get("phone"))
+
+    items = order.get("items")
+    if isinstance(items, dict):
+        for item in items.values():
+            price = item.get("price")
+            if price is not None:
+                item["price_excel"] = format_currency_excel(price)
+    return order
+
 def build_google_maps_link(data):
     """Return a Google Maps search link for the order address."""
     street = data.get("street", "").strip()
@@ -289,6 +343,7 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
 
     order["items"] = sort_items(order.get("items", {}))
     order = filter_btw_fields(order)
+    order = format_order_for_excel(order)
     return order
 
 @app.route('/logout')
@@ -745,7 +800,7 @@ def _orders_overview():
             for key in ("btw_9", "btw_21", "btw_total"):
                 if key in entry:
                     btw_fields[key] = entry[key]
-            overview.append({
+            order = {
                 "time": ts.strftime("%H:%M"),
                 "customerName": entry.get("name"),
                 "items": entry.get("items"),
@@ -760,7 +815,9 @@ def _orders_overview():
                 "order_number": entry.get("order_number"),
                 "status": entry.get("status"),
                 "payment_id": entry.get("payment_id"),
-            })
+                "phone": (entry.get("full") or {}).get("phone"),
+            }
+            overview.append(format_order_for_excel(order))
     return overview
 
 

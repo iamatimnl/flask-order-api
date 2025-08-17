@@ -73,7 +73,7 @@ th:last-child {
       <td><span class="{{ 'type-bezorging' if is_delivery else 'type-afhalen' }}">{{ 'Bezorging' if is_delivery else 'Afhalen' }}</span></td>
 
       <td>{{ order.customer_name or '' }}</td>
-      <td>{{ order.phone or '' }}</td>
+      <td>{{ order.phone_excel or order.phone or '' }}</td>
       <td>{{ order.email or '-' }}</td>
 
       <td>
@@ -87,7 +87,7 @@ th:last-child {
       <td>{{ order.opmerking or '-' }}</td>
 
       <!-- ✅ 只显示 één prijswaarde -->
-      <td>€{{ '%.2f' % (order.totaal or 0) }}</td>
+      <td>{{ order.totaal_excel or ('€' + ('%.2f' % (order.totaal or 0)).replace('.', ',')) }}</td>
 
       <td>
         {% if is_delivery %}
@@ -216,7 +216,7 @@ function insertSorted(tbody,tr){
 
   <td>${isDelivery ? 'Bezorgen' : 'Afhalen'}</td>
   <td>${order.customer_name || ''}</td>
-  <td>${order.phone || ''}</td>
+  <td>${order.phone_excel || order.phone || ''}</td>
   <td>${order.email || '-'}</td>
   <td><ul>${items}</ul></td>
   <td>${remark || '-'}</td>
@@ -249,7 +249,7 @@ function insertSorted(tbody,tr){
       lines.push('---');
       Object.entries(o.items||{}).forEach(([n,i])=>lines.push(`${i.qty} x ${n}`));
       lines.push('---');
-      lines.push(`Totaal: €${parseFloat(o.totaal).toFixed(2)}`);
+      lines.push(`Totaal: ${o.totaal_excel || formatCurrency(o.totaal)}`);
       const t=o.delivery_time||o.deliveryTime||o.pickup_time||o.pickupTime||o.tijdslot||'';
       if(t) lines.push(`Tijd: ${t}`);
       return lines.join('\n');
