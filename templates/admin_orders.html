@@ -152,12 +152,12 @@
               <td>${order.created_at || ''}</td>
               <td>${isDelivery ? 'Bezorgen' : 'Afhalen'}</td>
               <td>${order.customer_name || ''}</td>
-              <td>${order.phone || ''}</td>
+              <td>${order.phone_excel || order.phone || ''}</td>
               <td>${order.email || '-'}</td>
               <td><ul>${items}</ul></td>
               <td>${order.opmerking || order.remark || '-'}</td>
-              <td>${formatCurrency(fooi)}</td>
-              <td>${formatCurrency(tot)}</td>
+              <td>${order.fooi_excel || formatCurrency(fooi)}</td>
+              <td>${order.totaal_excel || formatCurrency(tot)}</td>
               <td>${isDelivery ? `${order.street} ${order.house_number} ${order.postcode} ${order.city}${order.maps_link ? ` <a href="${order.maps_link}" target="_blank">📍Maps</a>` : ''}` : '-'}</td>
               <td>${isDelivery ? (order.delivery_time || order.deliveryTime || '-') : (order.pickup_time || order.pickupTime || '-')}</td>
               <td>${order.payment_method || ''}</td>

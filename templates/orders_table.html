@@ -105,7 +105,7 @@ th:last-child {
           </span>
         </td>
         <td>{{ order.customer_name or '' }}</td>
-        <td>{{ order.phone or '' }}</td>
+        <td>{{ order.phone_excel or order.phone or '' }}</td>
         <td>{{ order.email or '-' }}</td>
         <td>
           <ul>
@@ -117,7 +117,7 @@ th:last-child {
        <td>{{ order.opmerking or '-' }}</td>
        <td>€{{ '%.2f' % (order.fooi or order.tip or 0) }}</td>
 
-        <td>€{{ '%.2f' % (order.totaal or 0) }}</td>
+       <td>{{ order.totaal_excel or ('€' + ('%.2f' % (order.totaal or 0)).replace('.', ',')) }}</td>
 
         <td>
           {% if is_delivery %}
