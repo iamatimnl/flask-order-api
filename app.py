@@ -203,6 +203,7 @@ _CURRENCY_FIELDS = {
     "bezorgkosten",
     "tip",
     "fooi",
+    "statiegeld",
     "btw",
     "btw_9",
     "btw_21",
@@ -616,6 +617,8 @@ def record_order(order_data, pos_ok):
         "totaal": data.get("totaal") or summary.get("total"),
         "discountAmount": data.get("discountAmount"),
         "discountCode": data.get("discountCode"),
+        "fooi": data.get("fooi") or data.get("tip"),
+        "statiegeld": data.get("statiegeld"),
         "full": data,
     }
 
@@ -721,6 +724,7 @@ def format_order_notification(data):
         ("Subtotaal", data.get("subtotal") or summary.get("subtotal")),
         ("Verpakkingskosten", data.get("packaging_fee") or summary.get("packaging")),
         ("Bezorgkosten", data.get("delivery_fee") or summary.get("delivery")),
+        ("Statiegeld", data.get("statiegeld")),
         ("Fooi", data.get("tip")),
     ]
 
@@ -781,6 +785,8 @@ def _orders_overview():
                 "opmerking": entry.get("opmerking") or entry.get("remark"),
                 "pos_ok": entry.get("pos_ok"),
                 "totaal": entry.get("totaal"),
+                "fooi": entry.get("fooi"),
+                "statiegeld": entry.get("statiegeld"),
                 **btw_fields,
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
@@ -810,10 +816,11 @@ def api_send_order():
     sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
     delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
     tip = float(data.get("tip") or 0)
+    statiegeld = float(data.get("statiegeld") or 0)
     discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
 
     base_excl_tip = subtotal + packaging_fee + delivery_fee
-    totaal = base_excl_tip - discount + tip
+    totaal = base_excl_tip - discount + tip + statiegeld
     summary = data.get("summary", {})
     btw_9 = float(data.get("btw_9") or summary.get("btw_9") or 0)
     btw_21 = float(data.get("btw_21") or summary.get("btw_21") or 0)
@@ -827,6 +834,7 @@ def api_send_order():
     data["btw_21"] = round(btw_21, 2)
     data["totaal"] = round(totaal, 2)
     data["total"] = data["totaal"]
+    data["statiegeld"] = statiegeld
     data["summary"] = {
         "subtotal": f"{subtotal:.2f}",
         "packaging": f"{packaging_fee:.2f}",
@@ -859,6 +867,7 @@ def api_send_order():
     # 总价 & 小费
     data["total"] = data.get("totaal")
     data["fooi"] = tip
+    data["statiegeld"] = statiegeld
     data["bezorgkosten"] = delivery_fee
     data["created_at"] = created_at
     data["status"] = "Pending"
@@ -1424,6 +1433,7 @@ def update_setting():
 def submit_order():
     data = request.get_json()
     items = data.get("items", {})
+    statiegeld = float(data.get("statiegeld") or 0)
 
     # Normalize source to handle values like 'POS'
     source = (data.get("source") or "").lower()
@@ -1457,7 +1467,7 @@ def submit_order():
         totaal = float(
             summary.get(
                 "total",
-                subtotal + packaging_fee + delivery_fee + tip - discount,
+                subtotal + packaging_fee + delivery_fee + tip + statiegeld - discount,
             )
         )
         data["summary"] = {
@@ -1494,7 +1504,7 @@ def submit_order():
         btw = btw_9 + btw_21 or float(summary.get("btw") or 0)
         totaal = float(
             summary.get("total")
-            or (subtotal + packaging_fee + delivery_fee + tip - discount)
+            or (subtotal + packaging_fee + delivery_fee + tip + statiegeld - discount)
         )
         data["summary"] = {
             "subtotal": f"{subtotal:.2f}",
@@ -1520,7 +1530,7 @@ def submit_order():
         btw_21 = float(summary.get("btw_21") or data.get("btw_21") or 0)
         btw = btw_9 + btw_21 or float(summary.get("btw") or 0)
         base_excl_tip = subtotal + packaging_fee + delivery_fee
-        totaal = float(summary.get("total") or (base_excl_tip - discount + tip))
+        totaal = float(summary.get("total") or (base_excl_tip - discount + tip + statiegeld))
         data["summary"] = {
             "subtotal": f"{subtotal:.2f}",
             "packaging": f"{packaging_fee:.2f}",
@@ -1542,6 +1552,7 @@ def submit_order():
     data["btw_21"] = round(btw_21, 2)
     data["totaal"] = round(totaal, 2)
     data["total"] = data["totaal"]
+    data["statiegeld"] = statiegeld
 
     # ✅ 标准化 tijdslot 字段（处理 Z.S.M.）
     tijdslot = data.get("tijdslot") or data.get("pickup_time") or data.get("delivery_time")
@@ -1563,6 +1574,7 @@ def submit_order():
     created_time = now.strftime('%H:%M')
     data["total"] = data.get("totaal")
     data["fooi"] = float(data.get("tip") or 0)
+    data["statiegeld"] = statiegeld
     data["created_at"] = created_at
     data["status"] = "Pending"
 

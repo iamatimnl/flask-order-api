@@ -2622,6 +2622,9 @@ function editOrder(btn) {
   const fooi = prompt('Fooi', data.fooi != null ? data.fooi : (data.tip || '0'));
   if (fooi === null) return;
 
+  const statiegeld = prompt('Statiegeld', data.statiegeld != null ? data.statiegeld : '0');
+  if (statiegeld === null) return;
+
   fetch(`/api/orders/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -2632,7 +2635,8 @@ function editOrder(btn) {
       items: parseItemsString(newItemsInput, data.items || {}),
       payment_method: payment,
       totaal: parseFloat(totaal) || 0,
-      fooi: parseFloat(fooi) || 0
+      fooi: parseFloat(fooi) || 0,
+      statiegeld: parseFloat(statiegeld) || 0
     })
   }).then(() => fetchOrders());
 }
@@ -2673,12 +2677,14 @@ function addRow(order, highlight = false) {
   const bezorgDisplay = bezorgkosten.toFixed(2).replace('.', ',');
   let fooi = parseFloat(order.fooi || order.tip || 0); if (isNaN(fooi)) fooi = 0;
   const fooiDisplay = fooi.toFixed(2).replace('.', ',');
+  let statiegeld = parseFloat(order.statiegeld || 0); if (isNaN(statiegeld)) statiegeld = 0;
+  const statiegeldDisplay = statiegeld.toFixed(2).replace('.', ',');
 
   let totaal = parseFloat(order.totaal || order.total || 0);
   if (isNaN(totaal)) totaal = 0;
   const totaalDisplay = totaal.toFixed(2).replace('.', ',');
 
-  const theoretischTotaal = subtotal + verpakkingskosten + bezorgkosten + fooi;
+  const theoretischTotaal = subtotal + verpakkingskosten + bezorgkosten + fooi + statiegeld;
   let korting = theoretischTotaal - totaal;
   const showKorting = korting >= 0.01;
   const kortingDisplay = korting.toFixed(2).replace('.', ',');
@@ -2725,6 +2731,7 @@ function addRow(order, highlight = false) {
     ${bezorgkosten > 0 ? `<div><strong>Bezorgkosten:</strong> €${bezorgDisplay}</div>` : ''}
     ${showKorting ? `<div><strong>Kassa Korting:</strong> -€${kortingDisplay}</div>` : ''}
     <div><strong>Totaal:</strong> €${totaalDisplay}</div>
+    ${statiegeld > 0 ? `<div><strong>Statiegeld:</strong> €${statiegeldDisplay}</div>` : ''}
     ${fooi > 0 ? `<div><strong>Fooi:</strong> €${fooiDisplay}</div>` : ''}
     ${address !== '-' ? `<div><strong>Adres:</strong> ${address}
       <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}" target="_blank" style="margin-left:6px;">📍Maps</a>
