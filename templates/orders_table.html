@@ -85,6 +85,7 @@ th:last-child {
        <th>Items</th>
        <th>Opmerking</th>
        <th>Fooi</th>
+       <th>Statiegeld</th>
        <th>Totaal</th>
        <th>Adres</th>
        <th>Tijdslot</th>
@@ -113,9 +114,10 @@ th:last-child {
             <li>{{ name }} x {{ item['qty'] }}</li>
           {% endfor %}
           </ul>
-        </td>
+       </td>
        <td>{{ order.opmerking or '-' }}</td>
        <td>€{{ '%.2f' % (order.fooi or order.tip or 0) }}</td>
+       <td>€{{ '%.2f' % (order.statiegeld or 0) }}</td>
 
        <td>{{ order.totaal_excel or ('€' + ('%.2f' % (order.totaal or 0)).replace('.', ',')) }}</td>
 

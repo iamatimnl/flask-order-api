@@ -51,6 +51,7 @@
           <th>Items</th>
           <th>Opmerking</th>
           <th>Fooi (€)</th>
+          <th>Statiegeld (€)</th>
           <th>Totaal (€)</th>
           <th>Adres</th>
           <th>Tijdslot</th>
@@ -129,10 +130,14 @@
           data.forEach(order => {
             const tr = document.createElement('tr');
             const isDelivery = ['delivery', 'bezorgen'].includes((order.order_type || '').toLowerCase());
-            const items = Object.entries(order.items || {}).map(([n, i]) => `<li>${n} x ${i.qty}</li>`).join('');
+          const items = Object.entries(order.items || {}).map(([n, i]) => `<li>${n} x ${i.qty}</li>`).join('');
             let fooi = parseFloat(order.fooi);
             if (isNaN(fooi)) {
               fooi = 0;
+            }
+            let statiegeld = parseFloat(order.statiegeld);
+            if (isNaN(statiegeld)) {
+              statiegeld = 0;
             }
             let tot = order.totaal ?? order.total ?? 0;
             if (typeof tot === 'string') {
@@ -157,6 +162,7 @@
               <td><ul>${items}</ul></td>
               <td>${order.opmerking || order.remark || '-'}</td>
               <td>${order.fooi_excel || formatCurrency(fooi)}</td>
+              <td>${order.statiegeld_excel || formatCurrency(statiegeld)}</td>
               <td>${order.totaal_excel || formatCurrency(tot)}</td>
               <td>${isDelivery ? `${order.street} ${order.house_number} ${order.postcode} ${order.city}${order.maps_link ? ` <a href="${order.maps_link}" target="_blank">📍Maps</a>` : ''}` : '-'}</td>
               <td>${isDelivery ? (order.delivery_time || order.deliveryTime || '-') : (order.pickup_time || order.pickupTime || '-')}</td>
