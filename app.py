@@ -203,6 +203,7 @@ _CURRENCY_FIELDS = {
     "bezorgkosten",
     "tip",
     "fooi",
+    "statiegeld",
     "btw",
     "btw_9",
     "btw_21",
@@ -311,6 +312,7 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
         "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
         "bezorgkosten": data.get("bezorgkosten") or data.get("delivery_fee") or (data.get("summary") or {}).get("delivery_cost") or 0,
         "tip": data.get("tip"),
+        "statiegeld": data.get("statiegeld"),
         "btw": data.get("btw") or summary.get("btw"),
         "btw_9": data.get("btw_9") or summary.get("btw_9"),
         "btw_21": data.get("btw_21") or summary.get("btw_21"),
@@ -372,6 +374,7 @@ def translate_order_text_to_english(order_text_nl: str) -> str:
         "Verpakkingskosten": "Packaging cost",
         "Bezorgkosten": "Delivery fee",
         "Fooi": "Tip",
+        "Statiegeld": "Deposit",
         "Korting": "Discount",
         "Kassa Korting": "Cash register discount",
         "BTW": "VAT",
@@ -614,6 +617,8 @@ def record_order(order_data, pos_ok):
         "delivery_time": delivery_time,
         "pos_ok": pos_ok,
         "totaal": data.get("totaal") or summary.get("total"),
+        "fooi": data.get("fooi") or data.get("tip"),
+        "statiegeld": data.get("statiegeld"),
         "discountAmount": data.get("discountAmount"),
         "discountCode": data.get("discountCode"),
         "full": data,
@@ -737,6 +742,13 @@ def format_order_notification(data):
         if value is not None:
             lines.append(f"{label}: {fmt(value)}")
 
+    statiegeld_value = data.get("statiegeld")
+    try:
+        if statiegeld_value is not None and float(statiegeld_value) > 0:
+            lines.append(f"Statiegeld: {fmt(statiegeld_value)}")
+    except (TypeError, ValueError):
+        pass
+
     if discount_amount_used is not None or discount_code_used:
         amount_str = fmt(discount_amount_used or 0)
         source = (data.get("source") or "").lower()
@@ -781,6 +793,8 @@ def _orders_overview():
                 "opmerking": entry.get("opmerking") or entry.get("remark"),
                 "pos_ok": entry.get("pos_ok"),
                 "totaal": entry.get("totaal"),
+                "fooi": entry.get("fooi"),
+                "statiegeld": entry.get("statiegeld"),
                 **btw_fields,
                 "pickup_time": entry.get("pickup_time") or entry.get("pickupTime"),
                 "delivery_time": entry.get("delivery_time") or entry.get("deliveryTime"),
@@ -810,10 +824,11 @@ def api_send_order():
     sanitized_items, subtotal, packaging_fee = sanitize_items(items, prices)
     delivery_fee = 2.5 if data.get("orderType") == "bezorgen" else 0.0
     tip = float(data.get("tip") or 0)
+    statiegeld = float(data.get("statiegeld") or 0)
     discount = float(data.get("discountAmount") or data.get("discount_amount") or 0)
 
     base_excl_tip = subtotal + packaging_fee + delivery_fee
-    totaal = base_excl_tip - discount + tip
+    totaal = base_excl_tip - discount + tip + statiegeld
     summary = data.get("summary", {})
     btw_9 = float(data.get("btw_9") or summary.get("btw_9") or 0)
     btw_21 = float(data.get("btw_21") or summary.get("btw_21") or 0)
@@ -822,6 +837,7 @@ def api_send_order():
     data["subtotal"] = round(subtotal, 2)
     data["packaging_fee"] = round(packaging_fee, 2)
     data["delivery_fee"] = round(delivery_fee, 2)
+    data["statiegeld"] = round(statiegeld, 2)
     data["btw"] = round(btw, 2)
     data["btw_9"] = round(btw_9, 2)
     data["btw_21"] = round(btw_21, 2)
