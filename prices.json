@@ -288,29 +288,29 @@
     "packaging": 0.2
   },
   "Cola": {
-    "price": 2.5,
-    "packaging": 0.15
-  },
-  "Cola Zero": {
-    "price": 2.5,
-    "packaging": 0.15
-  },
-  "Spa Blauw": {
-    "price": 2.5,
-    "packaging": 0.15
-  },
-  "Spa Rood": {
-    "price": 2.5,
-    "packaging": 0.15
-  },
-  "Red Bull": {
-    "price": 2.5,
-    "packaging": 0.15
-  },
-  "Heineken 330ml": {
-    "price": 3.0,
-    "packaging": 0.15
-  },
+  "price": 2.5,
+  "statiegeld": 0.15
+},
+"Cola Zero": {
+  "price": 2.5,
+  "statiegeld": 0.15
+},
+"Spa Blauw": {
+  "price": 2.5,
+  "statiegeld": 0.15
+},
+"Spa Rood": {
+  "price": 2.5,
+  "statiegeld": 0.15
+},
+"Red Bull": {
+  "price": 2.5,
+  "statiegeld": 0.15
+},
+"Heineken 330ml": {
+  "price": 3.0,
+  "statiegeld": 0.15
+},
   "Bubble Tea": {
     "price": 5.0,
     "packaging": 0.2
