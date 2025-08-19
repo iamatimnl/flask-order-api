@@ -2576,7 +2576,7 @@ body.portrait-mode .cart-badge {
   <select id="tipSelect" style="width: 85px; border-radius: 6px;"></select>
 </div>
 
-      <div class="price-row"><span>BTW (9%):</span> <span id="btwDisplay">€0,00</span></div>
+      <div class="price-row"><span>BTW:</span> <span id="btwDisplay">€0,00</span></div>
       <div class="price-row total-row"><span>Totaal:</span> <span id="totalDisplay">€0,00</span></div>
       <div class="btw-note">Alle prijzen zijn inclusief BTW</div>
     </div>
@@ -4320,6 +4320,21 @@ window.addEventListener('orientationchange', togglePortraitMode);
 
   
 const cart = {};
+const DRINK_ITEMS = ['Cola','Cola Zero','Spa Blauw','Spa Rood','Red Bull','Bubble Tea'];
+
+function calculateBtw(cartObj, packagingTotal){
+  let btw9 = packagingTotal / 1.09 * 0.09;
+  let btw21 = 0;
+  Object.entries(cartObj).forEach(([name,item])=>{
+    const lineTotal = (item.price || 0) * (item.qty || 0);
+    if (DRINK_ITEMS.includes(name)) {
+      btw21 += lineTotal / 1.21 * 0.21;
+    } else {
+      btw9 += lineTotal / 1.09 * 0.09;
+    }
+  });
+  return {btw9, btw21, btw: btw9 + btw21};
+}
 const extras = {
   chopstickCount: {
     label: 'Stokjes',
@@ -4870,7 +4885,7 @@ function updatePriceBreakdown(subtotal, packaging) {
   const tip = parseFloat(document.getElementById('tipSelect').value || '0');
   const orderType = document.querySelector('input[name="orderType"]:checked').value;
   const deliveryFee = orderType === 'bezorgen' ? DELIVERY_FEE : 0;
-  const btw = (subtotal + packaging) * 9 / 109;
+  const {btw} = calculateBtw(cart, packaging);
   finalTotal = subtotal + packaging + deliveryFee + tip - currentDiscount;
   document.getElementById('subtotalDisplay').textContent = formatEuro(subtotal);
   document.getElementById('packagingDisplay').textContent = formatEuro(packaging);
@@ -5927,7 +5942,7 @@ function checkout() {
   const subtotal = currentSubtotal;
   const packagingFee = Object.values(cart).reduce((s, it) => s + (it.packaging || 0) * it.qty, 0);
   const deliveryFee = orderType === 'bezorgen' ? 2.50 : 0;
-  const btw = (subtotal + packagingFee) * 9 / 109;
+  const {btw, btw9, btw21} = calculateBtw(cart, packagingFee);
   const total = subtotal + packagingFee + deliveryFee + tip - currentDiscount;
   const totalPrice = !isNaN(total) ? total.toFixed(2) : "0.00";
 
@@ -5959,6 +5974,8 @@ function checkout() {
     delivery: deliveryFee.toFixed(2),
     discount_amount: currentDiscount.toFixed(2),
     btw: btw.toFixed(2),
+    btw_9: btw9.toFixed(2),
+    btw_21: btw21.toFixed(2),
     total: totalPrice
   };
 
@@ -5987,6 +6004,8 @@ function checkout() {
       packaging_fee: packagingFee.toFixed(2),
       delivery_fee: deliveryFee.toFixed(2),
       btw: btw.toFixed(2),
+      btw_9: btw9.toFixed(2),
+      btw_21: btw21.toFixed(2),
       totaal: isNaN(total) ? "0.00" : total.toFixed(2),
       discountAmount: currentDiscount.toFixed(2),
       discountCode,

@@ -1011,7 +1011,7 @@ dialog::backdrop {
 </div>
 
 <div class="summary-row">
-  <label>BTW (9%):</label>
+  <label>BTW:</label>
   <span id="summaryBtw">€0,00</span>
 </div>
 
@@ -1180,6 +1180,21 @@ dialog::backdrop {
 
 <script>
 const cart = {};
+const DRINK_ITEMS = ['Cola','Cola Zero','Spa Blauw','Spa Rood','Red Bull','Bubble Tea'];
+
+function calculateBtw(cartObj, packagingTotal){
+  let btw9 = packagingTotal / 1.09 * 0.09;
+  let btw21 = 0;
+  Object.entries(cartObj).forEach(([name,item])=>{
+    const lineTotal = (item.price || 0) * (item.qty || 0);
+    if (DRINK_ITEMS.includes(name)) {
+      btw21 += lineTotal / 1.21 * 0.21;
+    } else {
+      btw9 += lineTotal / 1.09 * 0.09;
+    }
+  });
+  return {btw9, btw21, btw: btw9 + btw21};
+}
 const extras = {
   chopstickCount: { label: 'Stokjes', price: 0 },
   soyCount: { label: 'Sojasaus', price: 0 },
@@ -1668,8 +1683,7 @@ function updateCart() {
   if (discount < 0 || isNaN(discount)) discount = 0;
 
   const total = subtotal + packagingTotal + delivery - discount;
-  const btwBase = delivery ? total - delivery : total;
-  const btw = btwBase * 0.09;
+  const {btw} = calculateBtw(cart, packagingTotal);
 
   const fmt = n => `€${n.toFixed(2).replace('.', ',')}`;
 
@@ -2057,8 +2071,7 @@ function submitOrder() {
     discount = Math.min(100, discountVal) / 100 * subtotal;
   }
   const totalBeforeBtw = subtotal + packagingTotal + deliveryCost - discount;
-  const btwBase = delivery ? totalBeforeBtw - deliveryCost : totalBeforeBtw;
-  const btw = btwBase * 0.09;
+  const {btw, btw9, btw21} = calculateBtw(cart, packagingTotal);
   const total = totalBeforeBtw;
 
   const summary = {
@@ -2069,6 +2082,8 @@ function submitOrder() {
     discountValue: parseFloat(discountVal.toFixed(2)),
     discountAmount: parseFloat(discount.toFixed(2)),
     btw: parseFloat(btw.toFixed(2)),
+    btw_9: parseFloat(btw9.toFixed(2)),
+    btw_21: parseFloat(btw21.toFixed(2)),
     total: parseFloat(total.toFixed(2))
   };
 
@@ -2100,6 +2115,9 @@ function submitOrder() {
     opmerking: remark,
     totaal: total.toFixed(2),
     source: 'pos',
+    btw: btw.toFixed(2),
+    btw_9: btw9.toFixed(2),
+    btw_21: btw21.toFixed(2),
 
     summary  // ✅ 加入结账明细
   };

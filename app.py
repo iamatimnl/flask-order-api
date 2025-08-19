@@ -118,6 +118,34 @@ ORDERS = []
 # Keywords for identifying extra items that should be shown in bold
 EXTRA_KEYWORDS = ["sojasaus", "stokjes", "gember", "wasabi"]
 
+# Items that use the 21% BTW rate
+DRINK_ITEMS = {
+    "Cola",
+    "Cola Zero",
+    "Spa Blauw",
+    "Spa Rood",
+    "Red Bull",
+    "Bubble Tea",
+}
+
+
+def calculate_btw(items, packaging_fee):
+    """Return BTW split for the given ``items`` and ``packaging_fee``.
+
+    All prices are inclusive of BTW. Drinks are taxed at 21% while other
+    items (including packaging) are taxed at 9%.
+    """
+
+    btw9 = packaging_fee / 1.09 * 0.09
+    btw21 = 0.0
+    for name, item in items.items():
+        price = float(item.get("price") or 0) * int(item.get("qty") or 0)
+        if name in DRINK_ITEMS:
+            btw21 += price / 1.21 * 0.21
+        else:
+            btw9 += price / 1.09 * 0.09
+    return round(btw9, 2), round(btw21, 2)
+
 
 def sort_items(items):
     """Return items dict sorted with main items first and extras last."""
@@ -821,9 +849,7 @@ def api_send_order():
 
     base_excl_tip = subtotal + packaging_fee + delivery_fee
     totaal = base_excl_tip - discount + tip + statiegeld
-    summary = data.get("summary", {})
-    btw_9 = float(data.get("btw_9") or summary.get("btw_9") or 0)
-    btw_21 = float(data.get("btw_21") or summary.get("btw_21") or 0)
+    btw_9, btw_21 = calculate_btw(sanitized_items, packaging_fee)
     btw = btw_9 + btw_21
     data["items"] = sanitized_items
     data["subtotal"] = round(subtotal, 2)
@@ -1461,9 +1487,8 @@ def submit_order():
             or data.get("discount_amount")
             or 0
         )
-        btw_9 = float(summary.get("btw_9", 0))
-        btw_21 = float(summary.get("btw_21", 0))
-        btw = btw_9 + btw_21 if (btw_9 or btw_21) else float(summary.get("btw", 0))
+        btw_9, btw_21 = calculate_btw(sanitized_items, packaging_fee)
+        btw = btw_9 + btw_21
         totaal = float(
             summary.get(
                 "total",
@@ -1499,9 +1524,8 @@ def submit_order():
             or data.get("discount_amount")
             or 0
         )
-        btw_9 = float(summary.get("btw_9") or data.get("btw_9") or 0)
-        btw_21 = float(summary.get("btw_21") or data.get("btw_21") or 0)
-        btw = btw_9 + btw_21 or float(summary.get("btw") or 0)
+        btw_9, btw_21 = calculate_btw(sanitized_items, packaging_fee)
+        btw = btw_9 + btw_21
         totaal = float(
             summary.get("total")
             or (subtotal + packaging_fee + delivery_fee + tip + statiegeld - discount)
@@ -1526,9 +1550,8 @@ def submit_order():
             data.get("discountAmount") or data.get("discount_amount") or 0
         )
         summary = data.get("summary", {})
-        btw_9 = float(summary.get("btw_9") or data.get("btw_9") or 0)
-        btw_21 = float(summary.get("btw_21") or data.get("btw_21") or 0)
-        btw = btw_9 + btw_21 or float(summary.get("btw") or 0)
+        btw_9, btw_21 = calculate_btw(sanitized_items, packaging_fee)
+        btw = btw_9 + btw_21
         base_excl_tip = subtotal + packaging_fee + delivery_fee
         totaal = float(summary.get("total") or (base_excl_tip - discount + tip + statiegeld))
         data["summary"] = {
