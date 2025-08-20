@@ -116,6 +116,12 @@ MOLLIE_WEBHOOK_URL = os.environ.get(
     "MOLLIE_WEBHOOK_URL",
     "https://flask-order-api.onrender.com/webhook",
 )
+# PIN terminal defaults (using test credentials)
+MOLLIE_TERMINAL_ID = os.environ.get("MOLLIE_TERMINAL_ID", "term_12345678")
+MOLLIE_PIN_WEBHOOK_URL = os.environ.get(
+    "MOLLIE_PIN_WEBHOOK_URL",
+    "https://flask-order-api.onrender.com/api/mollie/webhook",
+)
 
 # In-memory log of orders for today's overview
 ORDERS = []
@@ -596,6 +602,33 @@ def create_mollie_payment(order_number, amount):
         print(f"❌ Mollie-fout: {e}")
     return None, None
 
+def create_mollie_pin_payment(order_number, amount):
+    """Create a Mollie PIN payment for the specified order.
+
+    Returns the Mollie ``payment_id`` so the status can be tracked via webhook.
+    """
+    headers = {
+        "Authorization": f"Bearer {MOLLIE_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "amount": {"currency": "EUR", "value": f"{amount:.2f}"},
+        "description": str(order_number),
+        "method": "pointofsale",
+        "terminalId": MOLLIE_TERMINAL_ID,
+        "webhookUrl": MOLLIE_PIN_WEBHOOK_URL,
+        "metadata": {"order_id": order_number},
+    }
+    try:
+        resp = requests.post("https://api.mollie.com/v2/payments", headers=headers, json=payload)
+        if resp.status_code in (200, 201):
+            info = resp.json()
+            return info.get("id")
+        print(f"❌ Mollie PIN-response: {resp.status_code} {resp.text}")
+    except Exception as e:
+        print(f"❌ Mollie PIN-fout: {e}")
+    return None
+
 def generate_discount_code(length=8):
     """Generate a random alphanumeric discount code."""
     alphabet = string.ascii_uppercase + string.digits
@@ -943,16 +976,23 @@ def api_send_order():
         else:
             data["pickup_time"] = tijdslot
 
-    # 支付链接处理（仅在线支付）
+    # 支付处理
     payment_link = None
+    payment_id = None
     if payment_method == "online":
         amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
         payment_link, payment_id = create_mollie_payment(
             data.get("order_number") or data.get("orderNumber"),
             amount
         )
-        if payment_id:
-            data["payment_id"] = payment_id
+    elif payment_method == "pin":
+        amount = float(data.get("totaal") or (data.get("summary") or {}).get("total") or 0)
+        payment_id = create_mollie_pin_payment(
+            data.get("order_number") or data.get("orderNumber"),
+            amount,
+        )
+    if payment_id:
+        data["payment_id"] = payment_id
 
     # 通知处理
     telegram_ok = True
@@ -960,7 +1000,7 @@ def api_send_order():
     pos_ok = False
     pos_error = None
 
-    if payment_method != "online":
+    if payment_method not in ("online", "pin"):
         telegram_ok = send_telegram_message(order_text)
         email_ok = send_email_notification(order_text)
         pos_ok, pos_error = send_pos_order(data)
@@ -969,7 +1009,7 @@ def api_send_order():
     record_order(data, pos_ok)
 
     # 客户确认邮件
-    if payment_method != "online" and customer_email:
+    if payment_method not in ("online", "pin") and customer_email:
         order_number = data.get("order_number") or data.get("orderNumber")
         send_confirmation_email(
             order_text, customer_email, order_number,
@@ -977,7 +1017,7 @@ def api_send_order():
         )
 
     # WebSocket 推送到 POS
-    if payment_method != "online":
+    if payment_method not in ("online", "pin"):
         socket_order = build_socket_order(
             data,
             created_date=created_date,
@@ -994,6 +1034,8 @@ def api_send_order():
         if payment_link:
             resp["paymentLink"] = payment_link
         return jsonify(resp), 200
+    if payment_method == "pin":
+        return jsonify({"status": "ok"}), 200
 
     if telegram_ok and email_ok and pos_ok:
         return jsonify({"status": "ok"}), 200
@@ -1398,6 +1440,41 @@ def mollie_webhook():
             print(f"❌ Order {order_id} niet gevonden in lokale cache!")
 
     return '', 200
+
+
+@app.route('/api/mollie/webhook', methods=['POST'])
+def mollie_pin_webhook():
+    """Handle Mollie PIN payment status updates."""
+    payment_id = request.form.get('id')
+    if not payment_id:
+        return '', 400
+
+    headers = {"Authorization": f"Bearer {MOLLIE_API_KEY}"}
+    resp = requests.get(f"https://api.mollie.com/v2/payments/{payment_id}", headers=headers)
+    if resp.status_code != 200:
+        return '', 400
+
+    info = resp.json()
+    status = info.get('status')
+    order_number = (info.get('metadata') or {}).get('order_id')
+
+    order_entry = None
+    for o in ORDERS:
+        if o.get('payment_id') == payment_id or o.get('order_number') == order_number:
+            o['status'] = status.capitalize() if status else status
+            o['payment_status'] = status
+            o['paymentMethod'] = 'pin'
+            order_entry = o
+            break
+
+    if order_number and status:
+        socketio.emit('payment_status', {
+            'order_number': order_number,
+            'payment_status': status,
+            'payment_method': 'pin',
+        })
+
+    return jsonify({'status': 'ok'})
 
 
 @app.route('/payment_success')
