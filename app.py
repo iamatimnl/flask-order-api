@@ -604,12 +604,9 @@ def create_mollie_payment(order_number, amount):
     return None, None
 
 def create_mollie_pin_payment(order_number, amount):
-    """Create a Mollie PIN payment for the specified order.
-
-    Returns the Mollie ``payment_id`` so the status can be tracked via webhook.
-    """
+    """Create a Mollie PIN payment and return dict (不再让异常冒泡成500)."""
     headers = {
-        "Authorization": f"Bearer {MOLLIE_PIN_API_KEY}",   # 👈 改这里
+        "Authorization": f"Bearer {MOLLIE_PIN_API_KEY}",
         "Content-Type": "application/json",
     }
     payload = {
@@ -621,14 +618,41 @@ def create_mollie_pin_payment(order_number, amount):
         "metadata": {"order_id": order_number},
     }
     try:
-        resp = requests.post("https://api.mollie.com/v2/payments", headers=headers, json=payload)
+        # —— 关键：加超时，避免长时间卡住 —— 
+        resp = requests.post("https://api.mollie.com/v2/payments",
+                             headers=headers, json=payload, timeout=8)
+        # 尝试解析返回体
+        try:
+            body = resp.json()
+        except Exception:
+            body = {"raw": resp.text[:1000]}
+        # 成功
         if resp.status_code in (200, 201):
-            info = resp.json()
-            return info.get("id")
-        print(f"❌ Mollie PIN-response: {resp.status_code} {resp.text}")
+            return {"ok": True, "payment_id": body.get("id")}
+        # 失败（转成400系给前端看，不再500）
+        return {
+            "ok": False,
+            "error": f"Mollie {resp.status_code}",
+            "details": body
+        }
+    except requests.Timeout:
+        return {"ok": False, "error": "timeout", "details": {"hint": "network or firewall?"}}
+    except requests.RequestException as e:
+        # 统一网络类错误
+        return {"ok": False, "error": f"request_error: {type(e).__name__}", "details": {"msg": str(e)}}
     except Exception as e:
-        print(f"❌ Mollie PIN-fout: {e}")
-    return None
+        # 兜底
+        return {"ok": False, "error": f"exception: {type(e).__name__}", "details": {"msg": str(e)}}
+
+@app.route("/api/create_mollie_pin_payment", methods=["POST"])
+def api_create_pin():
+    data = request.get_json(silent=True) or {}
+    order_number = data.get("order_number")
+    amount = float(data.get("amount", 0))
+    result = create_mollie_pin_payment(order_number, amount)
+    # 成功→200；失败→400（或按需要区分 4xx）
+    return jsonify(result), (200 if result.get("ok") else 400)
+
 def generate_discount_code(length=8):
     """Generate a random alphanumeric discount code."""
     alphabet = string.ascii_uppercase + string.digits
