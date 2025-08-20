@@ -117,6 +117,7 @@ MOLLIE_WEBHOOK_URL = os.environ.get(
     "https://flask-order-api.onrender.com/webhook",
 )
 # PIN terminal defaults (using test credentials)
+MOLLIE_PIN_API_KEY = os.environ["MOLLIE_PIN_API_KEY"]
 MOLLIE_TERMINAL_ID = os.environ.get("MOLLIE_TERMINAL_ID", "term_12345678")
 MOLLIE_PIN_WEBHOOK_URL = os.environ.get(
     "MOLLIE_PIN_WEBHOOK_URL",
@@ -608,7 +609,7 @@ def create_mollie_pin_payment(order_number, amount):
     Returns the Mollie ``payment_id`` so the status can be tracked via webhook.
     """
     headers = {
-        "Authorization": f"Bearer {MOLLIE_API_KEY}",
+        "Authorization": f"Bearer {MOLLIE_PIN_API_KEY}",   # 👈 改这里
         "Content-Type": "application/json",
     }
     payload = {
@@ -628,7 +629,6 @@ def create_mollie_pin_payment(order_number, amount):
     except Exception as e:
         print(f"❌ Mollie PIN-fout: {e}")
     return None
-
 def generate_discount_code(length=8):
     """Generate a random alphanumeric discount code."""
     alphabet = string.ascii_uppercase + string.digits
