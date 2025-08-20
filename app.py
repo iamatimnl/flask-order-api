@@ -110,7 +110,7 @@ RECEIVER_EMAIL = "qianchennl@gmail.com"
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 
 # === Mollie 配置 ===
-MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "test_E6gVk3tT2Frgdedj9Bcexar82dgUMe")
+MOLLIE_API_KEY = os.environ["MOLLIE_API_KEY"]  # 只从环境变量取，没有默认值
 MOLLIE_REDIRECT_URL = os.environ.get("MOLLIE_REDIRECT_URL", "https://novaasia.nl/payment-success")
 MOLLIE_WEBHOOK_URL = os.environ.get(
     "MOLLIE_WEBHOOK_URL",
