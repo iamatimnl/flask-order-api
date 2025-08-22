@@ -118,7 +118,7 @@ MOLLIE_WEBHOOK_URL = os.environ.get(
 )
 # PIN terminal defaults (using test credentials)
 MOLLIE_PIN_API_KEY = os.environ["MOLLIE_PIN_API_KEY"]
-MOLLIE_TERMINAL_ID = os.environ.get("MOLLIE_TERMINAL_ID", "term_12345678")
+MOLLIE_TERMINAL_ID = os.environ.get("MOLLIE_TERMINAL_ID", "term_HhbWUctbE9rhWquzEz2DJ")
 MOLLIE_PIN_WEBHOOK_URL = os.environ.get(
     "MOLLIE_PIN_WEBHOOK_URL",
     "https://flask-order-api.onrender.com/api/mollie/webhook",
