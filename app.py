@@ -618,53 +618,71 @@ def create_mollie_payment(order_number, amount):
     return None, None
 
 def create_mollie_pin_payment(order_number, amount):
-    """Create a Mollie PIN payment and return dict (不再让异常冒泡成500)."""
+    """Create a Mollie PIN payment (point-of-sale) and return dict (不抛 500)。"""
+    # 基础校验
+    if not MOLLIE_TERMINAL_ID:
+        return {"ok": False, "error": "config_error", "details": {"msg": "MOLLIE_TERMINAL_ID 未设置"}}
+    if not order_number:
+        return {"ok": False, "error": "bad_request", "details": {"msg": "order_number 不能为空"}}
+    try:
+        # 使用 Decimal 严格两位小数
+        value = str(Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        if Decimal(value) <= 0:
+            return {"ok": False, "error": "bad_request", "details": {"msg": "amount 必须 > 0"}}
+    except Exception:
+        return {"ok": False, "error": "bad_request", "details": {"msg": "amount 非法"}}
+
     headers = {
-        "Authorization": f"Bearer {MOLLIE_PIN_API_KEY}",
+        "Authorization": f"Bearer {MOLLIE_API_KEY}",   # 统一用唯一 API key
         "Content-Type": "application/json",
+        # 避免重复点击创建重复支付（可选）
+        "Idempotency-Key": f"order-{order_number}",
     }
+
     payload = {
-        "amount": {"currency": "EUR", "value": f"{amount:.2f}"},
+        "amount": {"currency": "EUR", "value": value},
         "description": str(order_number),
         "method": "pointofsale",
         "terminalId": MOLLIE_TERMINAL_ID,
-        "webhookUrl": MOLLIE_PIN_WEBHOOK_URL,
+        "webhookUrl": MOLLIE_PIN_WEBHOOK_URL,  # 可选但推荐
         "metadata": {"order_id": order_number},
     }
+
     try:
-        # —— 关键：加超时，避免长时间卡住 —— 
-        resp = requests.post("https://api.mollie.com/v2/payments",
-                             headers=headers, json=payload, timeout=8)
-        # 尝试解析返回体
+        resp = requests.post(
+            "https://api.mollie.com/v2/payments",
+            headers=headers,
+            json=payload,
+            timeout=8
+        )
         try:
             body = resp.json()
         except Exception:
             body = {"raw": resp.text[:1000]}
-        # 成功
+
         if resp.status_code in (200, 201):
-            return {"ok": True, "payment_id": body.get("id")}
-        # 失败（转成400系给前端看，不再500）
-        return {
-            "ok": False,
-            "error": f"Mollie {resp.status_code}",
-            "details": body
-        }
+            # 正常会返回 pay_xxx
+            return {"ok": True, "payment_id": body.get("id"), "status": body.get("status", "pending")}
+        else:
+            # 4xx/5xx 透出给前端看
+            return {"ok": False, "error": f"Mollie {resp.status_code}", "details": body}
+
     except requests.Timeout:
         return {"ok": False, "error": "timeout", "details": {"hint": "network or firewall?"}}
     except requests.RequestException as e:
-        # 统一网络类错误
-        return {"ok": False, "error": f"request_error: {type(e).__name__}", "details": {"msg": str(e)}}
+        return {"ok": False, "error": f"request_error:{type(e).__name__}", "details": {"msg": str(e)}}
     except Exception as e:
-        # 兜底
-        return {"ok": False, "error": f"exception: {type(e).__name__}", "details": {"msg": str(e)}}
+        return {"ok": False, "error": f"exception:{type(e).__name__}", "details": {"msg": str(e)}}
+
 
 @app.route("/api/create_mollie_pin_payment", methods=["POST"])
 def api_create_pin():
     data = request.get_json(silent=True) or {}
     order_number = data.get("order_number")
-    amount = float(data.get("amount", 0))
+    amount = data.get("amount")  # 让 create_xxx 做 Decimal 解析与校验
+
     result = create_mollie_pin_payment(order_number, amount)
-    # 成功→200；失败→400（或按需要区分 4xx）
+    # 成功→200；失败→400（仍保持你原来的行为）
     return jsonify(result), (200 if result.get("ok") else 400)
 
 def generate_discount_code(length=8):
@@ -1482,37 +1500,72 @@ def mollie_webhook():
 
 @app.route('/api/mollie/webhook', methods=['POST'])
 def mollie_pin_webhook():
-    """Handle Mollie PIN payment status updates."""
-    payment_id = request.form.get('id')
-    if not payment_id:
-        return '', 400
+    """
+    Handle Mollie PIN/online payment status updates.
+    Mollie usually posts application/x-www-form-urlencoded with 'id=pay_xxx'.
+    Always verify via GET /v2/payments/{id}.
+    Always return 200 to stop retries.
+    """
+    try:
+        # 1) 取 payment_id（以 form 为主，兼容 JSON）
+        payment_id = request.form.get('id')
+        if not payment_id and request.is_json:
+            body = request.get_json(silent=True) or {}
+            payment_id = body.get('id')
 
-    headers = {"Authorization": f"Bearer {MOLLIE_API_KEY}"}
-    resp = requests.get(f"https://api.mollie.com/v2/payments/{payment_id}", headers=headers)
-    if resp.status_code != 200:
-        return '', 400
+        if not payment_id:
+            # 也返回 200，防止反复重试；但记日志
+            print('[Webhook] Missing payment id')
+            return 'ok', 200
 
-    info = resp.json()
-    status = info.get('status')
-    order_number = (info.get('metadata') or {}).get('order_id')
+        # 2) 查真实状态（带超时；异常也返回 200）
+        headers = {"Authorization": f"Bearer {MOLLIE_API_KEY}"}
+        try:
+            resp = requests.get(
+                f"https://api.mollie.com/v2/payments/{payment_id}",
+                headers=headers, timeout=5
+            )
+            if resp.status_code != 200:
+                print(f"[Webhook] GET /payments/{payment_id} -> {resp.status_code}")
+                return 'ok', 200
+            info = resp.json()
+        except requests.RequestException as e:
+            print(f"[Webhook] requests error: {e}")
+            return 'ok', 200
 
-    order_entry = None
-    for o in ORDERS:
-        if o.get('payment_id') == payment_id or o.get('order_number') == order_number:
-            o['status'] = status.capitalize() if status else status
-            o['payment_status'] = status
-            o['paymentMethod'] = 'pin'
-            order_entry = o
-            break
+        status = info.get('status')  # paid / canceled / failed / expired / open / pending ...
+        metadata = info.get('metadata') or {}
+        order_number = metadata.get('order_id')
 
-    if order_number and status:
-        socketio.emit('payment_status', {
-            'order_number': order_number,
-            'payment_status': status,
-            'payment_method': 'pin',
-        })
+        # 3) 更新本地内存订单（若有）
+        order_entry = None
+        if 'ORDERS' in globals() and isinstance(ORDERS, list):
+            for o in ORDERS:
+                if o.get('payment_id') == payment_id or (order_number and o.get('order_number') == order_number):
+                    # 幂等：相同状态就不重复写
+                    old_status = o.get('payment_status')
+                    if old_status != status:
+                        o['status'] = status.capitalize() if status else status
+                        o['payment_status'] = status
+                        o['paymentMethod'] = o.get('paymentMethod') or 'pin'  # 若你也用此 webhook 处理网付，可按需要区分
+                    order_entry = o
+                    break
 
-    return jsonify({'status': 'ok'})
+        # 4) 推送前端（仅在拿到订单号与状态时）
+        if order_number and status and 'socketio' in globals():
+            socketio.emit('payment_status', {
+                'order_number': order_number,
+                'payment_status': status,
+                'payment_method': 'pin',
+            })
+
+        # 5) 一律 200（非常重要：避免重复重试）
+        return jsonify({'status': 'ok', 'payment_id': payment_id, 'order_number': order_number, 'state': status or 'unknown'}), 200
+
+    except Exception as e:
+        # 任何异常都不要让 Mollie 看到 5xx
+        print(f"[Webhook] exception: {type(e).__name__}: {e}")
+        return 'ok', 200
 
 
 @app.route('/payment_success')
