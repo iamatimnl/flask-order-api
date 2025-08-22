@@ -1009,7 +1009,8 @@ def api_send_order():
     data["statiegeld"] = statiegeld
     data["bezorgkosten"] = delivery_fee
     data["created_at"] = created_at
-    data["status"] = "Pending"
+    if source not in ("pos", "kassa"):
+        data["status"] = "Pending"
 
     # 折扣处理
     discount_code = None
@@ -1795,7 +1796,8 @@ def submit_order():
     data["fooi"] = tip_value
     data["statiegeld"] = statiegeld
     data["created_at"] = created_at
-    data["status"] = "Pending"
+    if source not in ("pos", "kassa"):
+        data["status"] = "Pending"
 
     # ✅ tijdslot 最终统一校验（确保字段一致性）
     tijdslot_str = str(data.get("tijdslot", "")).strip()
