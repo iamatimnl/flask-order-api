@@ -15,6 +15,7 @@ from datetime import datetime
 import json
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
+from decimal import Decimal, ROUND_HALF_UP
 
 TZ = ZoneInfo("Europe/Amsterdam")
 
@@ -33,6 +34,19 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 SETTINGS_FILE = "settings.json"
 SETTINGS = {}
 PRICES_FILE = "prices.json"
+def _normalize_amount_2dec(amount):
+    # 接受 "0.10" | 0.1 | "0,10" | " 0.10 "
+    if isinstance(amount, (int, float)):
+        amt = Decimal(str(amount))
+    elif isinstance(amount, str):
+        amt = Decimal(amount.strip().replace(',', '.'))
+    else:
+        raise ValueError("amount type invalid")
+
+    amt = amt.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if amt <= 0:
+        raise ValueError("amount must be > 0")
+    return str(amt)  # 返回 "0.10" 这种字符串
 
 def load_settings():
     global SETTINGS
@@ -624,11 +638,10 @@ def create_mollie_pin_payment(order_number, amount):
         return {"ok": False, "error": "config_error", "details": {"msg": "MOLLIE_TERMINAL_ID 未设置"}}
     if not order_number:
         return {"ok": False, "error": "bad_request", "details": {"msg": "order_number 不能为空"}}
+
+    # 金额规范化（更稳）
     try:
-        # 使用 Decimal 严格两位小数
-        value = str(Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
-        if Decimal(value) <= 0:
-            return {"ok": False, "error": "bad_request", "details": {"msg": "amount 必须 > 0"}}
+        value = _normalize_amount_2dec(amount)
     except Exception:
         return {"ok": False, "error": "bad_request", "details": {"msg": "amount 非法"}}
 
@@ -661,8 +674,12 @@ def create_mollie_pin_payment(order_number, amount):
             body = {"raw": resp.text[:1000]}
 
         if resp.status_code in (200, 201):
-            # 正常会返回 pay_xxx
-            return {"ok": True, "payment_id": body.get("id"), "status": body.get("status", "pending")}
+            # 正常会返回 pay_xxx / tr_xxx（Mollie 新版也可能是 tr_ 前缀）
+            return {
+                "ok": True,
+                "payment_id": body.get("id"),
+                "status": body.get("status", "pending")
+            }
         else:
             # 4xx/5xx 透出给前端看
             return {"ok": False, "error": f"Mollie {resp.status_code}", "details": body}
@@ -673,8 +690,7 @@ def create_mollie_pin_payment(order_number, amount):
         return {"ok": False, "error": f"request_error:{type(e).__name__}", "details": {"msg": str(e)}}
     except Exception as e:
         return {"ok": False, "error": f"exception:{type(e).__name__}", "details": {"msg": str(e)}}
-
-
+        
 @app.route("/api/create_mollie_pin_payment", methods=["POST"])
 def api_create_pin():
     data = request.get_json(silent=True) or {}
