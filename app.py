@@ -110,15 +110,29 @@ RECEIVER_EMAIL = "qianchennl@gmail.com"
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 
 # === Mollie 配置 ===
-MOLLIE_API_KEY = os.environ["MOLLIE_API_KEY"]  # 只从环境变量取，没有默认值
-MOLLIE_REDIRECT_URL = os.environ.get("MOLLIE_REDIRECT_URL", "https://novaasia.nl/payment-success")
+
+# 唯一的 API Key（线上支付 + 终端支付共用）
+MOLLIE_API_KEY = os.environ["MOLLIE_API_KEY"]  # 必须从环境变量获取，没有默认值
+
+# 支付完成后的跳转地址
+MOLLIE_REDIRECT_URL = os.environ.get(
+    "MOLLIE_REDIRECT_URL",
+    "https://novaasia.nl/payment-success",
+)
+
+# Webhook - 线上支付用
 MOLLIE_WEBHOOK_URL = os.environ.get(
     "MOLLIE_WEBHOOK_URL",
     "https://flask-order-api.onrender.com/webhook",
 )
-# PIN terminal defaults (using test credentials)
-MOLLIE_PIN_API_KEY = os.environ["MOLLIE_PIN_API_KEY"]
-MOLLIE_TERMINAL_ID = os.environ.get("MOLLIE_TERMINAL_ID", "term_HhbWUctbE9rhWquzEz2DJ")
+
+# 终端 ID（每台终端唯一）
+MOLLIE_TERMINAL_ID = os.environ.get(
+    "MOLLIE_TERMINAL_ID",
+    "term_HhbWUctbE9rhWquzEz2DJ",
+)
+
+# Webhook - 终端支付用
 MOLLIE_PIN_WEBHOOK_URL = os.environ.get(
     "MOLLIE_PIN_WEBHOOK_URL",
     "https://flask-order-api.onrender.com/api/mollie/webhook",
