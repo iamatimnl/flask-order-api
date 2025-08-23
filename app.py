@@ -167,23 +167,35 @@ BTW21_ITEMS = {
 }
 
 
-def calculate_btw(items, packaging_fee, delivery_fee=0.0):
+def calculate_btw(items, packaging_fee, delivery_fee=0.0, discount=0.0):
     """Return BTW split for ``items``, ``packaging_fee`` and ``delivery_fee`` (prices incl. BTW).
 
     Packaging, delivery and food items are taxed at 9% while specific items such as
-    Heineken are taxed at 21%.
+    Heineken are taxed at 21%.  ``discount`` represents a reduction applied only to
+    the item totals and is deducted before calculating the BTW.
     """
 
+    # Packaging and delivery are always taxed at 9%
     btw9 = (packaging_fee + delivery_fee) / 1.09 * 0.09
     btw21 = 0.0
+
+    subtotal_9 = 0.0
+    subtotal_21 = 0.0
     for name, item in items.items():
         price = float(item.get("price") or 0) * int(item.get("qty") or 0)
         if name in BTW21_ITEMS:
-            r = 0.21
-            btw21 += price / (1 + r) * r
+            subtotal_21 += price
         else:
-            r = 0.09
-            btw9 += price / (1 + r) * r
+            subtotal_9 += price
+
+    items_total = subtotal_9 + subtotal_21
+    if discount > 0 and items_total > 0:
+        ratio = discount / items_total
+        subtotal_9 = max(subtotal_9 - subtotal_9 * ratio, 0)
+        subtotal_21 = max(subtotal_21 - subtotal_21 * ratio, 0)
+
+    btw9 += subtotal_9 / 1.09 * 0.09
+    btw21 += subtotal_21 / 1.21 * 0.21
     return round(btw9, 2), round(btw21, 2)
 
 
@@ -964,7 +976,9 @@ def api_send_order():
     # Store numeric values for downstream use
     data["tip"] = tip
     data["statiegeld"] = statiegeld
-    btw_9, btw_21 = calculate_btw(sanitized_items, packaging_fee, delivery_fee)
+    btw_9, btw_21 = calculate_btw(
+        sanitized_items, packaging_fee, delivery_fee, discount
+    )
     btw = btw_9 + btw_21
     data["items"] = sanitized_items
     data["subtotal"] = round(subtotal, 2)
@@ -1720,7 +1734,9 @@ def submit_order():
             or data.get("discount_amount")
             or 0
         )
-        btw_9, btw_21 = calculate_btw(sanitized_items, packaging_fee, delivery_fee)
+        btw_9, btw_21 = calculate_btw(
+            sanitized_items, packaging_fee, delivery_fee, discount
+        )
         btw = btw_9 + btw_21
         items_total = subtotal + packaging_fee + delivery_fee
         totaal = float(
@@ -1758,7 +1774,9 @@ def submit_order():
             or data.get("discount_amount")
             or 0
         )
-        btw_9, btw_21 = calculate_btw(sanitized_items, packaging_fee, delivery_fee)
+        btw_9, btw_21 = calculate_btw(
+            sanitized_items, packaging_fee, delivery_fee, discount
+        )
         btw = btw_9 + btw_21
         items_total = subtotal + packaging_fee + delivery_fee
         totaal = float(
@@ -1785,7 +1803,9 @@ def submit_order():
             data.get("discountAmount") or data.get("discount_amount") or 0
         )
         summary = data.get("summary", {})
-        btw_9, btw_21 = calculate_btw(sanitized_items, packaging_fee, delivery_fee)
+        btw_9, btw_21 = calculate_btw(
+            sanitized_items, packaging_fee, delivery_fee, discount
+        )
         btw = btw_9 + btw_21
         items_total = subtotal + packaging_fee + delivery_fee
         totaal = float(summary.get("total") or (items_total + statiegeld + tip - discount))
