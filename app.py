@@ -1521,7 +1521,6 @@ def _safe_emit_payment_status(order_number, payment_id, status, method=None):
         print("[Webhook] socketio not ready; skip emit")
         return
     payload = {
-        "order_number": order_number,    # 可能为 None
         "payment_ordernumber": order_number,
         "payment_id": payment_id,        # 兜底匹配
         "payment_status": status,        # paid/failed/canceled/expired/open/pending…
