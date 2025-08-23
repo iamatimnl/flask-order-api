@@ -13,6 +13,7 @@ from email.header import Header
 from email.utils import formataddr
 from datetime import datetime
 import json
+import requests, time, uuid
 from zoneinfo import ZoneInfo
 from urllib.parse import quote_plus
 from decimal import Decimal, ROUND_HALF_UP
@@ -22,7 +23,7 @@ TZ = ZoneInfo("Europe/Amsterdam")
 
 
 
-
+APP_A_URL = os.getenv("APP_A_URL", "https://app-a.example.com") 
 
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
 DISCOUNT_API_URL = "https://nova-asia.onrender.com/api/discounts"
@@ -63,6 +64,53 @@ def load_settings():
             "bubble_tea_available": "true",
         }
 
+
+
+def _forward_payment_update_to_app_a(*, order_no, payment_id, payment_status, payment_method, amount=None, raw=None):
+    """
+    把 Mollie 回调归一化后，推送到 App A /api/orders/update
+    幂等：使用 Idempotency-Key + (order_no, status)
+    失败：最多重试 3 次（指数退避）
+    """
+    if not order_no:
+        print("[AppB->AppA] missing order_no, skip")
+        return False
+
+    url = f"{APP_A_URL.rstrip('/')}/api/orders/update"
+    headers = {
+        "Content-Type": "application/json",
+        "Idempotency-Key": f"pay-{order_no}-{payment_status}-{payment_id or 'na'}",
+    }
+    if APP_A_TOKEN:
+        headers["Authorization"] = f"Bearer {APP_A_TOKEN}"
+
+    payload = {
+        # 统一主键：业务号
+        "order_number": order_no,                    # ← App A 就按这个查单并更新
+        # 支付相关
+        "payment_id": payment_id,
+        "payment_status": payment_status,            # paid / failed / canceled / expired / open / pending …
+        "payment_method": payment_method or "pointofsale",
+        # 金额（可选）
+        "amount": amount,                            # "22.00" 字符串或 None
+        # 原始回调（可选，便于审计）
+        "meta": {"source": "mollie_webhook", "raw": raw or {}}
+    }
+
+    backoff = 0.6
+    for attempt in range(1, 4):
+        try:
+            r = requests.post(url, json=payload, headers=headers, timeout=6)
+            if r.status_code in (200, 201):
+                print(f"[AppB->AppA] OK push update for {order_no}: {payment_status}")
+                return True
+            else:
+                print(f"[AppB->AppA] try{attempt} -> {r.status_code} {r.text[:300]}")
+        except requests.RequestException as e:
+            print(f"[AppB->AppA] try{attempt} error: {type(e).__name__}: {e}")
+        time.sleep(backoff); backoff *= 1.7
+
+    return False
 def save_settings():
     try:
         with open(SETTINGS_FILE, "w") as f:
@@ -1580,7 +1628,7 @@ def _update_local_orders_if_any(payment_id, order_number, payment_status):
 @app.route('/api/mollie/webhook', methods=['POST'])
 def mollie_pin_webhook():
     try:
-        # 1) 取 payment_id（以 form 为主）
+        # 1) 取 payment_id（Mollie webhook 会以 form-data 传递 id）
         payment_id = request.form.get('id')
         if not payment_id and request.is_json:
             body = request.get_json(silent=True) or {}
@@ -1590,7 +1638,7 @@ def mollie_pin_webhook():
             print('[Webhook] Missing payment id')
             return 'ok', 200  # 永远 200，避免重试风暴
 
-        # 2) 调 Mollie 查询真状态
+        # 2) 调 Mollie API 查询支付详情
         headers = {"Authorization": f"Bearer {MOLLIE_API_KEY}"}
         try:
             resp = requests.get(f"https://api.mollie.com/v2/payments/{payment_id}",
@@ -1604,20 +1652,44 @@ def mollie_pin_webhook():
             return 'ok', 200
 
         # 3) 关键信息
-        status   = (info or {}).get('status')          # paid/failed/canceled/expired/open/pending
+        status   = (info or {}).get('status')          # paid / failed / canceled / expired / open / pending
         method   = (info or {}).get('method') or 'pointofsale'
         metadata = (info or {}).get('metadata') or {}
-        order_no = metadata.get('order_id') or metadata.get('order_number')
 
-        # 4) 更新本地内存（可选）
+        # 订单号兜底
+        order_no = (
+            metadata.get('order_id')
+            or metadata.get('order_number')
+            or info.get("description")
+            or f"unknown-{payment_id}"
+        )
+
+        # 金额兜底
+        amount_v = None
+        try:
+            amount_v = (info.get("amount") or {}).get("value")
+        except Exception:
+            amount_v = None
+
+        # 4) 推送给 App A
+        forward_payment_update_to_app_a(
+            order_no=order_no,
+            payment_id=payment_id,
+            payment_status=status,
+            payment_method=method,
+            amount=amount_v,
+            raw=info
+        )
+
+        # 5) 更新本地内存（如果有缓存订单）
         if status:
             _update_local_orders_if_any(payment_id, order_no, status)
 
-        # 5) 推送给 Electron（order_number / payment_id 双兜底）
+        # 6) 推送给 Electron POS（前端）
         if status:
             _safe_emit_payment_status(order_no, payment_id, status, method)
 
-        # 6) 永远 200
+        # 7) 永远返回 200（避免 Mollie webhook 无限重试）
         return jsonify({
             "status": "ok",
             "payment_id": payment_id,
@@ -1628,6 +1700,7 @@ def mollie_pin_webhook():
     except Exception as e:
         print(f"[Webhook] exception: {type(e).__name__}: {e}")
         return 'ok', 200
+
 
 # 可选测试路由
 @app.route("/test/broadcast")
