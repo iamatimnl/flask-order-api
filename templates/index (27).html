@@ -4322,17 +4322,26 @@ window.addEventListener('orientationchange', togglePortraitMode);
 const cart = {};
 const DRINK_ITEMS = ['Cola','Cola Zero','Spa Blauw','Spa Rood','Red Bull','Bubble Tea'];
 
-function calculateBtw(cartObj, packagingTotal){
-  let btw9 = packagingTotal / 1.09 * 0.09;
-  let btw21 = 0;
+function calculateBtw(cartObj, packagingTotal, discount = 0){
+  let total9 = packagingTotal;
+  let total21 = 0;
   Object.entries(cartObj).forEach(([name,item])=>{
     const lineTotal = (item.price || 0) * (item.qty || 0);
     if (DRINK_ITEMS.includes(name)) {
-      btw21 += lineTotal / 1.21 * 0.21;
+      total21 += lineTotal;
     } else {
-      btw9 += lineTotal / 1.09 * 0.09;
+      total9 += lineTotal;
     }
   });
+  const total = total9 + total21;
+  if(discount > 0 && total > 0){
+    const ratio9 = total9 / total;
+    const ratio21 = total21 / total;
+    total9 -= discount * ratio9;
+    total21 -= discount * ratio21;
+  }
+  const btw9 = total9 / 1.09 * 0.09;
+  const btw21 = total21 / 1.21 * 0.21;
   return {btw9, btw21, btw: btw9 + btw21};
 }
 const extras = {
@@ -4885,7 +4894,7 @@ function updatePriceBreakdown(subtotal, packaging) {
   const tip = parseFloat(document.getElementById('tipSelect').value || '0');
   const orderType = document.querySelector('input[name="orderType"]:checked').value;
   const deliveryFee = orderType === 'bezorgen' ? DELIVERY_FEE : 0;
-  const {btw} = calculateBtw(cart, packaging);
+  const {btw} = calculateBtw(cart, packaging, currentDiscount);
   finalTotal = subtotal + packaging + deliveryFee + tip - currentDiscount;
   document.getElementById('subtotalDisplay').textContent = formatEuro(subtotal);
   document.getElementById('packagingDisplay').textContent = formatEuro(packaging);
@@ -5942,7 +5951,7 @@ function checkout() {
   const subtotal = currentSubtotal;
   const packagingFee = Object.values(cart).reduce((s, it) => s + (it.packaging || 0) * it.qty, 0);
   const deliveryFee = orderType === 'bezorgen' ? 2.50 : 0;
-  const {btw, btw9, btw21} = calculateBtw(cart, packagingFee);
+  const {btw, btw9, btw21} = calculateBtw(cart, packagingFee, currentDiscount);
   const total = subtotal + packagingFee + deliveryFee + tip - currentDiscount;
   const totalPrice = !isNaN(total) ? total.toFixed(2) : "0.00";
 
