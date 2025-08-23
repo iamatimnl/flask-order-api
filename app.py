@@ -123,6 +123,7 @@ RECEIVER_EMAIL = "qianchennl@gmail.com"
 # === POS 配置 ===
 # Endpoint for forwarding orders to the POS system. Replace with the actual URL.
 POS_API_URL = "https://nova-asia.onrender.com/api/orders"
+POS_ORDER_UPDATE_URL = f"{POS_API_URL}/update"
 
 # === Mollie 配置 ===
 
@@ -619,6 +620,26 @@ def send_pos_order(order_data):
     except Exception as e:
         print(f"❌ POS-fout: {e}")
         return False, str(e)
+
+
+def update_pos_order_status(order_number, payment_status, payment_method, payment_id):
+    """Update payment info for an order in the POS system."""
+    payload = {
+        "order_number": order_number,
+        "payment_status": payment_status,
+        "payment_method": payment_method,
+        "payment_id": payment_id,
+    }
+    try:
+        url = POS_ORDER_UPDATE_URL
+        response = requests.post(url, json=payload)
+        if response.status_code == 200:
+            print("✅ POS order update synced!")
+            return True
+        print(f"❌ POS update response: {response.status_code} {response.text}")
+    except Exception as e:
+        print(f"❌ POS update error: {e}")
+    return False
 
 def create_mollie_payment(order_number, amount):
     """Create a Mollie payment and return the checkout link and payment id."""
@@ -1451,8 +1472,12 @@ def mollie_webhook():
         return '', 400
 
     info = resp.json()
-    if info.get('status') == 'paid':
-        order_id = (info.get('metadata') or {}).get('order_id')
+    status = info.get('status')
+    method = info.get('method')
+    order_id = (info.get('metadata') or {}).get('order_id')
+    if order_id and status:
+        update_pos_order_status(order_id, status, method, payment_id)
+    if status == 'paid':
         order_entry = None
         for o in ORDERS:
             if o.get('order_number') == order_id:
@@ -1616,6 +1641,9 @@ def mollie_pin_webhook():
         # 5) 推送给 Electron（order_number / payment_id 双兜底）
         if status:
             _safe_emit_payment_status(order_no, payment_id, status, method)
+
+        if order_no and status:
+            update_pos_order_status(order_no, status, method, payment_id)
 
         # 6) 永远 200
         return jsonify({
