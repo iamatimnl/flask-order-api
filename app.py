@@ -1515,6 +1515,20 @@ def mollie_webhook():
             print(f"❌ Order {order_id} niet gevonden in lokale cache!")
 
     return '', 200
+def _safe_emit_payment_status(order_number, payment_id, status, method=None):
+    if 'socketio' not in globals():
+        print("[Webhook] socketio not ready; skip emit")
+        return
+    payload = {
+        "payment_ordernumber": order_number,
+        "payment_id": payment_id,        # 兜底匹配
+        "payment_status": status,        # paid/failed/canceled/expired/open/pending…
+        "payment_method": method or "pointofsale",
+    }
+    socketio.emit("payment_status", payload)
+    print(f"[Webhook] emit payment_status -> {payload}")
+
+
 
 
 @app.route("/test/emit/<order_no>")
