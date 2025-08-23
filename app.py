@@ -1522,6 +1522,7 @@ def _safe_emit_payment_status(order_number, payment_id, status, method=None):
         return
     payload = {
         "order_number": order_number,    # 可能为 None
+        "payment_ordernumber": order_number,
         "payment_id": payment_id,        # 兜底匹配
         "payment_status": status,        # paid/failed/canceled/expired/open/pending…
         "payment_method": method or "pointofsale",
@@ -1588,7 +1589,7 @@ def mollie_pin_webhook():
         return jsonify({
             "status": "ok",
             "payment_id": payment_id,
-            "order_number": order_no,
+            "payment_ordernumber": order_no,
             "state": status or "unknown"
         }), 200
 
