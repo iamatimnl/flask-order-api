@@ -1182,17 +1182,26 @@ dialog::backdrop {
 const cart = {};
 const DRINK_ITEMS = ['Cola','Cola Zero','Spa Blauw','Spa Rood','Red Bull','Bubble Tea'];
 
-function calculateBtw(cartObj, packagingTotal){
-  let btw9 = packagingTotal / 1.09 * 0.09;
-  let btw21 = 0;
+function calculateBtw(cartObj, packagingTotal, discount = 0){
+  let total9 = packagingTotal;
+  let total21 = 0;
   Object.entries(cartObj).forEach(([name,item])=>{
     const lineTotal = (item.price || 0) * (item.qty || 0);
     if (DRINK_ITEMS.includes(name)) {
-      btw21 += lineTotal / 1.21 * 0.21;
+      total21 += lineTotal;
     } else {
-      btw9 += lineTotal / 1.09 * 0.09;
+      total9 += lineTotal;
     }
   });
+  const total = total9 + total21;
+  if(discount > 0 && total > 0){
+    const ratio9 = total9 / total;
+    const ratio21 = total21 / total;
+    total9 -= discount * ratio9;
+    total21 -= discount * ratio21;
+  }
+  const btw9 = total9 / 1.09 * 0.09;
+  const btw21 = total21 / 1.21 * 0.21;
   return {btw9, btw21, btw: btw9 + btw21};
 }
 const extras = {
@@ -1683,7 +1692,7 @@ function updateCart() {
   if (discount < 0 || isNaN(discount)) discount = 0;
 
   const total = subtotal + packagingTotal + delivery - discount;
-  const {btw} = calculateBtw(cart, packagingTotal);
+  const {btw} = calculateBtw(cart, packagingTotal, discount);
 
   const fmt = n => `€${n.toFixed(2).replace('.', ',')}`;
 
@@ -2071,7 +2080,7 @@ function submitOrder() {
     discount = Math.min(100, discountVal) / 100 * subtotal;
   }
   const totalBeforeBtw = subtotal + packagingTotal + deliveryCost - discount;
-  const {btw, btw9, btw21} = calculateBtw(cart, packagingTotal);
+  const {btw, btw9, btw21} = calculateBtw(cart, packagingTotal, discount);
   const total = totalBeforeBtw;
 
   const summary = {
