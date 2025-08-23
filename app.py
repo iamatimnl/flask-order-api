@@ -80,6 +80,15 @@ def load_prices():
             return json.load(f)
     except Exception:
         return {}
+@app.route("/test/broadcast")
+def test_broadcast():
+    socketio.emit("payment_status", {
+        "order_number": "TEST-LOCAL",
+        "payment_status": "paid",
+        "payment_method": "pin"
+    })
+    print("[Test] Emitted payment_status")
+    return "ok", 200
 
 
 def sanitize_items(items, prices):
