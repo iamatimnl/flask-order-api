@@ -695,12 +695,13 @@ def create_mollie_pin_payment(order_number, amount):
 @app.route("/api/create_mollie_pin_payment", methods=["POST"])
 def api_create_pin():
     data = request.get_json(silent=True) or {}
-    order_number = data.get("order_number")
-    amount = data.get("amount")  # 让 create_xxx 做 Decimal 解析与校验
+    # ✅ 同时兼容新旧字段
+    order_number = data.get("payment_ordernumber") or data.get("order_number")
+    amount = data.get("amount")
 
     result = create_mollie_pin_payment(order_number, amount)
-    # 成功→200；失败→400（仍保持你原来的行为）
     return jsonify(result), (200 if result.get("ok") else 400)
+
 
 def generate_discount_code(length=8):
     """Generate a random alphanumeric discount code."""
