@@ -80,15 +80,7 @@ def load_prices():
             return json.load(f)
     except Exception:
         return {}
-@app.route("/test/broadcast")
-def test_broadcast():
-    socketio.emit("payment_status", {
-        "order_number": "TEST-LOCAL",
-        "payment_status": "paid",
-        "payment_method": "pin"
-    })
-    print("[Test] Emitted payment_status")
-    return "ok", 200
+
 
 
 def sanitize_items(items, prices):
@@ -1524,33 +1516,52 @@ def mollie_webhook():
     return '', 200
 
 
+def _safe_emit_payment_status(order_number, payment_id, status, method=None):
+    if 'socketio' not in globals():
+        print("[Webhook] socketio not ready; skip emit")
+        return
+    payload = {
+        "order_number": order_number,    # 可能为 None
+        "payment_id": payment_id,        # 兜底匹配
+        "payment_status": status,        # paid/failed/canceled/expired/open/pending…
+        "payment_method": method or "pointofsale",
+    }
+    socketio.emit("payment_status", payload)
+    print(f"[Webhook] emit payment_status -> {payload}")
+
+def _update_local_orders_if_any(payment_id, order_number, payment_status):
+    try:
+        if 'ORDERS' in globals() and isinstance(ORDERS, list):
+            for o in ORDERS:
+                if o.get('payment_id') == payment_id or (
+                    order_number and o.get('order_number') == order_number
+                ):
+                    if o.get('payment_status') != payment_status:
+                        o['payment_status'] = payment_status   # 只更新支付状态
+                        # o['status'] 不动（避免覆盖业务流状态）
+                        print(f"[Webhook] local order payment_status -> {payment_status}")
+                    break
+    except Exception as e:
+        print(f"[Webhook] ORDERS update error: {e}")
+
 @app.route('/api/mollie/webhook', methods=['POST'])
 def mollie_pin_webhook():
-    """
-    Handle Mollie PIN/online payment status updates.
-    Mollie usually posts application/x-www-form-urlencoded with 'id=pay_xxx'.
-    Always verify via GET /v2/payments/{id}.
-    Always return 200 to stop retries.
-    """
     try:
-        # 1) 取 payment_id（以 form 为主，兼容 JSON）
+        # 1) 取 payment_id（以 form 为主）
         payment_id = request.form.get('id')
         if not payment_id and request.is_json:
             body = request.get_json(silent=True) or {}
-            payment_id = body.get('id')
+            payment_id = (body or {}).get('id')
 
         if not payment_id:
-            # 也返回 200，防止反复重试；但记日志
             print('[Webhook] Missing payment id')
-            return 'ok', 200
+            return 'ok', 200  # 永远 200，避免重试风暴
 
-        # 2) 查真实状态（带超时；异常也返回 200）
+        # 2) 调 Mollie 查询真状态
         headers = {"Authorization": f"Bearer {MOLLIE_API_KEY}"}
         try:
-            resp = requests.get(
-                f"https://api.mollie.com/v2/payments/{payment_id}",
-                headers=headers, timeout=5
-            )
+            resp = requests.get(f"https://api.mollie.com/v2/payments/{payment_id}",
+                                headers=headers, timeout=6)
             if resp.status_code != 200:
                 print(f"[Webhook] GET /payments/{payment_id} -> {resp.status_code}")
                 return 'ok', 200
@@ -1559,39 +1570,40 @@ def mollie_pin_webhook():
             print(f"[Webhook] requests error: {e}")
             return 'ok', 200
 
-        status = info.get('status')  # paid / canceled / failed / expired / open / pending ...
-        metadata = info.get('metadata') or {}
-        order_number = metadata.get('order_id')
+        # 3) 关键信息
+        status   = (info or {}).get('status')          # paid/failed/canceled/expired/open/pending
+        method   = (info or {}).get('method') or 'pointofsale'
+        metadata = (info or {}).get('metadata') or {}
+        order_no = metadata.get('order_id') or metadata.get('order_number')
 
-        # 3) 更新本地内存订单（若有）
-        order_entry = None
-        if 'ORDERS' in globals() and isinstance(ORDERS, list):
-            for o in ORDERS:
-                if o.get('payment_id') == payment_id or (order_number and o.get('order_number') == order_number):
-                    # 幂等：相同状态就不重复写
-                    old_status = o.get('payment_status')
-                    if old_status != status:
-                        o['status'] = status.capitalize() if status else status
-                        o['payment_status'] = status
-                        o['paymentMethod'] = o.get('paymentMethod') or 'pin'  # 若你也用此 webhook 处理网付，可按需要区分
-                    order_entry = o
-                    break
+        # 4) 更新本地内存（可选）
+        if status:
+            _update_local_orders_if_any(payment_id, order_no, status)
 
-        # 4) 推送前端（仅在拿到订单号与状态时）
-        if order_number and status and 'socketio' in globals():
-            socketio.emit('payment_status', {
-                'order_number': order_number,
-                'payment_status': status,
-                'payment_method': 'pin',
-            })
+        # 5) 推送给 Electron（order_number / payment_id 双兜底）
+        if status:
+            _safe_emit_payment_status(order_no, payment_id, status, method)
 
-        # 5) 一律 200（非常重要：避免重复重试）
-        return jsonify({'status': 'ok', 'payment_id': payment_id, 'order_number': order_number, 'state': status or 'unknown'}), 200
+        # 6) 永远 200
+        return jsonify({
+            "status": "ok",
+            "payment_id": payment_id,
+            "order_number": order_no,
+            "state": status or "unknown"
+        }), 200
 
     except Exception as e:
-        # 任何异常都不要让 Mollie 看到 5xx
         print(f"[Webhook] exception: {type(e).__name__}: {e}")
         return 'ok', 200
+
+# 可选测试路由
+@app.route("/test/broadcast")
+def test_broadcast():
+    _safe_emit_payment_status(order_number="TEST-LOCAL",
+                              payment_id="pay_test_local",
+                              status="paid",
+                              method="pointofsale")
+    return "ok", 200
 
 
 @app.route('/payment_success')
