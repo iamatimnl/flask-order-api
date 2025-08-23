@@ -1517,18 +1517,22 @@ def mollie_webhook():
     return '', 200
 
 
-def _safe_emit_payment_status(order_number, payment_id, status, method=None):
-    if 'socketio' not in globals():
-        print("[Webhook] socketio not ready; skip emit")
-        return
-    payload = {
-        "payment_ordernumber": order_number,
-        "payment_id": payment_id,        # 兜底匹配
-        "payment_status": status,        # paid/failed/canceled/expired/open/pending…
-        "payment_method": method or "pointofsale",
-    }
-    socketio.emit("payment_status", payload)
-    print(f"[Webhook] emit payment_status -> {payload}")
+@app.route("/test/emit/<order_no>")
+def test_emit_paid(order_no):
+    # 模拟已支付
+    _safe_emit_payment_status(order_no, payment_id="pay_test_manual", status="paid", method="pointofsale")
+    return jsonify({"ok": True, "sent": {"order": order_no, "status": "paid"}})
+
+@app.route("/test/emit", methods=["POST"])
+def test_emit_body():
+    data = request.get_json(silent=True) or {}
+    order_no = data.get("order_number") or data.get("payment_ordernumber") or "TEST-LOCAL"
+    pid      = data.get("payment_id") or "pay_test_manual"
+    status   = (data.get("payment_status") or data.get("status") or "paid").lower()
+    method   = data.get("payment_method") or "pointofsale"
+    _safe_emit_payment_status(order_no, pid, status, method)
+    return jsonify({"ok": True, "echo": {"order": order_no, "payment_id": pid, "status": status, "method": method}})
+
 
 def _update_local_orders_if_any(payment_id, order_number, payment_status):
     try:
