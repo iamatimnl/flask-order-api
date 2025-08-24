@@ -190,6 +190,26 @@ def api_order_update():
         "status": status
     })
 
+@app.post("/api/order/opmerking")
+def api_order_opmerking():
+    data = request.get_json(silent=True) or {}
+    order_number = data.get("order_number")
+    opmerking = data.get("opmerking")
+
+    if not order_number or opmerking is None:
+        return jsonify(ok=False, message="order_number and opmerking required"), 400
+
+    remark = str(opmerking).strip()
+    payload = {"order_number": order_number, "opmerking": remark}
+
+    try:
+        resp = requests.post(POS_ORDER_UPDATE_URL, json=payload)
+        if resp.status_code == 200:
+            return jsonify(ok=True, order=payload)
+        return jsonify(ok=False, message="pos_error", status=resp.status_code), 502
+    except Exception as e:
+        return jsonify(ok=False, message="pos_error", error=str(e)), 502
+
 
 
 def calculate_btw(items, packaging_fee, delivery_fee=0.0, discount=0.0):
