@@ -167,6 +167,79 @@ BTW21_ITEMS = {
     "Heineken 330ml",
 }
 
+@app.post("/api/order")
+def api_order_update():
+    """
+    POS 结账状态更新（最小改动，兼容两种请求体）：
+    - 标准：{ "type":"update", "order_number":"...", "patch": { "status":"paid" } }
+    - 兼容：{ "order_number":"...", "status":"paid" }
+    返回：
+    { "ok": true, "order": { ...尽量返回最新... } }
+    或
+    { "ok": false, "message": "..." }
+    """
+
+    data = request.get_json(silent=True) or {}
+
+    # 兼容两种写法
+    is_standard = (data.get("type") or "").lower() == "update" and isinstance(data.get("patch"), dict)
+    order_number = data.get("order_number")
+    status = None
+
+    if is_standard:
+        status = data["patch"].get("status")
+    else:
+        status = data.get("status")
+
+    if not order_number:
+        return jsonify(ok=False, message="order_number required"), 400
+    if not status:
+        return jsonify(ok=False, message="status required"), 400
+
+    # 1) 先更新数据库（若你的 App B 不存库，可跳到“更新内存快照”）
+    updated = None
+    try:
+        order = db.session.execute(
+            db.select(Order).filter_by(order_number=order_number)
+        ).scalar_one_or_none()
+
+        if order:
+            # 只更新业务状态；不碰其它字段
+            order.status = status
+            order.updated_at = datetime.utcnow()
+            db.session.commit()
+            updated = order.to_dict() if hasattr(order, "to_dict") else {
+                "order_number": order_number,
+                "status": status,
+            }
+    except Exception as e:
+        app.logger.warning(f"/api/order DB update failed: {e}")
+
+    # 2) 更新当日内存快照（用于 /api/orders 刷新立即可见）
+    try:
+        found = False
+        for o in ORDERS:
+            if o.get("order_number") == order_number:
+                o["status"] = status
+                o["timestamp"] = datetime.now(TZ).isoformat(timespec="seconds")
+                found = True
+                break
+        if not found:
+            ORDERS.append({
+                "order_number": order_number,
+                "status": status,
+                "timestamp": datetime.now(TZ).isoformat(timespec="seconds"),
+                "items": {},
+            })
+    except Exception as e:
+        app.logger.warning(f"/api/order update ORDERS failed: {e}")
+
+    # 3) 返回“写后读”结果（优先 DB；退化为轻量对象）
+    if updated:
+        return jsonify(ok=True, order=updated), 200
+    return jsonify(ok=True, order={"order_number": order_number, "status": status}), 200
+
+
 
 def calculate_btw(items, packaging_fee, delivery_fee=0.0, discount=0.0):
     """Return BTW split for ``items``, ``packaging_fee`` and ``delivery_fee`` (prices incl. BTW).
