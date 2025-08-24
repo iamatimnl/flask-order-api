@@ -172,23 +172,35 @@ def api_order_update():
     data = request.get_json(silent=True) or {}
     order_number = data.get("order_number")
     status       = data.get("status")
+    opmerking    = data.get("opmerking")   # 👈 新增支持
 
     if not order_number or not status:
         return jsonify(ok=False, message="order_number and status required"), 400
 
-    # 直接复用已有的转发函数
-    update_pos_order_status(
-        order_number,
-        payment_status=status,
-        payment_method=data.get("payment_method") or "cash",  # 可选：默认cash/pin
-        payment_id=None
-    )
+    try:
+        # 透传到 App A
+        payload = {
+            "order_number": order_number,
+            "status": status,
+            "payment_status": status,
+            "payment_method": data.get("payment_method") or "cash"
+        }
+        if opmerking:  # 👈 有备注则一起传
+            payload["opmerking"] = opmerking
 
-    # 最小返回，前端“写后读”用
-    return jsonify(ok=True, order={
-        "order_number": order_number,
-        "status": status
-    })
+        update_pos_order_status(
+            order_number=order_number,
+            payment_status=status,
+            payment_method=payload["payment_method"],
+            payment_id=None,
+            extra=payload   # 如果你 update_pos_order_status 支持透传 JSON
+        )
+    except Exception as e:
+        current_app.logger.warning("/api/order forward failed: %s", e)
+        return jsonify(ok=False, message=str(e)), 502
+
+    return jsonify(ok=True, order=payload), 200
+
 
 
 
