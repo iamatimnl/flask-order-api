@@ -167,92 +167,28 @@ BTW21_ITEMS = {
     "Heineken 330ml",
 }
 
-POS_TIMEOUT = 6
-MAX_OPMERKING_LEN = 300
-
-def update_pos_order_status(order_number, payment_status=None, payment_method=None, payment_id=None):
-    """现有的状态转发函数（保持不变）"""
-    import requests
-    payload = {"order_number": order_number}
-    if payment_status is not None:
-        payload["payment_status"] = payment_status
-    if payment_method is not None:
-        payload["payment_method"] = payment_method
-    if payment_id is not None:
-        payload["payment_id"] = payment_id
-    r = requests.post(POS_API_URL, json=payload, timeout=POS_TIMEOUT)
-    if r.status_code >= 400:
-        raise RuntimeError(f"POS status update {r.status_code}: {r.text}")
-    return (r.headers.get("content-type","").startswith("application/json") and r.json()) or {"ok": True}
-
-def update_pos_order_opmerking(order_number, opmerking):
-    """备注转发（只发必要字段；若 POS 用 remark，这里改键名）"""
-    import requests
-    payload = {"order_number": order_number, "opmerking": opmerking}
-    r = requests.post(POS_API_URL, json=payload, timeout=POS_TIMEOUT)
-    if r.status_code >= 400:
-        raise RuntimeError(f"POS note update {r.status_code}: {r.text}")
-    return (r.headers.get("content-type","").startswith("application/json") and r.json()) or {"ok": True}
-
 @app.post("/api/order")
 def api_order_update():
-    data = request.get_json(force=True) or {}
-    
-    order_number   = (data.get("order_number") or "").strip()
-    status         = data.get("status")                     # 兼容老前端
-    payment_status = data.get("payment_status")             # 新/显式字段
-    payment_method = data.get("payment_method")
-    raw_note       = data.get("opmerking") or data.get("remark")
-    opmerking      = (str(raw_note).strip() if raw_note is not None else None)
+    data = request.get_json(silent=True) or {}
+    order_number = data.get("order_number")
+    status       = data.get("status")
 
-    # 只强制 order_number；其余全可选（允许只更备注、只更状态、两者一起）
-    if not order_number:
-        return jsonify(ok=False, message="order_number required"), 400
+    if not order_number or not status:
+        return jsonify(ok=False, message="order_number and status required"), 400
 
-    # 备注长度限制（若提供）
-    if opmerking is not None and len(opmerking) > MAX_OPMERKING_LEN:
-        return jsonify(ok=False, message=f"opmerking too long (>{MAX_OPMERKING_LEN})"), 400
-    if opmerking is not None and not opmerking:
-        opmerking = None  # 全是空白等价于未提供
+    # 直接复用已有的转发函数
+    update_pos_order_status(
+        order_number,
+        payment_status=status,
+        payment_method=data.get("payment_method") or "cash",  # 可选：默认cash/pin
+        payment_id=None
+    )
 
-    # 如果什么都没带，就拒绝
-    if all(v is None for v in [status, payment_status, payment_method, opmerking]):
-        return jsonify(ok=False, message="nothing to update"), 400
-
-    # 分流执行：状态相关先走旧函数；备注走新函数
-    results, errors = {}, {}
-
-    # 状态更新（把 status 映射到 payment_status，兼容旧前端）
-    if any(v is not None for v in [status, payment_status, payment_method]):
-        try:
-            ps = payment_status if payment_status is not None else status
-            results["status"] = update_pos_order_status(
-                order_number,
-                payment_status=ps,
-                payment_method=payment_method
-            )
-        except Exception as e:
-            errors["status"] = str(e)
-
-    # 备注更新
-    if opmerking is not None:
-        try:
-            results["opmerking"] = update_pos_order_opmerking(order_number, opmerking)
-        except Exception as e:
-            errors["opmerking"] = str(e)
-
-    # 组合响应：部分失败给出 details；全部成功返回 ok=True
-    resp_order = {"order_number": order_number}
-    if status is not None or payment_status is not None:
-        resp_order["status"] = payment_status or status
-    if payment_method is not None:
-        resp_order["payment_method"] = payment_method
-    if opmerking is not None:
-        resp_order["opmerking"] = opmerking
-
-    if errors:
-        return jsonify(ok=False, order=resp_order, results=results, errors=errors), 502
-    return jsonify(ok=True, order=resp_order, results=results), 200
+    # 最小返回，前端“写后读”用
+    return jsonify(ok=True, order={
+        "order_number": order_number,
+        "status": status
+    })
 
 
 
