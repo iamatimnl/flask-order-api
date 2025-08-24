@@ -206,6 +206,34 @@ def api_order_update():
 
 
 
+ @app.post("/api/order/opmerking")
+def api_order_update_opmerking():
+    data = request.get_json(silent=True) or {}
+    order_number = data.get("order_number")
+    opmerking    = data.get("opmerking")
+
+    # 和你现在 /api/order 一样：只校验这次更新所需的最小字段
+    if not order_number or opmerking is None:
+        return jsonify(ok=False, message="order_number and opmerking required"), 400
+
+    # 可选：做一点点保护（长度/去空格）
+    text = str(opmerking).strip()
+    if len(text) > 300:
+        return jsonify(ok=False, message="opmerking too long (>300)"), 400
+
+    try:
+        # 复用“固定签名 + 明确职责”的转发函数
+        update_pos_order_opmerking(order_number, text)
+    except Exception as e:
+        current_app.logger.warning("/api/order/opmerking forward failed: %s", e)
+        return jsonify(ok=False, message=str(e)), 502
+
+    # 最小返回，方便前端“写后读”
+    return jsonify(ok=True, order={
+        "order_number": order_number,
+        "opmerking": text
+    }), 200
+
 
 def calculate_btw(items, packaging_fee, delivery_fee=0.0, discount=0.0):
     """Return BTW split for ``items``, ``packaging_fee`` and ``delivery_fee`` (prices incl. BTW).
