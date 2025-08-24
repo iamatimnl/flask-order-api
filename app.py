@@ -622,14 +622,20 @@ def send_pos_order(order_data):
         return False, str(e)
 
 
-def update_pos_order_status(order_number, payment_status, payment_method, payment_id):
-    """Update payment info for an order in the POS system."""
+def update_pos_order_status(order_number, payment_status, payment_method, payment_id, amount=None):
+    """Update payment info for an order in the POS system.
+
+    The optional ``amount`` field is forwarded so the POS backend can
+    reconcile the paid total.
+    """
     payload = {
         "order_number": order_number,
         "payment_status": payment_status,
         "payment_method": payment_method,
         "payment_id": payment_id,
     }
+    if amount is not None:
+        payload["amount"] = amount
     try:
         url = POS_ORDER_UPDATE_URL
         response = requests.post(url, json=payload)
@@ -1474,9 +1480,10 @@ def mollie_webhook():
     info = resp.json()
     status = info.get('status')
     method = info.get('method')
+    amount = (info.get('amount') or {}).get('value')
     order_id = (info.get('metadata') or {}).get('order_id')
     if order_id and status:
-        update_pos_order_status(order_id, status, method, payment_id)
+        update_pos_order_status(order_id, status, method, payment_id, amount)
     if status == 'paid':
         order_entry = None
         for o in ORDERS:
@@ -1633,6 +1640,7 @@ def mollie_pin_webhook():
         method   = (info or {}).get('method') or 'pointofsale'
         metadata = (info or {}).get('metadata') or {}
         order_no = metadata.get('order_id') or metadata.get('order_number')
+        amount   = ((info or {}).get('amount') or {}).get('value')
 
         # 4) 更新本地内存（可选）
         if status:
@@ -1643,7 +1651,7 @@ def mollie_pin_webhook():
             _safe_emit_payment_status(order_no, payment_id, status, method)
 
         if order_no and status:
-            update_pos_order_status(order_no, status, method, payment_id)
+            update_pos_order_status(order_no, status, method, payment_id, amount)
 
         # 6) 永远 200
         return jsonify({
