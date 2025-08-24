@@ -1,5 +1,5 @@
 
-from flask import request, jsonify, current_app  # 👈 补上 current_app
+
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -167,72 +167,29 @@ BTW21_ITEMS = {
     "Heineken 330ml",
 }
 
-
-
 @app.post("/api/order")
 def api_order_update():
     data = request.get_json(silent=True) or {}
     order_number = data.get("order_number")
-    status       = data.get("status")            # 订单状态（可选，用于更新）
-    payment_status = data.get("payment_status")  # 若你们有独立的支付状态
-    payment_method = data.get("payment_method")  # 不要默认 "cash"
-    opmerking    = data.get("opmerking")         # 备注（可选）
+    status       = data.get("status")
 
-    # ① 只要求 order_number，允许“仅更新备注”
-    if not order_number:
-        return jsonify(ok=False, message="order_number required"), 400
+    if not order_number or not status:
+        return jsonify(ok=False, message="order_number and status required"), 400
 
-    # ② 构造“只转发已提供字段”的 payload（严格按 App A 接口命名）
-    forward = { "order_number": order_number }
-    if status is not None:
-        forward["status"] = status
-    if payment_status is not None:
-        forward["payment_status"] = payment_status
-    if payment_method is not None:
-        forward["payment_method"] = payment_method
-    if opmerking is not None:
-        forward["opmerking"] = opmerking
+    # 直接复用已有的转发函数
+    update_pos_order_status(
+        order_number,
+        payment_status=status,
+        payment_method=data.get("payment_method") or "cash",  # 可选：默认cash/pin
+        payment_id=None
+    )
 
-    try:
-        # 要么给 update_pos_order_status 扩展参数，要么写一个新函数专门发 JSON
-        update_pos_order_status(**forward)
-    except Exception as e:
-        current_app.logger.warning("/api/order forward failed: %s", e)
-        return jsonify(ok=False, message=str(e)), 502
-
-    # ③ 返回写后读对象：仅回显“真正转发出去的字段”
-    #    避免回显未转发字段造成“看起来存了”的错觉
-    return jsonify(ok=True, order=forward), 200
-
-
-
-@app.post("/api/order/opmerking")
-def api_order_update_opmerking():
-    data = request.get_json(silent=True) or {}
-    order_number = data.get("order_number")
-    opmerking    = data.get("opmerking")
-
-    # 和你现在 /api/order 一样：只校验这次更新所需的最小字段
-    if not order_number or opmerking is None:
-        return jsonify(ok=False, message="order_number and opmerking required"), 400
-
-    # 可选：做一点点保护（长度/去空格）
-    text = str(opmerking).strip()
-    if len(text) > 300:
-        return jsonify(ok=False, message="opmerking too long (>300)"), 400
-
-    try:
-        # 复用“固定签名 + 明确职责”的转发函数
-        update_pos_order_opmerking(order_number, text)
-    except Exception as e:
-        current_app.logger.warning("/api/order/opmerking forward failed: %s", e)
-        return jsonify(ok=False, message=str(e)), 502
-
-    # 最小返回，方便前端“写后读”
+    # 最小返回，前端“写后读”用
     return jsonify(ok=True, order={
         "order_number": order_number,
-        "opmerking": text
-    }), 200
+        "status": status
+    })
+
 
 
 def calculate_btw(items, packaging_fee, delivery_fee=0.0, discount=0.0):
