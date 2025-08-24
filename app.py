@@ -1,5 +1,5 @@
 
-
+from flask import request, jsonify, current_app  # 👈 补上 current_app
 from flask import Flask, request, jsonify, render_template, redirect, url_for
 from flask_cors import CORS
 from flask_socketio import SocketIO
@@ -167,39 +167,42 @@ BTW21_ITEMS = {
     "Heineken 330ml",
 }
 
+
+
 @app.post("/api/order")
 def api_order_update():
     data = request.get_json(silent=True) or {}
     order_number = data.get("order_number")
     status       = data.get("status")
-    opmerking    = data.get("opmerking")   # 👈 新增支持
+    opmerking    = data.get("opmerking")
 
     if not order_number or not status:
         return jsonify(ok=False, message="order_number and status required"), 400
 
     try:
-        # 透传到 App A
-        payload = {
-            "order_number": order_number,
-            "status": status,
-            "payment_status": status,
-            "payment_method": data.get("payment_method") or "cash"
-        }
-        if opmerking:  # 👈 有备注则一起传
-            payload["opmerking"] = opmerking
-
+        # 透传到 App A，只传支持的字段
         update_pos_order_status(
             order_number=order_number,
             payment_status=status,
-            payment_method=payload["payment_method"],
-            payment_id=None,
-            extra=payload   # 如果你 update_pos_order_status 支持透传 JSON
+            payment_method=data.get("payment_method") or "cash",
+            payment_id=None
         )
+
+        # ⚠️ 如果 App A 的接口本身支持 opmerking，你需要在
+        # update_pos_order_status 内部追加处理（发请求时带上 opmerking）
+        # 否则这边先不管，避免报错。
+
     except Exception as e:
         current_app.logger.warning("/api/order forward failed: %s", e)
         return jsonify(ok=False, message=str(e)), 502
 
-    return jsonify(ok=True, order=payload), 200
+    return jsonify(ok=True, order={
+        "order_number": order_number,
+        "status": status,
+        "payment_status": status,
+        "payment_method": data.get("payment_method") or "cash",
+        "opmerking": opmerking or ""
+    }), 200
 
 
 
