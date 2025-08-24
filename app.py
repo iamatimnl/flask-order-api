@@ -206,7 +206,7 @@ def api_order_update():
 
 
 
- @app.post("/api/order/opmerking")
+@app.post("/api/order/opmerking")
 def api_order_update_opmerking():
     data = request.get_json(silent=True) or {}
     order_number = data.get("order_number")
