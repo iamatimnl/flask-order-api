@@ -987,7 +987,8 @@ def api_send_order():
     data = request.get_json()
 
     source = (data.get("source") or "").lower()
-    data["bron"] = "Online" if source == "index" else "Kassa"
+    # Use the website URL as bron for orders originating from the index page
+    data["bron"] = "www.novaasia.nl" if source == "index" else "Kassa"
 
     prices = load_prices()
     items = data.get("items", {})
@@ -1746,7 +1747,7 @@ def submit_order():
 
     # Normalize source to handle values like 'POS'
     source = (data.get("source") or "").lower()
-    data["bron"] = "Online" if source == "index" else "Kassa"
+    data["bron"] = "www.novaasia.nl" if source == "index" else "Kassa"
 
     if source == "pos":
         sanitized_items = {}
