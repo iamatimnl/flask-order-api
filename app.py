@@ -173,36 +173,36 @@ BTW21_ITEMS = {
 def api_order_update():
     data = request.get_json(silent=True) or {}
     order_number = data.get("order_number")
-    status       = data.get("status")
-    opmerking    = data.get("opmerking")
+    status       = data.get("status")            # 订单状态（可选，用于更新）
+    payment_status = data.get("payment_status")  # 若你们有独立的支付状态
+    payment_method = data.get("payment_method")  # 不要默认 "cash"
+    opmerking    = data.get("opmerking")         # 备注（可选）
 
-    if not order_number or not status:
-        return jsonify(ok=False, message="order_number and status required"), 400
+    # ① 只要求 order_number，允许“仅更新备注”
+    if not order_number:
+        return jsonify(ok=False, message="order_number required"), 400
+
+    # ② 构造“只转发已提供字段”的 payload（严格按 App A 接口命名）
+    forward = { "order_number": order_number }
+    if status is not None:
+        forward["status"] = status
+    if payment_status is not None:
+        forward["payment_status"] = payment_status
+    if payment_method is not None:
+        forward["payment_method"] = payment_method
+    if opmerking is not None:
+        forward["opmerking"] = opmerking
 
     try:
-        # 透传到 App A，只传支持的字段
-        update_pos_order_status(
-            order_number=order_number,
-            payment_status=status,
-            payment_method=data.get("payment_method") or "cash",
-            payment_id=None
-        )
-
-        # ⚠️ 如果 App A 的接口本身支持 opmerking，你需要在
-        # update_pos_order_status 内部追加处理（发请求时带上 opmerking）
-        # 否则这边先不管，避免报错。
-
+        # 要么给 update_pos_order_status 扩展参数，要么写一个新函数专门发 JSON
+        update_pos_order_status(**forward)
     except Exception as e:
         current_app.logger.warning("/api/order forward failed: %s", e)
         return jsonify(ok=False, message=str(e)), 502
 
-    return jsonify(ok=True, order={
-        "order_number": order_number,
-        "status": status,
-        "payment_status": status,
-        "payment_method": data.get("payment_method") or "cash",
-        "opmerking": opmerking or ""
-    }), 200
+    # ③ 返回写后读对象：仅回显“真正转发出去的字段”
+    #    避免回显未转发字段造成“看起来存了”的错觉
+    return jsonify(ok=True, order=forward), 200
 
 
 
