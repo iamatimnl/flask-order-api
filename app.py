@@ -176,19 +176,20 @@ def api_order_update():
     if not order_number or not status:
         return jsonify(ok=False, message="order_number and status required"), 400
 
-    # 直接复用已有的转发函数
     update_pos_order_status(
         order_number,
         payment_status=status,
-        payment_method=data.get("payment_method") or "cash",  # 可选：默认cash/pin
-        payment_id=None
+        payment_method=data.get("payment_method") or "cash",
+        payment_id=None,
+        opmerking=data.get("opmerking")  # 👈 新增
     )
 
-    # 最小返回，前端“写后读”用
     return jsonify(ok=True, order={
         "order_number": order_number,
-        "status": status
+        "status": status,
+        "opmerking": data.get("opmerking")  # 👈 可选回显
     })
+
 
 
 
