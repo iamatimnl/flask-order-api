@@ -358,16 +358,18 @@ def build_google_maps_link(data):
     return f"https://www.google.com/maps/search/?api=1&query={query}"
 
 
-def build_socket_order(data, created_date="", created_time="", maps_link=None,
-                       discount_code=None, discount_amount=None):
-    """Return order data formatted for POS socket events."""
+def build_socket_order(
+    data, created_date="", created_time="", maps_link=None,
+    discount_code=None, discount_amount=None
+):
+    """Return order data formatted for POS socket events (no field stripping)."""
 
     delivery_time = data.get("delivery_time") or data.get("deliveryTime", "")
-    pickup_time = data.get("pickup_time") or data.get("pickupTime", "")
-    tijdslot = data.get("tijdslot") or delivery_time or pickup_time
-    tijdslot = str(tijdslot).strip()
+    pickup_time   = data.get("pickup_time")   or data.get("pickupTime", "")
+    tijdslot      = data.get("tijdslot")      or delivery_time or pickup_time
+    tijdslot      = str(tijdslot or "").strip()
 
-    # ✅ 统一格式判断 ZSM
+    # ZSM 统一格式
     tijdslot_raw = tijdslot.lower().replace('.', '').strip()
     if tijdslot_raw in ["zsm", "asap"]:
         tijdslot = "Z.S.M."
@@ -376,62 +378,80 @@ def build_socket_order(data, created_date="", created_time="", maps_link=None,
     else:
         tijdslot_display = tijdslot
         is_zsm = False
+
     summary = data.get("summary") or {}
+    to_num = lambda v: float(v) if (isinstance(v, (int, float)) or (isinstance(v, str) and v.strip() != "")) else 0.0
 
     order = {
         "message": data.get("message", ""),
         "opmerking": data.get("opmerking") or data.get("remark", ""),
+
         "customer_name": data.get("name", ""),
-        "order_type": data.get("orderType", ""),
-        "created_at": data.get("created_at"),
-        "created_date": created_date,
-        "time": created_time,
+        "order_type":    data.get("orderType", ""),
+        "created_at":    data.get("created_at"),
+        "created_date":  created_date,
+        "time":          created_time,
+
         "phone": data.get("phone", ""),
         "email": data.get("email", ""),
+
         "payment_method": (data.get("paymentMethod") or data.get("payment_method", "")).lower(),
-        "order_number": data.get("order_number") or data.get("orderNumber"),
-        "status": data.get("status"),
-        "payment_id": data.get("payment_id"),
-        "bron": data.get("bron"),
+        "order_number":   data.get("order_number") or data.get("orderNumber"),
+        "status":         data.get("status"),
+        "payment_id":     data.get("payment_id"),
+        "bron":           data.get("bron"),
+
         "items": data.get("items", {}),
-        "street": data.get("street", ""),
+
+        "street":       data.get("street", ""),
         "house_number": data.get("house_number") or data.get("houseNumber", ""),
-        "postcode": data.get("postcode", ""),
-        "city": data.get("city", ""),
-        "maps_link": maps_link,
+        "postcode":     data.get("postcode", ""),
+        "city":         data.get("city", ""),
+
+        "maps_link":        maps_link,
         "google_maps_link": maps_link,
         "isNew": True,
 
-        # ✅ 时间相关字段
-        "delivery_time": delivery_time,
-        "pickup_time": pickup_time,
-        "tijdslot": tijdslot,
-        "tijdslot_display": tijdslot_display,
-        "is_zsm": is_zsm,
-        "pickup_time_auto": pickup_time,
+        # 时间
+        "delivery_time":     delivery_time,
+        "pickup_time":       pickup_time,
+        "tijdslot":          tijdslot,
+        "tijdslot_display":  tijdslot_display,
+        "is_zsm":            is_zsm,
+        "pickup_time_auto":  pickup_time,
         "delivery_time_auto": delivery_time,
 
-        # ✅ 金额信息
-        "subtotal": data.get("subtotal") or (data.get("summary") or {}).get("subtotal"),
-        "packaging_fee": data.get("packaging_fee") or (data.get("summary") or {}).get("packaging"),
-        "delivery_fee": data.get("delivery_fee") or (data.get("summary") or {}).get("delivery"),
-        "bezorgkosten": data.get("bezorgkosten") or data.get("delivery_fee") or (data.get("summary") or {}).get("delivery_cost") or 0,
-        "tip": data.get("tip"),
-        "btw": data.get("btw") or summary.get("btw"),
-        "btw_9": data.get("btw_9") or summary.get("btw_9"),
+        # 金额信息
+        "subtotal":       data.get("subtotal")      or summary.get("subtotal"),
+        "packaging_fee":  data.get("packaging_fee") or summary.get("packaging"),
+        "delivery_fee":   data.get("delivery_fee")  or summary.get("delivery"),
+        "bezorgkosten":   data.get("bezorgkosten")  or data.get("delivery_fee") or summary.get("delivery_cost") or 0,
+        "tip":            data.get("tip"),
+
+        # BTW
+        "btw":    data.get("btw")    or summary.get("btw"),
+        "btw_9":  data.get("btw_9")  or summary.get("btw_9"),
         "btw_21": data.get("btw_21") or summary.get("btw_21"),
+
         "totaal": data.get("totaal") or summary.get("total"),
 
-        # ✅ 折扣信息
-        "discount_code": discount_code,
+        # 👉 关键：把 statiegeld 明确带入 socket 包
+        "statiegeld": to_num(data.get("statiegeld")),
+
+        # 折扣信息
+        "discount_code":   discount_code,
         "discount_amount": discount_amount,
-        "discountAmount": data.get("discountAmount"),
-       "discountCode": data.get("discountCode"),
+        "discountAmount":  data.get("discountAmount"),
+        "discountCode":    data.get("discountCode"),
     }
 
+    # 仅做排序/导出格式增强，不删除字段
     order["items"] = sort_items(order.get("items", {}))
-    order = filter_btw_fields(order)
     order = format_order_for_excel(order)
+
+    # ❌ 重要：不要在这里再调用 filter_btw_fields(order)
+    # 那个函数会过滤掉非 BTW 字段（如 statiegeld 等）
+
     return order
 
 @app.route('/logout')
